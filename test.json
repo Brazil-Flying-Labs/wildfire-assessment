@@ -1,0 +1,12 @@
+{
+    "collections": ["sentinel-2-l2a"],
+    "datetime": "2024-05-01T00:00:00Z/2024-05-15T23:59:59Z",
+    "limit": 1,
+    "query": {
+      "eo:cloud_cover": { "lt": 30 }
+    },
+    "intersects": {
+      "type": "Point",
+      "coordinates": [-120.0, 35.0]
+    }
+  }
