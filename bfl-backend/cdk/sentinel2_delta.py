@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""
-sentinel2_delta.py  —  ΔNDVI / ΔNBR between two Sentinel-2 dates
 
-Example (ΔNDVI)
----------------
-python sentinel2_delta.py \
-        --bbox -121.8 37.2 -121.4 37.5 \
-        --date-a 2025-05-01 \
-        --date-b 2025-05-18 \
-        --index ndvi \
-        --out yosemite_dndvi_20250501_20250518
-"""
 import argparse, sys, numpy as np, datetime as dt
 from pathlib import Path
 from shapely.geometry import box, mapping

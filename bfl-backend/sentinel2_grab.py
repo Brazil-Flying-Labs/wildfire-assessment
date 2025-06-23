@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""
-sentinel2_grab.py – download a Sentinel-2 scene and derive layers
 
-EXAMPLE
-  python sentinel2_grab.py \
-        --bbox -121.8 37.2 -121.4 37.5 \
-        --date 2025-05-15 \
-        --layers ndvi rgb \
-        --out s2_yosemite_20250515
-"""
 import argparse, sys, numpy as np
 from pathlib import Path
 from shapely.geometry import box, mapping
