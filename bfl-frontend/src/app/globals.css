@@ -1,0 +1,227 @@
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+@custom-variant forest (&:is(.forest *));
+
+@theme {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  /* Background and foreground */
+  --background: oklch(0.98 0.01 250);        /* Near-white background */
+  --foreground: oklch(0.20 0.03 250);        /* Dark neutral text */
+
+  /* Card colors */
+  --card: oklch(0.95 0.01 250);             /* Slightly darker than background */
+  --card-foreground: oklch(0.20 0.03 250);
+
+  /* Popover colors */
+  --popover: oklch(0.95 0.01 250);
+  --popover-foreground: oklch(0.20 0.03 250);
+
+  /* Primary (Flying Labs Blue) */
+  --primary: oklch(0.62 0.20 250);          /* Approx. #006FB9 */
+  --primary-foreground: oklch(0.98 0.01 250); /* Light text on blue */
+
+  /* Secondary (Soft Gray) */
+  --secondary: oklch(0.85 0.00 250);        /* Light gray */
+  --secondary-foreground: oklch(0.20 0.03 250);
+
+  /* Muted colors (lighter grays) */
+  --muted: oklch(0.93 0.01 250);            /* Very light gray */
+  --muted-foreground: oklch(0.40 0.01 250); /* Medium gray text */
+
+  /* Accent (teal-like) */
+  --accent: oklch(0.70 0.10 190);           /* Approx. #17a2b8 */
+  --accent-foreground: oklch(0.98 0.01 250);
+
+  /* Destructive (red) */
+  --destructive: oklch(0.55 0.15 27);       /* Approx. #dc3545 */
+  --destructive-foreground: oklch(0.98 0.01 250);
+
+  /* Border, input, and ring */
+  --border: oklch(0.85 0.01 250);           /* Medium gray border */
+  --input: oklch(0.85 0.01 250);
+  --ring: oklch(0.62 0.20 250);            /* Same as primary (blue) */
+
+  /* Chart colors */
+  --chart-1: oklch(0.62 0.20 250);         /* Blue (brand color) */
+  --chart-2: oklch(0.70 0.10 190);         /* Teal accent */
+  --chart-3: oklch(0.60 0.12 320);         /* Purple */
+  --chart-4: oklch(0.65 0.15 345);         /* Pinkish magenta */
+  --chart-5: oklch(0.55 0.15 27);          /* Red */
+
+  /* Sidebar colors */
+  --sidebar: oklch(0.95 0.01 250);         /* Slightly darker than background */
+  --sidebar-foreground: oklch(0.20 0.03 250);
+  --sidebar-primary: oklch(0.62 0.20 250); /* Blue (brand) */
+  --sidebar-primary-foreground: oklch(0.98 0.01 250);
+  --sidebar-accent: oklch(0.70 0.10 190);  /* Teal accent */
+  --sidebar-accent-foreground: oklch(0.98 0.01 250);
+  --sidebar-border: oklch(0.80 0.01 250);  /* Darker gray border */
+  --sidebar-ring: oklch(0.62 0.20 250);    /* Blue (brand) */
+}
+
+.dark {
+  /* Background and foreground */
+  --background: oklch(0.07 0.02 250);      /* Near-black background */
+  --foreground: oklch(0.98 0.01 250);      /* Light/white text */
+
+  /* Card colors */
+  --card: oklch(0.10 0.02 250);           /* Slightly lighter than background */
+  --card-foreground: oklch(0.98 0.01 250);
+
+  /* Popover colors */
+  --popover: oklch(0.10 0.02 250);
+  --popover-foreground: oklch(0.98 0.01 250);
+
+  /* Primary (Flying Labs Blue) */
+  --primary: oklch(0.62 0.20 250);        /* Same brand blue as root */
+  --primary-foreground: oklch(0.07 0.02 250);
+
+  /* Secondary (Dark Gray) */
+  --secondary: oklch(0.25 0.02 250);      /* Darker gray for secondary elements */
+  --secondary-foreground: oklch(0.98 0.01 250);
+
+  /* Muted colors (very dark gray) */
+  --muted: oklch(0.15 0.02 250);          /* Dark muted background */
+  --muted-foreground: oklch(0.80 0.01 250); /* Lighter gray text */
+
+  /* Accent (teal-like) */
+  --accent: oklch(0.70 0.10 190);         /* Same teal accent as root */
+  --accent-foreground: oklch(0.07 0.02 250);
+
+  /* Destructive (red) */
+  --destructive: oklch(0.55 0.15 27);     /* Same red as root */
+  --destructive-foreground: oklch(0.98 0.01 250);
+
+  /* Border, input, and ring */
+  --border: oklch(0.15 0.02 250);         /* Dark gray border */
+  --input: oklch(0.15 0.02 250);          
+  --ring: oklch(0.62 0.20 250);           /* Brand blue ring */
+
+  /* Chart colors (same brand hues, but visible on dark) */
+  --chart-1: oklch(0.62 0.20 250);        /* Blue */
+  --chart-2: oklch(0.70 0.10 190);        /* Teal */
+  --chart-3: oklch(0.60 0.12 320);        /* Purple */
+  --chart-4: oklch(0.65 0.15 345);        /* Pinkish magenta */
+  --chart-5: oklch(0.55 0.15 27);         /* Red */
+
+  /* Sidebar colors */
+  --sidebar: oklch(0.10 0.02 250);        /* Slightly lighter than background */
+  --sidebar-foreground: oklch(0.98 0.01 250);
+  --sidebar-primary: oklch(0.62 0.20 250); /* Brand blue */
+  --sidebar-primary-foreground: oklch(0.07 0.02 250);
+  --sidebar-accent: oklch(0.70 0.10 190); /* Teal accent */
+  --sidebar-accent-foreground: oklch(0.07 0.02 250);
+  --sidebar-border: oklch(0.15 0.02 250); /* Dark gray border */
+  --sidebar-ring: oklch(0.62 0.20 250);   /* Brand blue ring */
+}
+
+.forest {
+  /* Background and foreground colors */
+  --background: oklch(0.98 0.02 120); /* Light cream background */
+  --foreground: oklch(0.25 0.05 120); /* Dark brown text */
+
+  /* Card colors */
+  --card: oklch(0.95 0.03 120); /* Slightly darker cream for cards */
+  --card-foreground: oklch(0.25 0.05 120); /* Dark brown text */
+
+  /* Popover colors */
+  --popover: oklch(0.95 0.03 120);
+  --popover-foreground: oklch(0.25 0.05 120);
+
+  /* Primary colors - deep forest green */
+  --primary: oklch(0.45 0.15 145); /* Deep forest green */
+  --primary-foreground: oklch(0.98 0.01 120); /* Light cream text */
+
+  /* Secondary colors - lighter green */
+  --secondary: oklch(0.85 0.08 145); /* Light green */
+  --secondary-foreground: oklch(0.25 0.05 120); /* Dark brown text */
+
+  /* Muted colors */
+  --muted: oklch(0.9 0.04 145); /* Very light green */
+  --muted-foreground: oklch(0.4 0.05 120); /* Medium brown text */
+
+  /* Accent colors - earthy brown */
+  --accent: oklch(0.75 0.08 80); /* Earthy brown */
+  --accent-foreground: oklch(0.98 0.01 120); /* Light cream text */
+
+  /* Destructive colors - reddish brown like fire */
+  --destructive: oklch(0.6 0.15 40); /* Reddish brown */
+  --destructive-foreground: oklch(0.98 0.01 120);
+
+  /* Border and input colors */
+  --border: oklch(0.8 0.05 120); /* Medium brown border */
+  --input: oklch(0.8 0.05 120);
+  --ring: oklch(0.45 0.15 145); /* Deep forest green ring */
+
+  /* Chart colors - various greens and browns */
+  --chart-1: oklch(0.5 0.15 145); /* Forest green */
+  --chart-2: oklch(0.6 0.1 160); /* Lighter green */
+  --chart-3: oklch(0.7 0.08 80); /* Brown */
+  --chart-4: oklch(0.55 0.12 130); /* Moss green */
+  --chart-5: oklch(0.45 0.1 100); /* Olive green */
+
+  /* Sidebar colors */
+  --sidebar: oklch(0.35 0.1 145); /* Dark green sidebar */
+  --sidebar-foreground: oklch(0.98 0.01 120); /* Light cream text */
+  --sidebar-primary: oklch(0.6 0.15 145); /* Medium green */
+  --sidebar-primary-foreground: oklch(0.98 0.01 120);
+  --sidebar-accent: oklch(0.45 0.08 80); /* Dark brown accent */
+  --sidebar-accent-foreground: oklch(0.98 0.01 120);
+  --sidebar-border: oklch(0.4 0.05 145); /* Dark green border */
+  --sidebar-ring: oklch(0.6 0.15 145);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

@@ -17,7 +17,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -67,3 +66,8 @@ logs/
 # Coverage
 coverage/
 .nyc_output/
+
+# Next.js
+.next/
+out/
+.swc/
