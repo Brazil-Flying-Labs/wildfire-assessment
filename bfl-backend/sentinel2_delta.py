@@ -25,9 +25,6 @@ from tqdm import tqdm
 import io, os
 from botocore.exceptions import ClientError
 
-# ────────────────────────────────────────────────────────────────────────────────
-#  CLI
-# ────────────────────────────────────────────────────────────────────────────────
 p = argparse.ArgumentParser()
 p.add_argument("--bbox",   nargs=4, type=float, metavar=("W","S","E","N"), required=True)
 p.add_argument("--date-a", required=True, help="First date  (YYYY-MM-DD)")
@@ -44,11 +41,6 @@ p.add_argument("--bucket", default=os.getenv("OUTPUT_BUCKET"),
 args = p.parse_args()
 
 aoi   = box(*args.bbox)
-# outdir  = Path(args.out).expanduser(); outdir.mkdir(exist_ok=True, parents=True)
-
-# ────────────────────────────────────────────────────────────────────────────────
-#  Helpers
-# ────────────────────────────────────────────────────────────────────────────────
 stac = Client.open("https://earth-search.aws.element84.com/v1")
 ALIAS = {"B02": ["blue"], "B03": ["green"], "B04": ["red"],
          "B08": ["nir"],  "B12": ["swir2"]}
@@ -112,10 +104,6 @@ def nbr(b):
 calc_index = ndvi if args.index=="ndvi" else nbr
 index_name = args.index.upper()
 delta_name = f"D{index_name}"
-
-# ──────────────────────────────────────────────────────────────────────────────
-# S3 helpers
-# ──────────────────────────────────────────────────────────────────────────────
 def _s3_key(date: str, name: str, ext: str) -> str:
     return f"{args.location}/{date}/{name}.{ext}"
 
@@ -134,7 +122,7 @@ def _upload_bytes(buf: bytes, key: str, ctype: str):
         Key=key,
         Body=buf,
         ContentType=ctype,
-        ACL="public-read"  # remove if bucket is private
+        ACL="public-read"  
     )
     print(f"s3://{args.bucket}/{key}")
 
@@ -146,22 +134,14 @@ def _delta_key(date_a: str, date_b: str, name: str, ext: str) -> str:
 
 def _delta_exists(date_a: str, date_b: str, name: str, ext: str) -> bool:
     return _obj_exists(args.bucket, _delta_key(date_a, date_b, name, ext))
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Writers
-# ──────────────────────────────────────────────────────────────────────────────
 def write_raster(date: str, name: str, data, meta,
                  cmap="BrBG", vmin=-1, vmax=1):
     tif_key = _s3_key(date, name, "tif")
     png_key = _s3_key(date, name, "png")
-
-    # GeoTIFF
     with rasterio.MemoryFile() as mem:
         with mem.open(**meta) as dst:
             dst.write(data.astype("float32"), 1)
         _upload_bytes(mem.read(), tif_key, "image/tiff")
-
-        # ── Cloud‑Optimized GeoTIFF ───────────────────────────────
         with rasterio.MemoryFile() as cog_mem:
             with mem.open() as src:
                 rasterio.shutil.copy(
@@ -173,8 +153,6 @@ def write_raster(date: str, name: str, data, meta,
                 )
             _upload_bytes(cog_mem.read(),
                           _s3_key(date, f"{name}_COG", "tif"), "image/tiff")
-
-    # PNG preview
     fig = plt.figure(frameon=False); plt.axis("off")
     plt.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
     buf = io.BytesIO()
@@ -191,8 +169,6 @@ def write_delta(name: str, data, meta,
         with mem.open(**meta) as dst:
             dst.write(data.astype("float32"), 1)
         _upload_bytes(mem.read(), tif_key, "image/tiff")
-
-        # ── Cloud‑Optimized GeoTIFF ───────────────────────────────
         with rasterio.MemoryFile() as cog_mem:
             with mem.open() as src:
                 rasterio.shutil.copy(
@@ -213,9 +189,6 @@ def write_delta(name: str, data, meta,
     plt.close(fig); buf.seek(0)
     _upload_bytes(buf.getvalue(), png_key, "image/png")
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Cache-aware loader
-# ──────────────────────────────────────────────────────────────────────────────
 def load_or_make_index(date_iso: str, scene):
     tif_key = _s3_key(date_iso, index_name, "tif")
     if _obj_exists(args.bucket, tif_key):
@@ -231,9 +204,6 @@ def load_or_make_index(date_iso: str, scene):
                  cmap=("BrBG" if args.index == "ndvi" else "PiYG"))
     return idx, meta
 
-# ────────────────────────────────────────────────────────────────────────────────
-#  Workflow
-# ────────────────────────────────────────────────────────────────────────────────
 scene_a = pick_scene(args.date_a)
 scene_b = pick_scene(args.date_b)
 

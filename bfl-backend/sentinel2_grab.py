@@ -24,7 +24,6 @@ from PIL import Image
 import io, os
 from botocore.exceptions import ClientError
 
- # ---------- CLI ----------
 p = argparse.ArgumentParser()
 p.add_argument("--bbox",   nargs=4, type=float, metavar=("W","S","E","N"), required=True)
 p.add_argument("--date",   required=True, help="YYYY-MM-DD")
@@ -39,11 +38,7 @@ p.add_argument("--bucket", default=os.getenv("OUTPUT_BUCKET"),
 args = p.parse_args()
 
 aoi   = box(*args.bbox)
-EPSILON = 0.02  # small bbox grow (deg)
-# odir  = Path(args.out).expanduser()
-# odir.mkdir(parents=True, exist_ok=True)
-
-# ---------- STAC search ----------
+EPSILON = 0.02  
 stac = Client.open("https://earth-search.aws.element84.com/v1")
 
 def attempt_search(date_from, date_to, bbox, max_cloud=30):
@@ -56,17 +51,13 @@ def attempt_search(date_from, date_to, bbox, max_cloud=30):
         limit=20
     ).items())
 
-# 1) exact day ≤30% clouds
 items = attempt_search(f"{args.date}T00:00:00Z", f"{args.date}T23:59:59Z", aoi)
-# 2) no cloud filter
 if not items:
     items = attempt_search(f"{args.date}T00:00:00Z", f"{args.date}T23:59:59Z", aoi, max_cloud=None)
-# 3) grow bbox
 if not items:
     grown = box(args.bbox[0]-EPSILON, args.bbox[1]-EPSILON,
                 args.bbox[2]+EPSILON, args.bbox[3]+EPSILON)
     items = attempt_search(f"{args.date}T00:00:00Z", f"{args.date}T23:59:59Z", grown, max_cloud=None)
-# 4) ± days-pad
 if not items and args.days_pad > 0:
     from datetime import datetime, timedelta
     target = datetime.fromisoformat(args.date)
@@ -78,7 +69,6 @@ if not items:
     sys.exit("No Sentinel-2 scene found after relaxing filters. "
              "Try a broader bbox or larger --days-pad.")
 
-# ---------- Alias map ----------
 ALIAS = {
     "B02": ["blue", "visual"],
     "B03": ["green"],
@@ -87,7 +77,6 @@ ALIAS = {
     "B12": ["swir22"],
 }
 
-# ---------- pick scene with required bands ----------
 def has_band(item, code):
     a = item.assets
     for k in (f"{code}_10m", f"{code}_20m", f"{code}_60m", code):
@@ -116,7 +105,6 @@ item = chosen
 print("Chosen scene:", item.id, "cloud cover:", item.properties.get("eo:cloud_cover", "N/A"))
 assets = item.assets
 
-# ---------- href_for using .href ----------
 def href_for(code: str) -> str | None:
     a = assets
     for key in (f"{code}_10m", f"{code}_20m", f"{code}_60m", code):
@@ -138,7 +126,6 @@ B = {
     "swir2": href_for("B12"),
 }
 
-# critical band checks
 if (B["nir"] is None or B["red"] is None) and {"ndvi","nbr"} & set(args.layers):
     sys.exit("Chosen scene lacks NIR or RED – cannot compute NDVI/NBR.")
 if B["swir2"] is None and "nbr" in args.layers:
@@ -147,14 +134,11 @@ if "rgb" in args.layers and (B["blue"] is None or B["green"] is None or B["red"]
     print("⚠️ Scene missing RGB bands – skipping RGB.")
     args.layers = [l for l in args.layers if l!="rgb"]
 
-# ---------- read and process bands ----------
- # Use boto3 Session to ensure region_name attribute is present
 aws_session = boto3.session.Session(region_name="us-west-2")
 aws = AWSSession(aws_session, region_name="us-west-2")
 s3 = boto3.session.Session().client("s3")
 arr, meta = {}, None
 for name, url in tqdm({k: v for k, v in B.items() if v}.items(), desc="reading"):
-    # prepend /vsicurl/ so GDAL can stream HTTP GeoTIFF/JP2 assets
     if url.startswith("http"):
         url = f"/vsicurl/{url}"
     with rasterio.Env(aws):
@@ -162,7 +146,6 @@ for name, url in tqdm({k: v for k, v in B.items() if v}.items(), desc="reading")
             if meta is None:
                 meta = src.profile
                 meta.update(driver="GTiff", compress="deflate")
-            # resample to match meta dimensions if needed
             if src.height != meta["height"] or src.width != meta["width"]:
                 data = src.read(
                     1,
@@ -173,9 +156,6 @@ for name, url in tqdm({k: v for k, v in B.items() if v}.items(), desc="reading")
                 data = src.read(1)
             arr[name] = data.astype(np.float32)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# S3 upload helpers
-# ──────────────────────────────────────────────────────────────────────────────
 def _s3_key(layer: str, ext: str) -> str:
     """
     <location>/<date>/<layer>.<ext>
@@ -188,21 +168,17 @@ def _upload(buf: bytes, key: str, ctype: str):
         Key=key,
         Body=buf,
         ContentType=ctype,
-        ACL="public-read"  # remove if bucket is private
+        ACL="public-read"  
     )
     print(f"s3://{args.bucket}/{key}")
 
-# ──────────────────────────────────────────────────────────────────────────────
 def save(layer, data, dtype, scale=None):
     """
     Writes GeoTIFF + PNG directly to S3 in the desired key structure.
     """
-    # prepare data
     if scale is not None:
         data = (np.clip(data / scale, 0, 1) * 255).astype("uint8")
         dtype = "uint8"
-
-    # GeoTIFF in-memory
     prof = meta.copy(); prof.update(dtype=dtype,
                                     count=(data.shape[0] if data.ndim == 3 else 1))
     with rasterio.MemoryFile() as mem:
@@ -211,9 +187,7 @@ def save(layer, data, dtype, scale=None):
                 dst.write(data, 1)
             else:
                 dst.write(data)
-        # Upload standard GeoTIFF
         _upload(mem.read(), _s3_key(layer, "tif"), "image/tiff")
-        # Create Cloud-Optimized GeoTIFF in-memory
         with rasterio.MemoryFile() as cog_mem:
             rasterio.shutil.copy(
                 mem, cog_mem,
@@ -224,7 +198,6 @@ def save(layer, data, dtype, scale=None):
             )
             _upload(cog_mem.read(), _s3_key(layer + "_COG", "tif"), "image/tiff")
 
-    # PNG preview
     if layer in ("NDVI", "NBR"):
         fig = plt.figure(frameon=False); plt.axis("off")
         plt.imshow(data, vmin=-1, vmax=1, cmap='RdYlGn')
@@ -232,7 +205,7 @@ def save(layer, data, dtype, scale=None):
         fig.savefig(buf, format="png", bbox_inches='tight', pad_inches=0, dpi=96)
         plt.close(fig); buf.seek(0)
         _upload(buf.getvalue(), _s3_key(layer, "png"), "image/png")
-    else:  # RGB
+    else:  
         rgb_arr = data.transpose(1, 2, 0)
         img_buf = io.BytesIO()
         Image.fromarray(rgb_arr).save(img_buf, format="PNG")
