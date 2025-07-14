@@ -28,12 +28,12 @@ const SatelliteMap = dynamic(() => import("@/components/satellite-map-wrapper"),
 import { TimeComparisonControls } from "@/components/time-comparison-controls"
 import { LayerControls } from "@/components/layer-controls"
 import { DataDownload } from "@/components/data-download"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from 'next/navigation'
 import type { LayerOption } from "@/components/layer-controls"
 import { format } from 'date-fns'
 
-export default function Page() {
+function DashboardContent() {
   const [fromDate, setFromDate] = useState<Date>()
   const [toDate, setToDate] = useState<Date>()
   const searchParams = useSearchParams()
@@ -369,5 +369,13 @@ export default function Page() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <DashboardContent />
+    </Suspense>
   )
 }

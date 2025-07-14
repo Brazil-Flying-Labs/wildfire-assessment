@@ -79,8 +79,6 @@ export function MapComponent({
         <TileLayer
           url={getTileUrl()}
           attribution="&copy; BFL Satellite Imagery"
-          errorOverlayUrl="https://via.placeholder.com/256x256?text=No+Image"
-          onError={() => setError(`Failed to load ${layer.toUpperCase()} imagery for the selected date.`)}
         />
       </MapContainer>
     </>
