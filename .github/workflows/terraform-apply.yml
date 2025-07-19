@@ -1,0 +1,168 @@
+name: 'Terraform Apply'
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'iac/**'
+      - '.github/workflows/terraform-apply.yml'
+
+permissions:
+  contents: read
+  issues: write
+  id-token: write
+
+jobs:
+  terraform-apply:
+    name: 'Terraform Apply'
+    runs-on: ubuntu-latest
+    environment: development  # GitHub environment for additional protection
+    defaults:
+      run:
+        working-directory: ./iac
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ~1.0
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Determine environment from branch
+      id: determine-env
+      run: |
+        # Extract branch name
+        BRANCH_NAME="${{ github.ref_name }}"
+        
+        # Map branch names to environment files
+        case "$BRANCH_NAME" in
+          dev|develop|development)
+            ENV_FILE="environments/dev.tfvars"
+            ENV_NAME="dev"
+            ;;
+          staging|stage)
+            ENV_FILE="environments/staging.tfvars"
+            ENV_NAME="staging"
+            ;;
+          main|master|prod|production)
+            ENV_FILE="environments/prod.tfvars"
+            ENV_NAME="prod"
+            ;;
+          *)
+            ENV_FILE="environments/dev.tfvars"
+            ENV_NAME="dev"
+            ;;
+        esac
+        
+        echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "env_file=$ENV_FILE" >> $GITHUB_OUTPUT
+        echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
+        
+        echo "Branch: $BRANCH_NAME"
+        echo "Environment: $ENV_NAME"
+        echo "Var file: $ENV_FILE"
+
+    - name: Check if environment file exists
+      id: check-env-file
+      run: |
+        if [ -f "${{ steps.determine-env.outputs.env_file }}" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Environment file found: ${{ steps.determine-env.outputs.env_file }}"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "❌ Environment file not found: ${{ steps.determine-env.outputs.env_file }}"
+          exit 1
+        fi
+
+    - name: Terraform Init
+      id: init
+      run: terraform init -backend-config="backends/${{ steps.determine-env.outputs.env_name }}.hcl"
+
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan -var-file="${{ steps.determine-env.outputs.env_file }}" -out=tfplan
+        terraform show -no-color tfplan > plan_output.txt
+
+    - name: Terraform Apply
+      id: apply
+      run: terraform apply -auto-approve tfplan
+
+    - name: Generate Apply Summary
+      id: apply-summary
+      if: always()
+      run: |
+        if [ "${{ steps.apply.outcome }}" == "success" ]; then
+          echo "status=✅ Success" >> $GITHUB_OUTPUT
+          echo "message=Infrastructure has been successfully deployed to ${{ steps.determine-env.outputs.env_name }} environment." >> $GITHUB_OUTPUT
+        else
+          echo "status=❌ Failed" >> $GITHUB_OUTPUT
+          echo "message=Infrastructure deployment to ${{ steps.determine-env.outputs.env_name }} environment failed. Please check the logs." >> $GITHUB_OUTPUT
+        fi
+
+    - name: Get Terraform Outputs
+      id: outputs
+      if: steps.apply.outcome == 'success'
+      run: |
+        terraform output -json > terraform_outputs.json
+        echo "Generated terraform outputs"
+      continue-on-error: true
+
+    - name: Create Deployment Summary
+      if: always()
+      run: |
+        cat << EOF > $GITHUB_STEP_SUMMARY
+        # 🚀 Terraform Deployment Summary
+        
+        **Environment:** \`${{ steps.determine-env.outputs.env_name }}\`
+        **Branch:** \`${{ steps.determine-env.outputs.branch_name }}\`
+        **Var File:** \`${{ steps.determine-env.outputs.env_file }}\`
+        **Status:** ${{ steps.apply-summary.outputs.status }}
+        
+        ## Results
+        
+        ### Terraform Init: \`${{ steps.init.outcome }}\`
+        ### Terraform Plan: \`${{ steps.plan.outcome }}\`
+        ### Terraform Apply: \`${{ steps.apply.outcome }}\`
+        
+        ${{ steps.apply-summary.outputs.message }}
+        
+        $(if [ -f terraform_outputs.json ]; then
+          echo "## 📤 Terraform Outputs"
+          echo '```json'
+          cat terraform_outputs.json
+          echo '```'
+        fi)
+        
+        ---
+        **Triggered by:** ${{ github.actor }}
+        **Commit:** ${{ github.sha }}
+        **Workflow:** ${{ github.workflow }}
+        EOF
+
+    - name: Upload Terraform Plan
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: terraform-plan-${{ steps.determine-env.outputs.env_name }}
+        path: |
+          iac/tfplan
+          iac/plan_output.txt
+          iac/terraform_outputs.json
+        retention-days: 30
+
+    - name: Deployment Status
+      if: steps.apply.outcome == 'failure'
+      run: |
+        echo "❌ Terraform apply failed!"
+        exit 1 

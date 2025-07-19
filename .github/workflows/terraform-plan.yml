@@ -1,0 +1,226 @@
+name: 'Terraform Plan'
+
+on:
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - 'iac/**'
+      - '.github/workflows/terraform-plan.yml'
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+jobs:
+  terraform-plan:
+    name: 'Terraform Plan'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./iac
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ~1.0
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Determine environment from branch
+      id: determine-env
+      run: |
+        # Extract branch name from GITHUB_HEAD_REF (for PRs)
+        BRANCH_NAME="${{ github.head_ref }}"
+        
+        # Map branch names to environment files
+        case "$BRANCH_NAME" in
+          dev)
+            ENV_FILE="environments/dev.tfvars"
+            ENV_NAME="dev"
+            ;;
+          prod)
+            ENV_FILE="environments/prod.tfvars"
+            ENV_NAME="prod"
+            ;;
+          *)
+            ENV_FILE="environments/dev.tfvars"
+            ENV_NAME="dev"
+            ;;
+        esac
+        
+        echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "env_file=$ENV_FILE" >> $GITHUB_OUTPUT
+        echo "env_name=$ENV_NAME" >> $GITHUB_OUTPUT
+        
+        echo "Branch: $BRANCH_NAME"
+        echo "Environment: $ENV_NAME"
+        echo "Var file: $ENV_FILE"
+
+    - name: Check if environment file exists
+      id: check-env-file
+      run: |
+        if [ -f "${{ steps.determine-env.outputs.env_file }}" ]; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Environment file found: ${{ steps.determine-env.outputs.env_file }}"
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "❌ Environment file not found: ${{ steps.determine-env.outputs.env_file }}"
+          echo "Available files:"
+          find environments/ -name "*.tfvars" 2>/dev/null || echo "No .tfvars files found in environments/"
+        fi
+
+    - name: Terraform Format Check
+      id: fmt
+      run: terraform fmt -check
+      continue-on-error: true
+
+    - name: Terraform Init
+      id: init
+      run: terraform init -backend-config="backends/${{ steps.determine-env.outputs.env_name }}.hcl"
+
+    - name: Terraform Validate
+      id: validate
+      run: terraform validate -no-color
+
+    - name: Terraform Plan
+      id: plan
+      if: steps.check-env-file.outputs.exists == 'true'
+      run: |
+        terraform plan -var-file="${{ steps.determine-env.outputs.env_file }}" -no-color -out=tfplan
+      continue-on-error: true
+
+    - name: Terraform Plan (Fallback)
+      id: plan-fallback
+      if: steps.check-env-file.outputs.exists == 'false'
+      run: |
+        echo "Using default variables since environment file doesn't exist"
+        terraform plan -no-color -out=tfplan
+      continue-on-error: true
+
+    - name: Generate Plan Summary
+      id: plan-summary
+      run: |
+        if [ -f tfplan ]; then
+          terraform show -no-color tfplan > plan_output.txt
+          
+          # Extract summary information
+          PLAN_SUMMARY=$(terraform show -no-color tfplan | grep -E "(Plan:|No changes)" | tail -1)
+          
+          # Count resources
+          ADD_COUNT=$(terraform show -no-color tfplan | grep -c "will be created" || echo "0")
+          CHANGE_COUNT=$(terraform show -no-color tfplan | grep -c "will be updated" || echo "0")
+          DESTROY_COUNT=$(terraform show -no-color tfplan | grep -c "will be destroyed" || echo "0")
+          
+          echo "plan_summary=$PLAN_SUMMARY" >> $GITHUB_OUTPUT
+          echo "add_count=$ADD_COUNT" >> $GITHUB_OUTPUT
+          echo "change_count=$CHANGE_COUNT" >> $GITHUB_OUTPUT
+          echo "destroy_count=$DESTROY_COUNT" >> $GITHUB_OUTPUT
+        else
+          echo "plan_summary=Plan failed to generate" >> $GITHUB_OUTPUT
+          echo "add_count=0" >> $GITHUB_OUTPUT
+          echo "change_count=0" >> $GITHUB_OUTPUT
+          echo "destroy_count=0" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Update Pull Request
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      env:
+        PLAN: "${{ steps.plan.outputs.stdout }}${{ steps.plan-fallback.outputs.stdout }}"
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          
+          // Read plan output if it exists
+          let planOutput = '';
+          try {
+            planOutput = fs.readFileSync('iac/plan_output.txt', 'utf8');
+          } catch (error) {
+            planOutput = process.env.PLAN || 'Plan output not available';
+          }
+          
+          const output = `## 🏗️ Terraform Plan Results
+          
+          **Environment:** \`${{ steps.determine-env.outputs.env_name }}\` (from branch: \`${{ steps.determine-env.outputs.branch_name }}\`)
+          **Var File:** \`${{ steps.determine-env.outputs.env_file }}\`
+          
+          ### 📊 Plan Summary
+          - **Add:** ${{ steps.plan-summary.outputs.add_count }} resources
+          - **Change:** ${{ steps.plan-summary.outputs.change_count }} resources  
+          - **Destroy:** ${{ steps.plan-summary.outputs.destroy_count }} resources
+          
+          ### 🔍 Validation Results
+          
+          #### Terraform Format and Style 🖌️
+          \`${{ steps.fmt.outcome }}\`
+          
+          #### Terraform Initialization ⚙️
+          \`${{ steps.init.outcome }}\`
+          
+          #### Terraform Validation 🤖
+          \`${{ steps.validate.outcome }}\`
+          
+          #### Terraform Plan 📖
+          \`${{ steps.plan.outcome }}${{ steps.plan-fallback.outcome }}\`
+          
+          <details><summary>Show Plan Details</summary>
+          
+          \`\`\`terraform
+          ${planOutput.slice(0, 65000)} ${planOutput.length > 65000 ? '\n\n... (output truncated)' : ''}
+          \`\`\`
+          
+          </details>
+          
+          ### 🎯 Next Steps
+          ${steps.plan.outcome === 'success' || steps.plan-fallback.outcome === 'success' ? 
+            '✅ Plan looks good! You can proceed with merging this PR.' : 
+            '❌ Plan failed. Please review the errors above and fix them before merging.'}
+          
+          ---
+          *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+
+          // Get existing comments
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          // Find existing terraform plan comment
+          const botComment = comments.find(comment => {
+            return comment.user.type === 'Bot' && comment.body.includes('🏗️ Terraform Plan Results')
+          });
+
+          if (botComment) {
+            // Update existing comment
+            github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: output
+            });
+          } else {
+            // Create new comment
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: output
+            });
+          }
+
+    - name: Terraform Plan Status
+      if: steps.plan.outcome == 'failure' || steps.plan-fallback.outcome == 'failure'
+      run: exit 1 
