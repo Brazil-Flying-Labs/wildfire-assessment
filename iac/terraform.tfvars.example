@@ -1,0 +1,27 @@
+# AWS Configuration
+aws_region  = "us-east-1"
+aws_profile = "bfl"  # Your AWS profile name
+
+# Project Configuration
+project_name = "wildfire-assessment"
+environment  = "dev"
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+az_count = 2
+
+# Example configurations for different environments:
+
+# For production:
+# aws_region = "us-west-2"
+# project_name = "wildfire-assessment"
+# environment = "prod"
+# vpc_cidr = "10.0.0.0/16"
+# az_count = 3
+
+# For staging:
+# aws_region = "us-west-2"
+# project_name = "wildfire-assessment"
+# environment = "staging"
+# vpc_cidr = "10.1.0.0/16"
+# az_count = 2 
