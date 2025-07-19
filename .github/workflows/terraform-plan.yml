@@ -38,7 +38,7 @@ jobs:
         aws-region: us-east-1
 
     - name: Determine environment from branch
-      id: determine-env
+      id: determine_env
       run: |
         # Extract branch name from GITHUB_HEAD_REF (for PRs)
         BRANCH_NAME="${{ github.head_ref }}"
@@ -68,14 +68,14 @@ jobs:
         echo "Var file: $ENV_FILE"
 
     - name: Check if environment file exists
-      id: check-env-file
+      id: check_env_file
       run: |
-        if [ -f "${{ steps.determine-env.outputs.env_file }}" ]; then
+        if [ -f "${{ steps.determine_env.outputs.env_file }}" ]; then
           echo "exists=true" >> $GITHUB_OUTPUT
-          echo "✅ Environment file found: ${{ steps.determine-env.outputs.env_file }}"
+          echo "✅ Environment file found: ${{ steps.determine_env.outputs.env_file }}"
         else
           echo "exists=false" >> $GITHUB_OUTPUT
-          echo "❌ Environment file not found: ${{ steps.determine-env.outputs.env_file }}"
+          echo "❌ Environment file not found: ${{ steps.determine_env.outputs.env_file }}"
           echo "Available files:"
           find environments/ -name "*.tfvars" 2>/dev/null || echo "No .tfvars files found in environments/"
         fi
@@ -87,7 +87,7 @@ jobs:
 
     - name: Terraform Init
       id: init
-      run: terraform init -backend-config="backends/${{ steps.determine-env.outputs.env_name }}.hcl"
+      run: terraform init -backend-config="backends/${{ steps.determine_env.outputs.env_name }}.hcl"
 
     - name: Terraform Validate
       id: validate
@@ -95,21 +95,21 @@ jobs:
 
     - name: Terraform Plan
       id: plan
-      if: steps.check-env-file.outputs.exists == 'true'
+      if: steps.check_env_file.outputs.exists == 'true'
       run: |
-        terraform plan -var-file="${{ steps.determine-env.outputs.env_file }}" -no-color -out=tfplan -detailed-exitcode
+        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -no-color -out=tfplan -detailed-exitcode
       continue-on-error: true
 
     - name: Terraform Plan (Fallback)
-      id: plan-fallback
-      if: steps.check-env-file.outputs.exists == 'false'
+      id: plan_fallback
+      if: steps.check_env_file.outputs.exists == 'false'
       run: |
         echo "Using default variables since environment file doesn't exist"
         terraform plan -no-color -out=tfplan -detailed-exitcode
       continue-on-error: true
 
     - name: Generate Plan Summary
-      id: plan-summary
+      id: plan_summary
       run: |
         if [ -f tfplan ]; then
           terraform show -no-color tfplan > plan_output.txt
@@ -152,7 +152,7 @@ jobs:
       uses: actions/github-script@v7
       if: github.event_name == 'pull_request'
       env:
-        PLAN: "${{ steps.plan.outputs.stdout }}${{ steps.plan-fallback.outputs.stdout }}"
+        PLAN: "${{ steps.plan.outputs.stdout }}${{ steps.plan_fallback.outputs.stdout }}"
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
@@ -168,13 +168,13 @@ jobs:
           
           const output = `## 🏗️ Terraform Plan Results
           
-          **Environment:** \`${{ steps.determine-env.outputs.env_name }}\` (from branch: \`${{ steps.determine-env.outputs.branch_name }}\`)
-          **Var File:** \`${{ steps.determine-env.outputs.env_file }}\`
+          **Environment:** \`${{ steps.determine_env.outputs.env_name }}\` (from branch: \`${{ steps.determine_env.outputs.branch_name }}\`)
+          **Var File:** \`${{ steps.determine_env.outputs.env_file }}\`
           
           ### 📊 Plan Summary
-          - **Add:** ${{ steps.plan-summary.outputs.add_count }} resources
-          - **Change:** ${{ steps.plan-summary.outputs.change_count }} resources  
-          - **Destroy:** ${{ steps.plan-summary.outputs.destroy_count }} resources
+          - **Add:** ${{ steps.plan_summary.outputs.add_count }} resources
+          - **Change:** ${{ steps.plan_summary.outputs.change_count }} resources  
+          - **Destroy:** ${{ steps.plan_summary.outputs.destroy_count }} resources
           
           ### 🔍 Validation Results
           
@@ -188,7 +188,7 @@ jobs:
           \`${{ steps.validate.outcome }}\`
           
           #### Terraform Plan 📖
-          \`${{ steps.plan.outcome }}${{ steps.plan-fallback.outcome }}\`
+          \`${{ steps.plan.outcome }}${{ steps.plan_fallback.outcome }}\`
           
           <details><summary>Show Plan Details</summary>
           
@@ -199,9 +199,7 @@ jobs:
           </details>
           
           ### 🎯 Next Steps
-          ${steps.plan.outcome === 'success' || steps.plan-fallback.outcome === 'success' ? 
-            '✅ Plan looks good! You can proceed with merging this PR.' : 
-            '❌ Plan failed. Please review the errors above and fix them before merging.'}
+          ${{ (steps.plan.outcome == 'success' || steps.plan_fallback.outcome == 'success') && '✅ Plan looks good! You can proceed with merging this PR.' || '❌ Plan failed. Please review the errors above and fix them before merging.' }}
           
           ---
           *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
@@ -237,5 +235,5 @@ jobs:
           }
 
     - name: Terraform Plan Status
-      if: steps.plan.outcome == 'failure' || steps.plan-fallback.outcome == 'failure'
+      if: steps.plan.outcome == 'failure' || steps.plan_fallback.outcome == 'failure'
       run: exit 1 
