@@ -96,14 +96,14 @@ jobs:
       id: init
       working-directory: ./iac
       if: steps.check_env_file.outputs.exists == 'true'
-      run: terraform init -backend-config="backends/${{ steps.determine_env.outputs.env_name }}.hcl"
+      run: terraform init -backend-config="backends/${{ steps.determine_env.outputs.env_name }}.hcl" -backend-config="profile="
 
     - name: Terraform Plan
       id: plan
       working-directory: ./iac
       if: steps.check_env_file.outputs.exists == 'true'
       run: |
-        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -out=tfplan -detailed-exitcode
+        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -var="aws_profile=" -out=tfplan -detailed-exitcode
         terraform show -no-color tfplan > plan_output.txt
 
     - name: Terraform Apply

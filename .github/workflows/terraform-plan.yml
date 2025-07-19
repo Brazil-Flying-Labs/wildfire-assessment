@@ -87,7 +87,7 @@ jobs:
 
     - name: Terraform Init
       id: init
-      run: terraform init -backend-config="backends/${{ steps.determine_env.outputs.env_name }}.hcl"
+      run: terraform init -backend-config="backends/${{ steps.determine_env.outputs.env_name }}.hcl" -backend-config="profile="
 
     - name: Terraform Validate
       id: validate
@@ -97,7 +97,7 @@ jobs:
       id: plan
       if: steps.check_env_file.outputs.exists == 'true'
       run: |
-        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -no-color -out=tfplan -detailed-exitcode
+        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -var="aws_profile=" -no-color -out=tfplan -detailed-exitcode
       continue-on-error: true
 
     - name: Terraform Plan (Fallback)
@@ -105,7 +105,7 @@ jobs:
       if: steps.check_env_file.outputs.exists == 'false'
       run: |
         echo "Using default variables since environment file doesn't exist"
-        terraform plan -no-color -out=tfplan -detailed-exitcode
+        terraform plan -var="aws_profile=" -no-color -out=tfplan -detailed-exitcode
       continue-on-error: true
 
     - name: Generate Plan Summary
