@@ -114,33 +114,38 @@ jobs:
         if [ -f tfplan ]; then
           terraform show -no-color tfplan > plan_output.txt
           
-          # Extract summary information
-          PLAN_SUMMARY=$(terraform show -no-color tfplan | grep -E "(Plan:|No changes)" | tail -1 || echo "Plan generated")
+          # Count resources using simpler approach
+          if terraform show -no-color tfplan | grep -q "will be created"; then
+            ADD_COUNT=$(terraform show -no-color tfplan | grep "will be created" | wc -l | tr -d ' ')
+          else
+            ADD_COUNT="0"
+          fi
           
-          # Count resources - use safer approach
-          ADD_COUNT=$(terraform show -no-color tfplan | grep -c "will be created" || echo "0")
-          CHANGE_COUNT=$(terraform show -no-color tfplan | grep -c "will be updated" || echo "0") 
-          DESTROY_COUNT=$(terraform show -no-color tfplan | grep -c "will be destroyed" || echo "0")
+          if terraform show -no-color tfplan | grep -q "will be updated"; then
+            CHANGE_COUNT=$(terraform show -no-color tfplan | grep "will be updated" | wc -l | tr -d ' ')
+          else
+            CHANGE_COUNT="0"
+          fi
           
-          # Ensure counts are numeric
-          ADD_COUNT=${ADD_COUNT:-0}
-          CHANGE_COUNT=${CHANGE_COUNT:-0}
-          DESTROY_COUNT=${DESTROY_COUNT:-0}
+          if terraform show -no-color tfplan | grep -q "will be destroyed"; then
+            DESTROY_COUNT=$(terraform show -no-color tfplan | grep "will be destroyed" | wc -l | tr -d ' ')
+          else
+            DESTROY_COUNT="0"
+          fi
           
-          # Write outputs with proper escaping
-          {
-            echo "plan_summary=${PLAN_SUMMARY}"
-            echo "add_count=${ADD_COUNT}"
-            echo "change_count=${CHANGE_COUNT}"
-            echo "destroy_count=${DESTROY_COUNT}"
-          } >> $GITHUB_OUTPUT
+          # Set plan summary
+          PLAN_SUMMARY="Plan: ${ADD_COUNT} to add, ${CHANGE_COUNT} to change, ${DESTROY_COUNT} to destroy"
+          
+          # Write outputs one by one
+          echo "plan_summary=$PLAN_SUMMARY" >> "$GITHUB_OUTPUT"
+          echo "add_count=$ADD_COUNT" >> "$GITHUB_OUTPUT"
+          echo "change_count=$CHANGE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "destroy_count=$DESTROY_COUNT" >> "$GITHUB_OUTPUT"
         else
-          {
-            echo "plan_summary=Plan failed to generate"
-            echo "add_count=0"
-            echo "change_count=0"
-            echo "destroy_count=0"
-          } >> $GITHUB_OUTPUT
+          echo "plan_summary=Plan failed to generate" >> "$GITHUB_OUTPUT"
+          echo "add_count=0" >> "$GITHUB_OUTPUT"
+          echo "change_count=0" >> "$GITHUB_OUTPUT"
+          echo "destroy_count=0" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Update Pull Request
