@@ -39,7 +39,7 @@ jobs:
         aws-region: us-east-1
 
     - name: Determine environment from branch
-      id: determine-env
+      id: determine_env
       run: |
         # Extract branch name
         BRANCH_NAME="${{ github.ref_name }}"
@@ -73,25 +73,25 @@ jobs:
         echo "Var file: $ENV_FILE"
 
     - name: Check if environment file exists
-      id: check-env-file
+      id: check_env_file
       run: |
-        if [ -f "${{ steps.determine-env.outputs.env_file }}" ]; then
+        if [ -f "${{ steps.determine_env.outputs.env_file }}" ]; then
           echo "exists=true" >> $GITHUB_OUTPUT
-          echo "✅ Environment file found: ${{ steps.determine-env.outputs.env_file }}"
+          echo "✅ Environment file found: ${{ steps.determine_env.outputs.env_file }}"
         else
           echo "exists=false" >> $GITHUB_OUTPUT
-          echo "❌ Environment file not found: ${{ steps.determine-env.outputs.env_file }}"
+          echo "❌ Environment file not found: ${{ steps.determine_env.outputs.env_file }}"
           exit 1
         fi
 
     - name: Terraform Init
       id: init
-      run: terraform init -backend-config="backends/${{ steps.determine-env.outputs.env_name }}.hcl"
+      run: terraform init -backend-config="backends/${{ steps.determine_env.outputs.env_name }}.hcl"
 
     - name: Terraform Plan
       id: plan
       run: |
-        terraform plan -var-file="${{ steps.determine-env.outputs.env_file }}" -out=tfplan -detailed-exitcode
+        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -out=tfplan -detailed-exitcode
         terraform show -no-color tfplan > plan_output.txt
 
     - name: Terraform Apply
@@ -99,15 +99,15 @@ jobs:
       run: terraform apply -auto-approve tfplan
 
     - name: Generate Apply Summary
-      id: apply-summary
+      id: apply_summary
       if: always()
       run: |
         if [ "${{ steps.apply.outcome }}" == "success" ]; then
           echo "status=✅ Success" >> $GITHUB_OUTPUT
-          echo "message=Infrastructure has been successfully deployed to ${{ steps.determine-env.outputs.env_name }} environment." >> $GITHUB_OUTPUT
+          echo "message=Infrastructure has been successfully deployed to ${{ steps.determine_env.outputs.env_name }} environment." >> $GITHUB_OUTPUT
         else
           echo "status=❌ Failed" >> $GITHUB_OUTPUT
-          echo "message=Infrastructure deployment to ${{ steps.determine-env.outputs.env_name }} environment failed. Please check the logs." >> $GITHUB_OUTPUT
+          echo "message=Infrastructure deployment to ${{ steps.determine_env.outputs.env_name }} environment failed. Please check the logs." >> $GITHUB_OUTPUT
         fi
 
     - name: Get Terraform Outputs
@@ -124,10 +124,10 @@ jobs:
         cat << EOF > $GITHUB_STEP_SUMMARY
         # 🚀 Terraform Deployment Summary
         
-        **Environment:** \`${{ steps.determine-env.outputs.env_name }}\`
-        **Branch:** \`${{ steps.determine-env.outputs.branch_name }}\`
-        **Var File:** \`${{ steps.determine-env.outputs.env_file }}\`
-        **Status:** ${{ steps.apply-summary.outputs.status }}
+        **Environment:** \`${{ steps.determine_env.outputs.env_name }}\`
+        **Branch:** \`${{ steps.determine_env.outputs.branch_name }}\`
+        **Var File:** \`${{ steps.determine_env.outputs.env_file }}\`
+        **Status:** ${{ steps.apply_summary.outputs.status }}
         
         ## Results
         
@@ -135,7 +135,7 @@ jobs:
         ### Terraform Plan: \`${{ steps.plan.outcome }}\`
         ### Terraform Apply: \`${{ steps.apply.outcome }}\`
         
-        ${{ steps.apply-summary.outputs.message }}
+        ${{ steps.apply_summary.outputs.message }}
         
         $(if [ -f terraform_outputs.json ]; then
           echo "## 📤 Terraform Outputs"
@@ -154,7 +154,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: terraform-plan-${{ steps.determine-env.outputs.env_name }}
+        name: terraform-plan-${{ steps.determine_env.outputs.env_name }}
         path: |
           iac/tfplan
           iac/plan_output.txt
