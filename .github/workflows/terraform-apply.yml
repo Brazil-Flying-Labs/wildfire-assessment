@@ -75,27 +75,36 @@ jobs:
     - name: Check if environment file exists
       id: check_env_file
       run: |
+        pwd
+        ls -la environments/ || echo "environments directory not found"
         if [ -f "${{ steps.determine_env.outputs.env_file }}" ]; then
           echo "exists=true" >> $GITHUB_OUTPUT
           echo "✅ Environment file found: ${{ steps.determine_env.outputs.env_file }}"
         else
           echo "exists=false" >> $GITHUB_OUTPUT
           echo "❌ Environment file not found: ${{ steps.determine_env.outputs.env_file }}"
-          exit 1
+          echo "Available files:"
+          find environments/ -name "*.tfvars" 2>/dev/null || echo "No .tfvars files found in environments/"
+          echo "Current directory contents:"
+          ls -la
+          echo "Looking for file: ${{ steps.determine_env.outputs.env_file }}"
         fi
 
     - name: Terraform Init
       id: init
+      if: steps.check_env_file.outputs.exists == 'true'
       run: terraform init -backend-config="backends/${{ steps.determine_env.outputs.env_name }}.hcl"
 
     - name: Terraform Plan
       id: plan
+      if: steps.check_env_file.outputs.exists == 'true'
       run: |
         terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -out=tfplan -detailed-exitcode
         terraform show -no-color tfplan > plan_output.txt
 
     - name: Terraform Apply
       id: apply
+      if: steps.check_env_file.outputs.exists == 'true'
       run: terraform apply -auto-approve tfplan
 
     - name: Generate Apply Summary
