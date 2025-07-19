@@ -40,6 +40,7 @@ jobs:
 
     - name: Determine environment from branch
       id: determine_env
+      working-directory: ./iac
       run: |
         # Extract branch name
         BRANCH_NAME="${{ github.ref_name }}"
@@ -74,6 +75,7 @@ jobs:
 
     - name: Check if environment file exists
       id: check_env_file
+      working-directory: ./iac
       run: |
         pwd
         ls -la environments/ || echo "environments directory not found"
@@ -92,11 +94,13 @@ jobs:
 
     - name: Terraform Init
       id: init
+      working-directory: ./iac
       if: steps.check_env_file.outputs.exists == 'true'
       run: terraform init -backend-config="backends/${{ steps.determine_env.outputs.env_name }}.hcl"
 
     - name: Terraform Plan
       id: plan
+      working-directory: ./iac
       if: steps.check_env_file.outputs.exists == 'true'
       run: |
         terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -out=tfplan -detailed-exitcode
@@ -104,6 +108,7 @@ jobs:
 
     - name: Terraform Apply
       id: apply
+      working-directory: ./iac
       if: steps.check_env_file.outputs.exists == 'true'
       run: terraform apply -auto-approve tfplan
 
