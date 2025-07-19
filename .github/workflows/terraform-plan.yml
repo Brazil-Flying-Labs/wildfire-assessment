@@ -97,7 +97,7 @@ jobs:
       id: plan
       if: steps.check-env-file.outputs.exists == 'true'
       run: |
-        terraform plan -var-file="${{ steps.determine-env.outputs.env_file }}" -no-color -out=tfplan
+        terraform plan -var-file="${{ steps.determine-env.outputs.env_file }}" -no-color -out=tfplan -detailed-exitcode
       continue-on-error: true
 
     - name: Terraform Plan (Fallback)
@@ -105,7 +105,7 @@ jobs:
       if: steps.check-env-file.outputs.exists == 'false'
       run: |
         echo "Using default variables since environment file doesn't exist"
-        terraform plan -no-color -out=tfplan
+        terraform plan -no-color -out=tfplan -detailed-exitcode
       continue-on-error: true
 
     - name: Generate Plan Summary
@@ -115,22 +115,32 @@ jobs:
           terraform show -no-color tfplan > plan_output.txt
           
           # Extract summary information
-          PLAN_SUMMARY=$(terraform show -no-color tfplan | grep -E "(Plan:|No changes)" | tail -1)
+          PLAN_SUMMARY=$(terraform show -no-color tfplan | grep -E "(Plan:|No changes)" | tail -1 || echo "Plan generated")
           
-          # Count resources
+          # Count resources - use safer approach
           ADD_COUNT=$(terraform show -no-color tfplan | grep -c "will be created" || echo "0")
-          CHANGE_COUNT=$(terraform show -no-color tfplan | grep -c "will be updated" || echo "0")
+          CHANGE_COUNT=$(terraform show -no-color tfplan | grep -c "will be updated" || echo "0") 
           DESTROY_COUNT=$(terraform show -no-color tfplan | grep -c "will be destroyed" || echo "0")
           
-          echo "plan_summary=$PLAN_SUMMARY" >> $GITHUB_OUTPUT
-          echo "add_count=$ADD_COUNT" >> $GITHUB_OUTPUT
-          echo "change_count=$CHANGE_COUNT" >> $GITHUB_OUTPUT
-          echo "destroy_count=$DESTROY_COUNT" >> $GITHUB_OUTPUT
+          # Ensure counts are numeric
+          ADD_COUNT=${ADD_COUNT:-0}
+          CHANGE_COUNT=${CHANGE_COUNT:-0}
+          DESTROY_COUNT=${DESTROY_COUNT:-0}
+          
+          # Write outputs with proper escaping
+          {
+            echo "plan_summary=${PLAN_SUMMARY}"
+            echo "add_count=${ADD_COUNT}"
+            echo "change_count=${CHANGE_COUNT}"
+            echo "destroy_count=${DESTROY_COUNT}"
+          } >> $GITHUB_OUTPUT
         else
-          echo "plan_summary=Plan failed to generate" >> $GITHUB_OUTPUT
-          echo "add_count=0" >> $GITHUB_OUTPUT
-          echo "change_count=0" >> $GITHUB_OUTPUT
-          echo "destroy_count=0" >> $GITHUB_OUTPUT
+          {
+            echo "plan_summary=Plan failed to generate"
+            echo "add_count=0"
+            echo "change_count=0"
+            echo "destroy_count=0"
+          } >> $GITHUB_OUTPUT
         fi
 
     - name: Update Pull Request
