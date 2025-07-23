@@ -31,3 +31,9 @@ Open the `.env` file and set the variables with the correct values.
 # Usage
 
 Run `python3 svc` to start the application. Depending on your system, you may need to use `python` instead of `python3`.
+
+# IAC
+
+Run `terraform init -backend-config="backends/dev.hcl"` to initialize the Terraform backend.
+Run `terraform plan -var-file="vars/dev.tfvars"` to see the changes that will be applied.
+Run `terraform apply -var-file="vars/dev.tfvars"` to apply the changes. This is mostly unnecessary since we want to apply using the GitHub Actions workflow.
