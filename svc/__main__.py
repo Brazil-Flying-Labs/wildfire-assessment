@@ -19,6 +19,10 @@ from utils.sh import (
     get_catalog_of_images_by_date,
     get_sh_config,
 )
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def save_image_from_request(request, timestamp, prefix) -> str:
@@ -51,23 +55,30 @@ def save_image_from_request(request, timestamp, prefix) -> str:
 
 
 if __name__ == "__main__":
+    logger.info("Starting SentinelHub image processing...")
+    logger.info("Loading environment variables...")
     load_dotenv()
     initial_validation()
+    logger.info("Environment variables loaded successfully.")
 
+    logger.info("Setting up AOI and configuration...")
     aoi_prefix = "preservacao_jatai"
     aoi_coords_wgs84 = [-47.88, -21.68, -47.67, -21.51]
     resolution = 10  # Resolution in meters per pixel
-
-    config = get_sh_config()
-
     aoi_bbox = BBox(bbox=aoi_coords_wgs84, crs=CRS.WGS84)
     aoi_size = bbox_to_dimensions(aoi_bbox, resolution=resolution)
+
+    logger.info("Getting SentinelHub configuration...")
+    config = get_sh_config()
+
+    logger.info("Defining data collection...")
     data_collection = DataCollection.SENTINEL2_L2A.define_from(
         name="s2-l2a-cdse", service_url="https://sh.dataspace.copernicus.eu"
     )
 
     from_date = "2025-01-01"
     today_date = datetime.now().strftime("%Y-%m-%d")
+    logger.info(f"Searching for images from {from_date} to {today_date}...")
 
     search_iterator = get_catalog_of_images_by_date(
         from_date=from_date,
@@ -76,15 +87,20 @@ if __name__ == "__main__":
         aoi_bbox=aoi_bbox,
         config=config,
     )
+    logger.info(f"Catalog search completed. Found {len(search_iterator)} images.")
 
     timestamps = [
         datetime.fromisoformat(result["properties"]["datetime"].replace("Z", "+00:00"))
         for result in search_iterator
     ]
     timestamps = filter_times(timestamps=timestamps, time_difference=timedelta(hours=1))
+    logger.info(f"Filtered timestamps: {len(timestamps)} valid timestamps found.")
 
-    # 2. Fazer requests separados para cada timestamp
+    logger.info("Processing images...")
     for i, timestamp in enumerate(timestamps, start=1):
+        logger.info(
+            f">>>> Processing image {i} for timestamp {timestamp.isoformat()}..."
+        )
         request = create_true_color_request(
             aoi_bbox=aoi_bbox,
             aoi_size=aoi_size,
@@ -92,9 +108,12 @@ if __name__ == "__main__":
             timestamp=timestamp,
             data_collection=data_collection,
         )
+        logger.info(f">>>> Saving image {i} for timestamp {timestamp.isoformat()}")
         image = save_image_from_request(
             request=request,
             timestamp=timestamp,
             prefix=aoi_prefix,
         )
-        print(f"Image {i} saved: {image} for timestamp {timestamp.isoformat()}")
+        logger.info(
+            f">>>> Image {i} saved: {image} for timestamp {timestamp.isoformat()}"
+        )
