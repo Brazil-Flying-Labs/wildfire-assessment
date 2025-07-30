@@ -1,0 +1,6 @@
+import rasterio
+
+path = 'sentinel_downloads/S2B_MSIL2A_20240722T132239_N0510_R038_T23KKS_20240722T153350.SAFE/GRANULE/L2A_T23KKS_A038531_20240722T132235/IMG_DATA/R10m/T23KKS_20240722T132239_B04_10m.jp2'
+
+with rasterio.open(path) as src:
+    print(src.crs)

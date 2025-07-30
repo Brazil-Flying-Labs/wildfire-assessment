@@ -1,21 +1,22 @@
 import requests
-import time
 import os
-from shapely.geometry import Polygon
 import zipfile
 import rasterio
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import glob
+from rasterio.mask import mask
+from shapely.geometry import mapping, Polygon
+from pyproj import Transformer
 
 # --- CONFIGURAÇÕES ---
 USERNAME = "camargo.advanced@gmail.com"
 PASSWORD = "nastyz-Qepxat-fekro2"
 BBOX_POLYGON = [
-    [-47.919273, -21.483102],
-    [-47.919273, -21.467767],
-    [-47.610283, -21.467767],
-    [-47.610283, -21.483102],
-    [-47.919273, -21.483102] #  igual ao primeiro nnumero
+    [-47.6, -21.3],
+    [-47.6, -21.0],
+    [-47.2, -21.0],
+    [-47.2, -21.3],
+    [-47.6, -21.3]
 ]
 START_DATE = "2024-07-01"  # Changed to past date
 END_DATE = "2024-07-25"
@@ -30,6 +31,17 @@ os.makedirs(PROCESSED_DIR, exist_ok=True)
 CATALOGUE_URL = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 
 # --- FUNÇÕES ---
+
+def convert_bbox(bbox4326, from_epsg="4326", to_epsg="32723"):
+    """
+    Converte uma lista de coordenadas BBOX de um CRS para outro.
+    bbox4326 = lista de [lon, lat] (EPSG:4326)
+    Retorna lista de coordenadas no CRS de destino.
+    """
+    transformer = Transformer.from_crs(from_epsg, to_epsg, always_xy=True)
+    converted = [transformer.transform(lon, lat) for lon, lat in bbox4326]
+    return converted
+
 def bbox_to_wkt(bbox):
     polygon = Polygon(bbox)
     return polygon.wkt
@@ -145,14 +157,33 @@ def resample_to_match(src_path, ref_path, out_path):
 def find_band_path(safe_dir, band_code, resolution):
     pattern = os.path.join(
         safe_dir,
-        "GRANULE", "*", "IMG_DATA", f"R{resolution}", f"*_{band_code}_{resolution}.jp2"
+        "GRANULE/*/IMG_DATA/R{}/*_{}_{}.jp2".format(resolution, band_code, resolution)
     )
     matches = glob.glob(pattern)
-    print(f"[DEBUG] Procurando {band_code} ({resolution}): {pattern} -> {len(matches)} encontrados")
-    if matches:
-        return matches[0]
-    else:
+    if not matches:
         raise FileNotFoundError(f"Banda {band_code} ({resolution}) não encontrada em {safe_dir}")
+    return matches[0]
+
+def crop_raster_by_bbox(src_path, bbox, out_path):
+    """Recorta um raster para o BBOX informado e salva como GeoTIFF."""
+    geom = Polygon(bbox)
+    geojson = [mapping(geom)]
+
+    with rasterio.open(src_path) as src:
+        out_image, out_transform = mask(src, geojson, crop=True)
+        out_meta = src.meta.copy()
+
+    out_meta.update({
+        "driver": "GTiff",
+        "height": out_image.shape[1],
+        "width": out_image.shape[2],
+        "transform": out_transform
+    })
+
+    with rasterio.open(out_path, "w", **out_meta) as dest:
+        dest.write(out_image)
+
+    print(f"[OK] Raster recortado salvo em: {out_path}")
 
 # --- MAIN ---
 def main():
@@ -187,13 +218,26 @@ def main():
         print("Erro ao obter o produto.")
         return
 
-    # resampling de bandas para 10m
+    # Encontrar bandas
     b04_path = find_band_path(safe_path, "B04", "10m")
+    b08_path = find_band_path(safe_path, "B08", "10m")
     b12_path = find_band_path(safe_path, "B12", "20m")
-    b12_resampled_path = os.path.join(TEMP_DIR, "B12_10m.tif")
 
+    # Reamostrar B12 para 10m
+    b12_resampled_path = os.path.join(TEMP_DIR, "B12_10m.tif")
     resample_to_match(b12_path, b04_path, b12_resampled_path)
 
+    # Cortar todas as bandas para o BBOX
+    b04_cropped = os.path.join(TEMP_DIR, "B04_cropped.tif")
+    b08_cropped = os.path.join(TEMP_DIR, "B08_cropped.tif")
+    b12_cropped = os.path.join(TEMP_DIR, "B12_cropped.tif")
+
+    # Converta para EPSG:32723 para recorte
+    BBOX_32723 = convert_bbox(BBOX_POLYGON)
+
+    crop_raster_by_bbox(b04_path, BBOX_32723, b04_cropped)
+    crop_raster_by_bbox(b08_path, BBOX_32723, b08_cropped)
+    crop_raster_by_bbox(b12_resampled_path, BBOX_32723, b12_cropped)
 
 if __name__ == "__main__":
     main()
