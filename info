@@ -1,0 +1,23 @@
+R10m → 10 metros por pixel
+
+Bandas: B02 (azul), B03 (verde), B04 (vermelho), B08 (NIR)
+
+Usadas para imagens visuais (RGB) e índices como NDVI.
+
+R20m → 20 metros por pixel
+
+Bandas: B05, B06, B07 (red edge), B8A (NIR narrow), B11, B12 (SWIR)
+
+Usadas para análise de vegetação mais detalhada, umidade do solo, classificação de cobertura.
+
+R60m → 60 metros por pixel
+
+Bandas: B01 (aerosol), B09 (vapor d’água), B10 (cirrus)
+
+Usadas para correções atmosféricas e análises globais.
+
+#####################################################################
+
+Resamplear as bandas de 20 m (ex.: SWIR B12) para 10 m, quando o objetivo é análise detalhada e mapas visuais (NBR, dNBR, RBR), porque NDVI já está em 10 m.
+
+#####################################################################

@@ -1,0 +1,24 @@
+# Ignorar downloads e dados grandes
+sentinel_downloads/
+*.SAFE/
+*.zip
+
+# Ignorar diretórios temporários e de saída
+temp/
+processed/
+__pycache__/
+
+# Arquivos de IDEs e sistemas
+*.swp
+*.log
+*.tmp
+.vscode/
+.idea/
+
+# Ambiente virtual Python
+.venv/
+venv/
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
