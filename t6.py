@@ -165,25 +165,31 @@ def find_band_path(safe_dir, band_code, resolution):
     return matches[0]
 
 def crop_raster_by_bbox(src_path, bbox, out_path):
-    """Recorta um raster para o BBOX informado e salva como GeoTIFF."""
-    geom = Polygon(bbox)
-    geojson = [mapping(geom)]
-
+    """Recorta um raster garantindo que o BBOX seja reprojetado para o CRS do raster."""
     with rasterio.open(src_path) as src:
-        out_image, out_transform = mask(src, geojson, crop=True)
+        # Transformar BBOX para o CRS do raster
+        transformer = Transformer.from_crs("EPSG:4326", src.crs, always_xy=True)
+        bbox_transformed = [transformer.transform(lon, lat) for lon, lat in bbox]
+        geom = Polygon(bbox_transformed)
+        geojson = [mapping(geom)]
+
+        nodata_val = src.nodata if src.nodata is not None else 0
+        out_image, out_transform = mask(src, geojson, crop=True, nodata=nodata_val)
         out_meta = src.meta.copy()
 
     out_meta.update({
         "driver": "GTiff",
         "height": out_image.shape[1],
         "width": out_image.shape[2],
-        "transform": out_transform
+        "transform": out_transform,
+        "nodata": nodata_val
     })
 
     with rasterio.open(out_path, "w", **out_meta) as dest:
         dest.write(out_image)
 
     print(f"[OK] Raster recortado salvo em: {out_path}")
+    print(f"Shape: {out_image.shape}, CRS: {src.crs}")
 
 # --- MAIN ---
 def main():
@@ -235,9 +241,10 @@ def main():
     # Converta para EPSG:32723 para recorte
     BBOX_32723 = convert_bbox(BBOX_POLYGON)
 
-    crop_raster_by_bbox(b04_path, BBOX_32723, b04_cropped)
-    crop_raster_by_bbox(b08_path, BBOX_32723, b08_cropped)
-    crop_raster_by_bbox(b12_resampled_path, BBOX_32723, b12_cropped)
+    crop_raster_by_bbox(b04_path, BBOX_POLYGON, b04_cropped)
+    crop_raster_by_bbox(b08_path, BBOX_POLYGON, b08_cropped)
+    crop_raster_by_bbox(b12_resampled_path, BBOX_POLYGON, b12_cropped)
+
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,11 @@
+Florestas do estado de sao paulo
+https://fflorestal.sp.gov.br/areas-protegidas/
+
+pegar geojson
+https://mapas.infraestruturameioambiente.sp.gov.br/portal/apps/experiencebuilder/experience/?id=3a7c28ac09ef43ccafe2812a11554fad
+
+#####################################################################
+
 R10m → 10 metros por pixel
 
 Bandas: B02 (azul), B03 (verde), B04 (vermelho), B08 (NIR)
