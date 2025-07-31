@@ -5,21 +5,15 @@ import rasterio
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import glob
 from rasterio.mask import mask
-from shapely.geometry import mapping, Polygon
+from shapely.geometry import mapping, Polygon, shape, MultiPolygon
 from pyproj import Transformer
-#import numpy as np
+import json
+import numpy as np
 
 # --- CONFIGURAÇÕES ---
 USERNAME = "camargo.advanced@gmail.com"
 PASSWORD = "nastyz-Qepxat-fekro2"
-BBOX_POLYGON = [
-    [-47.6, -21.3],
-    [-47.6, -21.0],
-    [-47.2, -21.0],
-    [-47.2, -21.3],
-    [-47.6, -21.3]
-]
-START_DATE = "2024-07-01"  # Changed to past date
+START_DATE = "2024-07-01"  # Exemplo
 END_DATE = "2024-07-25"
 MAX_CLOUD = 5
 SAFE_DIR = "sentinel_downloads"
@@ -33,19 +27,27 @@ CATALOGUE_URL = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products"
 
 # --- FUNÇÕES ---
 
-def convert_bbox(bbox4326, from_epsg="4326", to_epsg="32723"):
-    """
-    Converte uma lista de coordenadas BBOX de um CRS para outro.
-    bbox4326 = lista de [lon, lat] (EPSG:4326)
-    Retorna lista de coordenadas no CRS de destino.
-    """
-    transformer = Transformer.from_crs(from_epsg, to_epsg, always_xy=True)
-    converted = [transformer.transform(lon, lat) for lon, lat in bbox4326]
-    return converted
+def load_geojson(path):
+    with open(path, 'r') as f:
+        data = json.load(f)
+    geom = shape(data["features"][0]["geometry"])
+    geom_simple = geom.simplify(0.001)  # ajustar tolerância conforme necessidade
+    wkt = geom_simple.wkt
+    return wkt, geom_simple
 
-def bbox_to_wkt(bbox):
-    polygon = Polygon(bbox)
-    return polygon.wkt
+def reproject_geometry(geometry, from_epsg, to_epsg):
+    transformer = Transformer.from_crs(from_epsg, to_epsg, always_xy=True)
+    if geometry.geom_type == 'Polygon':
+        coords = [transformer.transform(x, y) for x, y in geometry.exterior.coords]
+        return Polygon(coords)
+    elif geometry.geom_type == 'MultiPolygon':
+        new_polygons = []
+        for poly in geometry.geoms:
+            coords = [transformer.transform(x, y) for x, y in poly.exterior.coords]
+            new_polygons.append(Polygon(coords))
+        return MultiPolygon(new_polygons)
+    else:
+        raise ValueError(f"Geometria não suportada: {geometry.geom_type}")
 
 def get_token():
     r = requests.post(
@@ -75,7 +77,6 @@ def search_products(token, wkt):
     return r.json().get("value", [])
 
 def unzip_file(zip_path, extract_to):
-    """Extrai um arquivo .zip para a pasta especificada."""
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to)
@@ -84,17 +85,14 @@ def unzip_file(zip_path, extract_to):
         print(f"Erro: {zip_path} não é um arquivo ZIP válido.")
 
 def download_product(token, product_id, title, out_dir):
-    unzip_dir = os.path.join(out_dir, title)  # <-- NÃO adiciona .SAFE
+    unzip_dir = os.path.join(out_dir, title)  # sem .SAFE
     zip_path = os.path.join(out_dir, title + ".zip")
 
-    # Se a pasta SAFE já existe, usa direto e não mexe no ZIP
     if os.path.exists(unzip_dir):
         print(f"[INFO] Produto {title} já existe extraído em {unzip_dir}, pulando download e unzip.")
         return unzip_dir
 
-    # Caso contrário, baixa (ou reusa um ZIP válido)
     try:
-        # Se o ZIP existe, checar se é válido
         if os.path.exists(zip_path):
             try:
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -104,13 +102,12 @@ def download_product(token, product_id, title, out_dir):
                         unzip_file(zip_path, out_dir)
                         return unzip_dir
                     else:
-                        print(f"[WARN] ZIP corimport numpy as nprompido encontrado: {zip_path}. Removendo.")
+                        print(f"[WARN] ZIP corrompido encontrado: {zip_path}. Removendo.")
                         os.remove(zip_path)
             except zipfile.BadZipFile:
                 print(f"[WARN] ZIP corrompido encontrado: {zip_path}. Removendo.")
                 os.remove(zip_path)
 
-        # Se não tinha ZIP válido, baixa
         url = f"https://zipper.dataspace.copernicus.eu/odata/v1/Products({product_id})/$value"
         headers = {"Authorization": f"Bearer {token}"}
 
@@ -133,7 +130,6 @@ def download_product(token, product_id, title, out_dir):
     return None
 
 def resample_to_match(src_path, ref_path, out_path):
-    """Reamostra src_path para ter a mesma resolução/grade de ref_path."""
     with rasterio.open(ref_path) as ref:
         dst_transform, dst_width, dst_height = calculate_default_transform(
             ref.crs, ref.crs, ref.width, ref.height, *ref.bounds
@@ -165,15 +161,9 @@ def find_band_path(safe_dir, band_code, resolution):
         raise FileNotFoundError(f"Banda {band_code} ({resolution}) não encontrada em {safe_dir}")
     return matches[0]
 
-def crop_raster_by_bbox(src_path, bbox, out_path):
-    """Recorta um raster garantindo que o BBOX seja reprojetado para o CRS do raster."""
+def crop_raster_by_geometry(src_path, geometry, out_path):
     with rasterio.open(src_path) as src:
-        # Transformar BBOX para o CRS do raster
-        transformer = Transformer.from_crs("EPSG:4326", src.crs, always_xy=True)
-        bbox_transformed = [transformer.transform(lon, lat) for lon, lat in bbox]
-        geom = Polygon(bbox_transformed)
-        geojson = [mapping(geom)]
-
+        geojson = [mapping(geometry)]
         nodata_val = src.nodata if src.nodata is not None else 0
         out_image, out_transform = mask(src, geojson, crop=True, nodata=nodata_val)
         out_meta = src.meta.copy()
@@ -190,21 +180,13 @@ def crop_raster_by_bbox(src_path, bbox, out_path):
         dest.write(out_image)
 
     print(f"[OK] Raster recortado salvo em: {out_path}")
-    print(f"Shape: {out_image.shape}, CRS: {src.crs}")
-
-import numpy as np
 
 def calculate_index(band_nir_path, band_red_path, out_path, index_type="NDVI"):
-    """
-    Calcula NDVI ou NBR e salva com mesmo perfil do recorte.
-    index_type: "NDVI" ou "NBR"
-    """
     with rasterio.open(band_nir_path) as nir_src, rasterio.open(band_red_path) as red_src:
         nir = nir_src.read(1).astype("float32")
         red = red_src.read(1).astype("float32")
         profile = nir_src.profile
 
-    # Calcula índice
     if index_type == "NDVI":
         index = (nir - red) / (nir + red + 1e-10)
     elif index_type == "NBR":
@@ -212,10 +194,8 @@ def calculate_index(band_nir_path, band_red_path, out_path, index_type="NDVI"):
     else:
         raise ValueError("Índice desconhecido.")
 
-    # Atualiza perfil
     profile.update(dtype=rasterio.float32, count=1)
 
-    # Salva
     with rasterio.open(out_path, "w", **profile) as dst:
         dst.write(index, 1)
 
@@ -225,7 +205,9 @@ def calculate_index(band_nir_path, band_red_path, out_path, index_type="NDVI"):
 def main():
     print("Gerando token...")
     token = get_token()
-    wkt = bbox_to_wkt(BBOX_POLYGON)
+
+    print("Carregando GeoJSON jatai.geojson...")
+    wkt, geom = load_geojson("jatai.geojson")
 
     print("Buscando produtos Sentinel-2 L2A...")
     products = search_products(token, wkt)
@@ -240,7 +222,6 @@ def main():
     online = product.get("Online", False)
 
     print(f"Produto selecionado: {title} ({size:.2f} GB)")
-    print(f"Metadata: {product}")  # Debug: print full metadata
     if not online:
         print("⚠️ Produto ainda não está disponível online.")
         return
@@ -254,34 +235,30 @@ def main():
         print("Erro ao obter o produto.")
         return
 
-    # Encontrar bandas
     b04_path = find_band_path(safe_path, "B04", "10m")
     b08_path = find_band_path(safe_path, "B08", "10m")
     b12_path = find_band_path(safe_path, "B12", "20m")
 
-    # Reamostrar B12 para 10m
     b12_resampled_path = os.path.join(TEMP_DIR, "B12_10m.tif")
     resample_to_match(b12_path, b04_path, b12_resampled_path)
 
-    # Cortar todas as bandas para o BBOX
     b04_cropped = os.path.join(TEMP_DIR, "B04_cropped.tif")
     b08_cropped = os.path.join(TEMP_DIR, "B08_cropped.tif")
     b12_cropped = os.path.join(TEMP_DIR, "B12_cropped.tif")
 
-    # recorte as bandas
-    BBOX_32723 = convert_bbox(BBOX_POLYGON)
-    crop_raster_by_bbox(b04_path, BBOX_POLYGON, b04_cropped)
-    crop_raster_by_bbox(b08_path, BBOX_POLYGON, b08_cropped)
-    crop_raster_by_bbox(b12_resampled_path, BBOX_POLYGON, b12_cropped)
+    # Reprojeta geometria para CRS do raster antes do recorte
+    with rasterio.open(b04_path) as ref:
+        geom_proj = reproject_geometry(geom, "EPSG:4326", ref.crs)
 
-    # Calcular NDVI (usar as bandas recortadas!)
+    crop_raster_by_geometry(b04_path, geom_proj, b04_cropped)
+    crop_raster_by_geometry(b08_path, geom_proj, b08_cropped)
+    crop_raster_by_geometry(b12_resampled_path, geom_proj, b12_cropped)
+
     ndvi_path = os.path.join(TEMP_DIR, "NDVI.tif")
     calculate_index(b08_cropped, b04_cropped, ndvi_path, "NDVI")
 
-    # Calcular NBR (usar NIR e SWIR reamostrado e recortado)
     nbr_path = os.path.join(TEMP_DIR, "NBR.tif")
     calculate_index(b08_cropped, b12_cropped, nbr_path, "NBR")
-
 
 if __name__ == "__main__":
     main()
