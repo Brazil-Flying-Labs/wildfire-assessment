@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Bounding Box com margem"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -47.848,
+              -21.677999999999997
+            ],
+            [
+              -47.848,
+              -21.514
+            ],
+            [
+              -47.678,
+              -21.514
+            ],
+            [
+              -47.678,
+              -21.677999999999997
+            ],
+            [
+              -47.848,
+              -21.677999999999997
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}
