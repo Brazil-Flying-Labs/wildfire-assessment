@@ -5,29 +5,29 @@ import rasterio
 from rasterio.warp import calculate_default_transform, reproject, Resampling
 import glob
 from rasterio.mask import mask
-from shapely.geometry import mapping, Polygon
+from shapely.geometry import mapping, Polygon, MultiPolygon, shape
 from pyproj import Transformer
 from rasterio.merge import merge
 import numpy as np
 import shutil
 import time
+import geojson
 
 # --- CONFIGURAÇÕES ---
 USERNAME = "camargo.advanced@gmail.com"
 PASSWORD = "nastyz-Qepxat-fekro2"
-# Ajuste o BBOX_POLYGON para o quadrado vermelho (substitua pelas coordenadas exatas)
 BBOX_POLYGON = [
-    [-47.848,-21.677999999999997],
-    [-47.848,-21.514],
-    [-47.678,-21.514],
-    [-47.678,-21.677999999999997],
-    [-47.848,-21.677999999999997]
+    [-47.848, -21.677999999999997],
+    [-47.848, -21.514],
+    [-47.6762, -21.514],
+    [-47.6762, -21.677999999999997],
+    [-47.848, -21.677999999999997]
 ]
-
 START_DATE = "2024-07-01"
 END_DATE = "2024-07-25"
 MAX_CLOUD = 5
 SAFE_DIR = "sentinel_downloads"
+GEOJSON_PATH = "jatai.geojson"
 os.makedirs(SAFE_DIR, exist_ok=True)
 TEMP_DIR = os.path.join(SAFE_DIR, "temp")
 os.makedirs(TEMP_DIR, exist_ok=True)
@@ -153,19 +153,38 @@ def find_band_path(safe_dir, band_code, resolution):
         raise FileNotFoundError(f"Banda {band_code} ({resolution}) não encontrada em {safe_dir}")
     return matches[0]
 
-def crop_raster_by_bbox(src_path, bbox, out_path):
+def crop_raster_by_geometry(src_path, geometry, out_path):
     with rasterio.open(src_path) as src:
         print(f"CRS do raster: {src.crs}")
         print(f"Limites do raster (em CRS): {src.bounds}")
+        # Converter geometria para o CRS do raster
         transformer = Transformer.from_crs("EPSG:4326", src.crs, always_xy=True)
-        bbox_transformed = [transformer.transform(lon, lat) for lon, lat in bbox]
-        print(f"BBOX transformado: {bbox_transformed}")
+        if geometry.geom_type == 'MultiPolygon':
+            transformed_geoms = []
+            for geom in geometry.geoms:
+                coords = list(geom.exterior.coords[:-1])  # Remover o último ponto duplicado
+                transformed_coords = [transformer.transform(lon, lat) for lon, lat in coords]
+                transformed_geoms.append(Polygon(transformed_coords))
+            transformed_geometry = MultiPolygon(transformed_geoms)
+        else:
+            coords = list(geometry.exterior.coords[:-1])
+            transformed_coords = [transformer.transform(lon, lat) for lon, lat in coords]
+            transformed_geometry = Polygon(transformed_coords)
 
-        geom = Polygon(bbox_transformed)
-        geojson = [mapping(geom)]
+        print(f"Geometria transformada: {transformed_geometry.bounds}")
+        # Verificar sobreposição com os limites do raster
+        raster_bounds = Polygon([
+            [src.bounds.left, src.bounds.bottom],
+            [src.bounds.left, src.bounds.top],
+            [src.bounds.right, src.bounds.top],
+            [src.bounds.right, src.bounds.bottom],
+            [src.bounds.left, src.bounds.bottom]
+        ])
+        if not transformed_geometry.intersects(raster_bounds):
+            print(f"ERRO: Geometria transformada não se sobrepõe aos limites do raster: {raster_bounds.bounds}")
+            return
 
-        if not geom.is_valid:
-            raise ValueError(f"Polígono BBOX transformado inválido: {geom}")
+        geojson = [mapping(transformed_geometry)]
 
         nodata_val = src.nodata if src.nodata is not None else 0
         try:
@@ -173,7 +192,7 @@ def crop_raster_by_bbox(src_path, bbox, out_path):
             print(f"Shape da imagem recortada: {out_image.shape}")
             print(f"Transformação recortada: {out_transform}")
         except ValueError as e:
-            print(f"Erro ao recortar: {e}. Verifique se o BBOX está dentro da área do raster.")
+            print(f"Erro ao recortar: {e}. Verifique se a geometria está dentro da área do raster.")
             return
 
         out_meta = src.meta.copy()
@@ -190,7 +209,14 @@ def crop_raster_by_bbox(src_path, bbox, out_path):
 
         print(f"[OK] Raster recortado salvo em: {out_path}")
         if out_image.shape[1] == 0 or out_image.shape[2] == 0:
-            print(f"[ERRO] Imagem recortada está vazia. Verifique se o BBOX está dentro da área da imagem.")
+            print(f"[ERRO] Imagem recortada está vazia. Verifique se a geometria está dentro da área da imagem.")
+
+def get_geometry_from_geojson(geojson_path):
+    with open(geojson_path, 'r', encoding='utf-8') as f:
+        data = geojson.load(f)
+    # Extrair o primeiro feature e sua geometria (MultiPolygon)
+    geometry = shape(data['features'][0]['geometry'])
+    return geometry
 
 def calculate_index(band_nir_path, band_red_path, out_path, index_type="NDVI"):
     with rasterio.open(band_nir_path) as nir_src, rasterio.open(band_red_path) as red_src:
@@ -237,7 +263,6 @@ def reproject_raster(src_path, dst_crs, out_path):
     print(f"[OK] Raster reprojetado salvo em: {out_path}")
 
 def merge_rasters(raster_paths, out_path, reference_crs="EPSG:32722"):
-    # Reprojetar todos os rasters para o CRS de referência
     reprojected_paths = []
     for path in raster_paths:
         with rasterio.open(path) as src:
@@ -248,7 +273,6 @@ def merge_rasters(raster_paths, out_path, reference_crs="EPSG:32722"):
             else:
                 reprojected_paths.append(path)
 
-    # Mesclar os rasters reprojetados
     src_files = [rasterio.open(path) for path in reprojected_paths]
     mosaic, out_trans = merge(src_files)
     out_meta = src_files[0].meta.copy()
@@ -257,14 +281,12 @@ def merge_rasters(raster_paths, out_path, reference_crs="EPSG:32722"):
         dest.write(mosaic)
     print(f"[OK] Rasters mesclados salvos em: {out_path}")
 
-    # Fechar os arquivos antes de remover
     for f in src_files:
         f.close()
 
-    # Remover arquivos temporários com retry
     for path in reprojected_paths:
         if "reprojected_" in path and os.path.exists(path):
-            for _ in range(5):  # Tentar 5 vezes
+            for _ in range(5):
                 try:
                     os.remove(path)
                     print(f"[INFO] Arquivo temporário {path} removido.")
@@ -281,6 +303,8 @@ def main():
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
     os.makedirs(temp_dir, exist_ok=True)
+
+    geometry = get_geometry_from_geojson(GEOJSON_PATH)
     print("Gerando token...")
     token = get_token()
     wkt = bbox_to_wkt(BBOX_POLYGON)
@@ -338,13 +362,13 @@ def main():
     merge_rasters([b08_path_kha, b08_path_kks], merged_b08_path)
     merge_rasters([b12_resampled_path_kha, b12_resampled_path_kks], merged_b12_path)
 
-    # Cortar os rasters mesclados
+    # Cortar os rasters mesclados usando a geometria
     b04_cropped = os.path.join(TEMP_DIR, "B04_cropped.tif")
     b08_cropped = os.path.join(TEMP_DIR, "B08_cropped.tif")
     b12_cropped = os.path.join(TEMP_DIR, "B12_cropped.tif")
-    crop_raster_by_bbox(merged_b04_path, BBOX_POLYGON, b04_cropped)
-    crop_raster_by_bbox(merged_b08_path, BBOX_POLYGON, b08_cropped)
-    crop_raster_by_bbox(merged_b12_path, BBOX_POLYGON, b12_cropped)
+    crop_raster_by_geometry(merged_b04_path, geometry, b04_cropped)
+    crop_raster_by_geometry(merged_b08_path, geometry, b08_cropped)
+    crop_raster_by_geometry(merged_b12_path, geometry, b12_cropped)
 
     # Verificar os arquivos recortados
     for cropped_path in [b04_cropped, b08_cropped, b12_cropped]:

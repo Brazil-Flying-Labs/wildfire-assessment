@@ -1,0 +1,72 @@
+import json
+import math
+
+def generate_bbox_from_geojson(geojson_path):
+    # Abrir e ler o arquivo GeoJSON
+    with open(geojson_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    # Extrair coordenadas do MultiPolygon
+    all_coords = []
+    coordinates = data['features'][0]['geometry']['coordinates']
+    for polygon in coordinates:
+        for ring in polygon:
+            all_coords.extend(ring[:-1])  # Ignorar o último ponto duplicado
+    
+    min_lon = min(coord[0] for coord in all_coords)
+    min_lat = min(coord[1] for coord in all_coords)
+    max_lon = max(coord[0] for coord in all_coords)
+    max_lat = max(coord[1] for coord in all_coords)
+    
+    # Calcular o buffer de 100 metros
+    buffer_distance_m = 100
+    lat_mean = (min_lat + max_lat) / 2
+    lat_offset = buffer_distance_m / 111000  # 1 grau lat ≈ 111 km
+    lon_offset = lat_offset / math.cos(math.radians(lat_mean))  # Ajuste para longitude
+    
+    # Aplicar buffer aos limites
+    min_lon -= lon_offset
+    max_lon += lon_offset
+    min_lat -= lat_offset
+    max_lat += lat_offset
+    
+    # Criar o bbox como uma lista de pontos (fechando o polígono)
+    bbox_coords = [
+        [min_lon, max_lat],  # Superior esquerdo
+        [min_lon, min_lat],  # Inferior esquerdo
+        [max_lon, min_lat],  # Inferior direito
+        [max_lon, max_lat],  # Superior direito
+        [min_lon, max_lat]   # Fechar o polígono
+    ]
+    
+    return bbox_coords
+
+def save_bbox_as_geojson(bbox_coords, output_path):
+    # Criar uma feature GeoJSON a partir do bbox com buffer
+    feature = {
+        "type": "Feature",
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [bbox_coords]
+        },
+        "properties": {"name": "BBOX_with_100m_Buffer"}
+    }
+    
+    # Criar uma FeatureCollection com a feature
+    feature_collection = {
+        "type": "FeatureCollection",
+        "features": [feature]
+    }
+    
+    # Salvar em um arquivo GeoJSON
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(feature_collection, f)
+
+# Caminhos dos arquivos
+GEOJSON_PATH = "jatai.geojson"
+OUTPUT_GEOJSON_PATH = "bbox_from_jatai.geojson"
+
+# Gerar e salvar o bbox com buffer
+bbox = generate_bbox_from_geojson(GEOJSON_PATH)
+save_bbox_as_geojson(bbox, OUTPUT_GEOJSON_PATH)
+print(f"BBox salvo em: {OUTPUT_GEOJSON_PATH}")
