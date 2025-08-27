@@ -67,7 +67,7 @@ SEVERITY_THRESHOLDS = [
     (0.27, 'Low', 1),
     (0.44, 'Moderate', 2),
     (0.66, 'High', 3),
-    (1.0, 'Very High', 4)  # Replaced float('inf') with 1.0
+    (1.0, 'Very High', 4) 
 ]
 
 # Authentication settings
@@ -75,4 +75,4 @@ SERVICE_ACCOUNT = 'gee-service-account@well-stem.iam.gserviceaccount.com'
 # CREDENTIALS_PATH = '/app/gee-service-account-credentials.json'  # Path inside Docker container
 CREDENTIALS_PATH = r"C:\Users\Wellington\Documents\projeto\flying-labs\wildfire-assessment\well-stem-549be8c54c1c.json"
 PROJECT_ID = 'well-stem'
-POLYGON_PATH = r'C:\Users\Wellington\Documents\projeto\flying-labs\wildfire-assessment\Jatai.geojson'
+POLYGON_PATH = r'C:\Users\Wellington\Documents\projeto\flying-labs\wildfire-assessment\polygons'

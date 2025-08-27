@@ -13,17 +13,20 @@ class WildfireAnalyzer:
         pre_fire_dates: tuple, Intervalo de datas pré-fogo (início, fim).
         post_fire_dates: tuple, Intervalo de datas pós-fogo (início, fim).
         polygon_buffer: ee.Geometry, Polígono com buffer para exportações.
+        filename: str, Nome do arquivo GeoJSON (opcional, para prefixar exportações).
     """
 
-    def __init__(self, polygon, pre_fire_dates=PRE_FIRE_DATES, post_fire_dates=POST_FIRE_DATES):
+    def __init__(self, polygon, filename=None, pre_fire_dates=PRE_FIRE_DATES, post_fire_dates=POST_FIRE_DATES):
         """Inicializa o analisador com um polígono e intervalos de datas.
 
         Args:
             polygon: ee.Geometry, Região de interesse.
+            filename: str, Nome do arquivo GeoJSON (opcional, para prefixar exportações).
             pre_fire_dates: tuple, Intervalo de datas pré-fogo (início, fim).
             post_fire_dates: tuple, Intervalo de datas pós-fogo (início, fim).
         """
         self.polygon = polygon
+        self.filename = filename or "poligono"
         self.polygon_buffer = polygon.buffer(100)  # Buffer para exportações
         self.pre_fire_dates = pre_fire_dates
         self.post_fire_dates = post_fire_dates
@@ -107,66 +110,90 @@ class WildfireAnalyzer:
         Returns:
             list, Lista de caminhos dos arquivos salvos.
         """
+        # Usar o nome do arquivo GeoJSON como prefixo e subpasta
+        prefix = self.filename.replace('.geojson', '')
+        # Paleta de cores para RBR (valores de -1 a 1, azul para baixo, vermelho para alto)
+        rbr_rgb = images['rbr'].visualize(
+            min=-1,
+            max=1,
+            palette=['blue', 'white', 'red']
+        ).clip(self.polygon_buffer)
+        # Verificar bandas disponíveis
+        print(f"Bandas disponíveis para pre_fire: {images['pre_fire'].bandNames().getInfo()}")
+        print(f"Bandas disponíveis para post_fire: {images['post_fire'].bandNames().getInfo()}")
+        # Combinar bandas RGB explicitamente
+        rgb_pre = ee.Image.cat([
+            images['pre_fire'].select('B4').divide(10000).multiply(255).uint8(),
+            images['pre_fire'].select('B3').divide(10000).multiply(255).uint8(),
+            images['pre_fire'].select('B2').divide(10000).multiply(255).uint8()
+        ]).rename(['R', 'G', 'B']).clip(self.polygon_buffer)
+        rgb_post = ee.Image.cat([
+            images['post_fire'].select('B4').divide(10000).multiply(255).uint8(),
+            images['post_fire'].select('B3').divide(10000).multiply(255).uint8(),
+            images['post_fire'].select('B2').divide(10000).multiply(255).uint8()
+        ]).rename(['R', 'G', 'B']).clip(self.polygon_buffer)
+        print(f"Bandas selecionadas para RGB_PreFire: {rgb_pre.bandNames().getInfo()}")
+        print(f"Bandas selecionadas para RGB_PostFire: {rgb_post.bandNames().getInfo()}")
         output_paths = [
             export_local(
                 ee.FeatureCollection([ee.Feature(self.polygon)]),
-                'poligono_jatai_geojson',
+                f'{prefix}_poligono_geojson',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
-                images['pre_fire'].select(['B4', 'B3', 'B2']).clip(self.polygon_buffer),
-                'RGB_PreFire',
+                rgb_pre,
+                f'{prefix}_RGB_PreFire',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
-                images['post_fire'].select(['B4', 'B3', 'B2']).clip(self.polygon_buffer),
-                'RGB_PostFire',
+                rgb_post,
+                f'{prefix}_RGB_PostFire',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
                 images['pre_ndvi'].clip(self.polygon_buffer),
-                'NDVI_PreFire',
+                f'{prefix}_NDVI_PreFire',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
                 images['post_ndvi'].clip(self.polygon_buffer),
-                'NDVI_PostFire',
+                f'{prefix}_NDVI_PostFire',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
                 images['pre_nbr'].clip(self.polygon_buffer),
-                'NBR_PreFire',
+                f'{prefix}_NBR_PreFire',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
                 images['post_nbr'].clip(self.polygon_buffer),
-                'NBR_PostFire',
+                f'{prefix}_NBR_PostFire',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
                 images['delta_nbr'].clip(self.polygon_buffer),
-                'DeltaNBR',
+                f'{prefix}_DeltaNBR',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
-                images['rbr'].clip(self.polygon_buffer),
-                'RBR',
+                rbr_rgb,
+                f'{prefix}_RBR',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             ),
             export_local(
                 images['severity'].clip(self.polygon_buffer),
-                'Severity',
+                f'{prefix}_Severity',
                 self.polygon_buffer,
-                output_dir='exports'
+                output_dir=f'exports/{prefix}'
             )
         ]
         return output_paths
