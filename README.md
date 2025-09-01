@@ -30,10 +30,30 @@ Open the `.env` file and set the variables with the correct values.
 
 # Usage
 
-Run `python3 svc` to start the application. Depending on your system, you may need to use `python` instead of `python3`.
+Run `make reset` the first time to setup your environment, Subsequent use can be `make up`. (If you add any nrew requirement to requirements.txt, a `make reset` will be required).
+
+If your OS doesn't support `make` commands, you can simply do `docker-compose down -v --rmi all --remove-orphans` followed by `docker-compose up --build -d` for the first time, the subsequent times you can just do `docker-compose up`.
+
+You need to create a first time superuser. Shell into the api container and run:
+
+```shell
+python manage.py createsuperuser
+```
+
+After make command ends, you can access the Admin interface using:
+
+https://localhost:8081/admin/
+
+Swagger UI lives in:
+
+https://127.0.0.1:8081/api/schema/swagger-ui
 
 # IAC
 
 Run `terraform init -backend-config="backends/dev.hcl"` to initialize the Terraform backend.
 Run `terraform plan -var-file="vars/dev.tfvars"` to see the changes that will be applied.
 Run `terraform apply -var-file="vars/dev.tfvars"` to apply the changes. This is mostly unnecessary since we want to apply using the GitHub Actions workflow.
+
+```
+
+```

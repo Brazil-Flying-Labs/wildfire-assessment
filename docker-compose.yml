@@ -1,0 +1,40 @@
+version: "3"
+services:
+  api:
+    container_name: wildfire-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    ports:
+      - "8081:8000"
+    command: >
+      sh -c "python manage.py migrate && python manage.py runserver_plus 0.0.0.0:8000 --cert-file cert.crt --key-file cert.key"
+    volumes:
+      - ./api:/api
+      - ./polygons:/polygons
+      - ./svc:/svc
+    env_file:
+      - .env
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    container_name: wildfire-db
+    image: postgis/postgis:15-3.3
+    environment:
+      - POSTGRES_DB=app
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=supersecretpassword
+    ports:
+      - "6662:5432"
+    volumes:
+      - ./db:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 1s
+      timeout: 5s
+      retries: 20
+      start_period: 30s

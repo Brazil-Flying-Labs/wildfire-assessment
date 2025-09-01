@@ -1,0 +1,12 @@
+[tool.black]
+py311 = true
+max-line-length = 88
+experimental-string-processing = true
+include = 'api/.*\.py$|svc/.*\.py$'
+exclude = '''
+/(\.git|__pycache__|venv|.*\/migrations\/)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
