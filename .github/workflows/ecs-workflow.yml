@@ -1,0 +1,85 @@
+name: Deploy API to ECS (per-branch)
+
+on:
+  push:
+    branches: ["dev"]
+
+env:
+  AWS_ACCOUNT_ID: "055213706289"
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: wildfire-assessment-${{ github.ref_name }}
+  IMAGE_TAG: ${{ github.sha }}
+  BRANCH: ${{ github.ref_name }}
+  TASKDEF: .github/ecs/taskdef-${{ github.ref_name }}.json
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions: { id-token: write, contents: read }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build & Push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+            ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.BRANCH }}
+
+      - name: Render task definition (inject image)
+        id: render
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ${{ env.TASKDEF }}
+          container-name: api
+          image: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+
+      - name: Ensure service exists
+        shell: bash
+        env:
+          ECS_CLUSTER: wildfire-assessment-${{ env.BRANCH }}
+          ECS_SERVICE: wildfire-assessment-api-${{ env.BRANCH }}
+          SUBNET_IDS: ${{ secrets.SUBNET_IDS_CSV }} # e.g. "subnet-a,subnet-b"
+          SECURITY_GROUP_ID: ${{ secrets.SECURITY_GROUP_ID }} # sg-xxxx
+          ASSIGN_PUBLIC_IP: DISABLED
+          DESIRED_COUNT: "1"
+        run: |
+          set -euo pipefail
+          if ! aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+               --query 'services[?status==`ACTIVE`].serviceName' --output text | grep -q "$ECS_SERVICE"; then
+            echo "Creating ECS service $ECS_SERVICE..."
+            IFS=',' read -ra SUBS <<< "$SUBNET_IDS"
+            aws ecs create-service \
+              --cluster "$ECS_CLUSTER" \
+              --service-name "$ECS_SERVICE" \
+              --task-definition "$(jq -r '.family' "${{ steps.render.outputs.task-definition }}")" \
+              --desired-count "$DESIRED_COUNT" \
+              --launch-type FARGATE \
+              --network-configuration "awsvpcConfiguration={subnets=[\"${SUBS[0]}\",\"${SUBS[1]}\"],securityGroups=[\"$SECURITY_GROUP_ID\"],assignPublicIp=$ASSIGN_PUBLIC_IP}" \
+              --capacity-provider-strategy capacityProvider=FARGATE,weight=1
+          else
+            echo "Service exists."
+          fi
+          echo "ECS_CLUSTER=$ECS_CLUSTER" >> $GITHUB_ENV
+          echo "ECS_SERVICE=$ECS_SERVICE" >> $GITHUB_ENV
+
+      - name: Deploy to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.render.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
