@@ -1,7 +1,7 @@
 import json
 
 import ee
-from config.settings import CREDENTIALS_PATH
+from wildfire_assessment.svc.config.settings import CREDENTIALS_PATH
 
 
 def initialize_gee():

@@ -1,12 +1,17 @@
-import ee
-import os
-import geopandas as gpd
-import rasterio
-import numpy as np
-from config.settings import EXPORT_SCALE, EXPORT_CRS, EXPORT_MAX_PIXELS
 import io
+import os
+
+import ee
+import geopandas as gpd
+import numpy as np
+import rasterio
 import requests
 from rasterio.io import MemoryFile
+from wildfire_assessment.svc.config.settings import (
+    EXPORT_CRS,
+    EXPORT_MAX_PIXELS,
+    EXPORT_SCALE,
+)
 
 
 def export_local(data, description, region, output_dir='exports'):
@@ -65,8 +70,8 @@ def export_local(data, description, region, output_dir='exports'):
                         dst.write(array)
             else:
                 # Tratar como ZIP (caso o comportamento do GEE mude no futuro)
-                import zipfile
                 import tempfile
+                import zipfile
                 with zipfile.ZipFile(io.BytesIO(response.content)) as z:
                     with tempfile.TemporaryDirectory() as tmp_dir:
                         z.extractall(tmp_dir)
