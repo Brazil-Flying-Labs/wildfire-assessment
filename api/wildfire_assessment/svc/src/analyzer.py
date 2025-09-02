@@ -1,8 +1,16 @@
 import ee
 import pandas as pd
-from config.settings import PRE_FIRE_DATES, POST_FIRE_DATES, SEVERITY_THRESHOLDS
-from src.image_processor import get_sentinel_collection, get_best_image, calculate_differences
-from src.exporter import export_local
+from wildfire_assessment.svc.config.settings import (
+    POST_FIRE_DATES,
+    PRE_FIRE_DATES,
+    SEVERITY_THRESHOLDS,
+)
+from wildfire_assessment.svc.src.exporter import export_local
+from wildfire_assessment.svc.src.image_processor import (
+    calculate_differences,
+    get_best_image,
+    get_sentinel_collection,
+)
 
 
 class WildfireAnalyzer:

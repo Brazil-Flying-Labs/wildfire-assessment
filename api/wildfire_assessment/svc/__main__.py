@@ -1,12 +1,13 @@
-import os
-from dotenv import load_dotenv
-import ee
 import json
-from pathlib import Path
-from src.auth import initialize_gee
-from src.analyzer import WildfireAnalyzer
-from config.settings import POLYGON_PATH
 import logging
+import os
+from pathlib import Path
+
+import ee
+from config.settings import POLYGON_PATH
+from dotenv import load_dotenv
+from src.analyzer import WildfireAnalyzer
+from src.auth import initialize_gee
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

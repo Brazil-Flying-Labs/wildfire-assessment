@@ -18,7 +18,9 @@ repos:
         files: ^yiq/
         args: [--config, .flake8]
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.5
+    rev: 1.7.9
     hooks:
     - id: bandit
+      additional_dependencies:
+        - pbr>=5.8.0
       args: [-v, -r, -n 3, -lll, -iii]
