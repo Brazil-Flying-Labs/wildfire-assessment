@@ -16,9 +16,9 @@ RUN mkdir -p api
 RUN mkdir -p polygons
 RUN mkdir -p svc
 
-COPY ./api api
-COPY ./polygons polygons
-COPY ./svc svc
+COPY api api
+COPY polygons polygons
+COPY svc svc
 
 COPY entrypoint.sh /entrypoint.sh
 
