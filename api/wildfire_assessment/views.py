@@ -73,25 +73,25 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
         initialize_gee()
         instance = self.get_object()
         polygon_path = instance.polygon_path
-        pre_fire_date = request.query_params.get("pre_fire_date")
-        post_fire_date = request.query_params.get("post_fire_date")
+        pre_fire_date_to = request.query_params.get("pre_fire_date")
+        post_fire_date_from = request.query_params.get("post_fire_date")
 
-        pre_fire_date_to, _ = self.calculate_date_range(pre_fire_date)
-        print(pre_fire_date_to)
-        _, post_fire_date_from = self.calculate_date_range(post_fire_date)
-        print(post_fire_date_from)
+        pre_fire_date_to_range, _ = self.calculate_date_range(pre_fire_date)
+        print(pre_fire_date_to_range)
+        _, post_fire_date_from_range = self.calculate_date_range(post_fire_date)
+        print(post_fire_date_from_range)
         polygon = load_polygon(polygon_path)
 
         # print(polygon)
 
-        result = WildfireAnalyzer(polygon)
+        result = WildfireAnalyzer(polygon, pre_fire_date_to_range, post_fire_date_from_range, instance.id)
         # You can implement your logic here
         # Example: reserve = self.get_object()
         return Response(
             {"rgb_pre_fire": f"https://teste.com/image",
             "polygon_path": polygon_path,
-            "pre_fire_date": pre_fire_date_to,
-            "post_fire_date": post_fire_date_from,
+            "pre_fire_date": pre_fire_date_to_range,
+            "post_fire_date": post_fire_date_from_range,
                 "rgb_post_fire": "https://teste.com/image",
                 "ndvi_pre_fire": "https://teste.com/image",
                 "ndvi_post_fire": "https://teste.com/image",

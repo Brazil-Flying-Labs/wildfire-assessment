@@ -24,7 +24,7 @@ class WildfireAnalyzer:
         filename: str, Nome do arquivo GeoJSON (opcional, para prefixar exportações).
     """
 
-    def __init__(self, polygon, filename=None, pre_fire_dates=PRE_FIRE_DATES, post_fire_dates=POST_FIRE_DATES):
+    def __init__(self, polygon, pre_fire_dates, post_fire_dates, filename,):
         """Inicializa o analisador com um polígono e intervalos de datas.
 
         Args:
@@ -119,7 +119,7 @@ class WildfireAnalyzer:
             list, Lista de caminhos dos arquivos salvos.
         """
         # Usar o nome do arquivo GeoJSON como prefixo e subpasta
-        prefix = self.filename.replace('.geojson', '')
+        prefix = self.filename
         # Paleta de cores para RBR (valores de -1 a 1, azul para baixo, vermelho para alto)
         rbr_rgb = images['rbr'].visualize(
             min=-1,
