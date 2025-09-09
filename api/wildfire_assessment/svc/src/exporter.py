@@ -14,7 +14,7 @@ from wildfire_assessment.svc.config.settings import (
 )
 
 
-def export_local(data, description, region, output_dir='exports'):
+def export_local(data, description, region, extension, output_dir='exports'):
     """Exporta dados do Google Earth Engine para arquivos locais (GeoTIFF ou GeoJSON).
 
     Args:
@@ -48,7 +48,7 @@ def export_local(data, description, region, output_dir='exports'):
             print(f"Tipo de conteúdo para {description}: {response.headers.get('content-type')}")
             
             # Verificar se o conteúdo é um GeoTIFF direto
-            output_path = os.path.join(output_dir, f"{description}.tif")
+            output_path = os.path.join(output_dir, f"{description}.{extension}")
             if 'image/tiff' in response.headers.get('content-type', ''):
                 # Abrir o GeoTIFF diretamente do conteúdo da resposta
                 with MemoryFile(response.content) as memfile:
@@ -75,7 +75,7 @@ def export_local(data, description, region, output_dir='exports'):
                 with zipfile.ZipFile(io.BytesIO(response.content)) as z:
                     with tempfile.TemporaryDirectory() as tmp_dir:
                         z.extractall(tmp_dir)
-                        tiff_file = [f for f in os.listdir(tmp_dir) if f.endswith('.tif')][0]
+                        tiff_file = [f for f in os.listdir(tmp_dir) if f.endswith(f".{extension}")][0]
                         tiff_path = os.path.join(tmp_dir, tiff_file)
                         with rasterio.open(tiff_path) as src:
                             profile = src.profile
@@ -93,7 +93,7 @@ def export_local(data, description, region, output_dir='exports'):
                             )
                         with rasterio.open(output_path, 'w', **profile) as dst:
                             dst.write(array)
-            print(f"Exportação local {description}.tif concluída em {output_path}")
+            print(f"Exportação local {description}.{extension} concluída em {output_path}")
 
         elif isinstance(data, ee.FeatureCollection):
             # Obter dados como GeoJSON
