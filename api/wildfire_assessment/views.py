@@ -22,6 +22,22 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
     serializer_class = EcologicalReserveSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def calculate_date_range(
+        self, date_str, days_before=60, days_after=60, date_format="%Y-%m-%d"
+    ):
+        if not date_str or not isinstance(date_str, str):
+            return None, None
+        try:
+            date = datetime.strptime(date_str, date_format)
+            date_before = date - timedelta(days=days_before)
+            date_after = date + timedelta(days=days_after)
+            return (
+                (date.strftime(date_format), date_before.strftime(date_format)),
+                (date.strftime(date_format), date_after.strftime(date_format)),
+            )
+        except ValueError:
+            return None, None
+
     @extend_schema(
         methods=["POST"],
         request=None,
@@ -41,16 +57,8 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
                 type=OpenApiTypes.DATE,
                 required=True,
             ),
-            OpenApiParameter(
-                name="post_fire_date",
-                description="Post-fire date",
-                type=OpenApiTypes.DATE,
-                required=True,
-            ),
         ],
     )
-
-    
 
     @action(detail=True, methods=["post"], url_path="analyze")
     def analyze(self, request, pk=None):
@@ -66,7 +74,7 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
 
         pre_fire_date_to_date = datetime.strptime(pre_fire_date_to, "%Y-%m-%d").date() if pre_fire_date_to else None
         post_fire_date_from_date = datetime.strptime(post_fire_date_from, "%Y-%m-%d").date() if post_fire_date_from else None
-
+        
         pre_fire_date_before, pre_fire_date_after = self.calculate_date_range(pre_fire_date_to_date) if pre_fire_date_to_date else (None, None)
         post_fire_date_before, post_fire_date_after = self.calculate_date_range(post_fire_date_from_date) if post_fire_date_from_date else (None, None)
         polygon = load_polygon(polygon_path)
@@ -102,7 +110,7 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
                 presigned_data["polygon"] = item["url"]
             elif s3_key.endswith(f"{prefix}_severity_stats.csv"):  # Ajuste se for .tif ou outro formato
                 presigned_data["severity_stats"] = item["url"]
-        
+
         # You can implement your logic here
         # Example: reserve = self.get_object()
         return Response(
