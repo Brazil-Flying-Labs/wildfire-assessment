@@ -59,6 +59,7 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
+
     @action(detail=True, methods=["post"], url_path="analyze")
     def analyze(self, request, pk=None):
         """
@@ -68,32 +69,64 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
         initialize_gee()
         instance = self.get_object()
         polygon_path = instance.polygon_path
-        pre_fire_date = request.query_params.get("pre_fire_date")
-        post_fire_date = request.query_params.get("post_fire_date")
+        pre_fire_date_to = request.query_params.get("pre_fire_date")
+        post_fire_date_from = request.query_params.get("post_fire_date")
+
+        pre_fire_date_to_date = datetime.strptime(pre_fire_date_to, "%Y-%m-%d").date() if pre_fire_date_to else None
+        post_fire_date_from_date = datetime.strptime(post_fire_date_from, "%Y-%m-%d").date() if post_fire_date_from else None
+        
+        pre_fire_date_before, pre_fire_date_after = self.calculate_date_range(pre_fire_date_to_date) if pre_fire_date_to_date else (None, None)
+        post_fire_date_before, post_fire_date_after = self.calculate_date_range(post_fire_date_from_date) if post_fire_date_from_date else (None, None)
+        polygon = load_polygon(polygon_path)
+
+        # Ajuste os ranges para strings formatadas, assumindo que WildfireAnalyzer espera tuplas de strings (start, end)
+        pre_fire_range = (
+            pre_fire_date_before.strftime("%Y-%m-%d"),
+            pre_fire_date_to_date.strftime("%Y-%m-%d")
+        ) if pre_fire_date_before and pre_fire_date_to_date else None
+        post_fire_range = (
+            post_fire_date_from_date.strftime("%Y-%m-%d"),
+            post_fire_date_after.strftime("%Y-%m-%d")
+        ) if post_fire_date_from_date and post_fire_date_after else None
+
+        # Descomente e ajuste se necessário
+        analyzer = WildfireAnalyzer(polygon, pre_fire_range, post_fire_range, instance.id)
+        images = analyzer.calculate_severity()
+        stats_df, total_area = analyzer.calculate_area_stats(images['severity'])
+        presigned_urls = analyzer.export_results(images)
+
+        prefix = str(instance.id)
+
+        presigned_data = {}
+        for item in presigned_urls:
+            s3_key = item["key"]
+            if s3_key.endswith(f"{prefix}_RBR.tif"):
+                presigned_data["rbr"] = item["url"]
+            elif s3_key.endswith(f"{prefix}_RBR_Severity.png"):  # Ajuste se rbr_classified tiver nome diferente
+                presigned_data["rbr_classified_color"] = item["url"]
+            elif s3_key.endswith(f"{prefix}_RBR_Classified.tif"):  # Ajuste se rbr_classified tiver nome diferente
+                presigned_data["rbr_classified"] = item["url"]
+            elif s3_key.endswith(f"{prefix}_poligono_geojson.geojson"):
+                presigned_data["polygon"] = item["url"]
+            elif s3_key.endswith(f"{prefix}_severity_stats.csv"):  # Ajuste se for .tif ou outro formato
+                presigned_data["severity_stats"] = item["url"]
 
         # You can implement your logic here
         # Example: reserve = self.get_object()
         return Response(
             {
-                "rgb_pre_fire": f"https://teste.com/image",
                 "polygon_path": polygon_path,
-                "pre_fire_date": pre_fire_date_to,
-                "post_fire_date": post_fire_date_from,
-                "rgb_post_fire": "https://teste.com/image",
-                "ndvi_pre_fire": "https://teste.com/image",
-                "ndvi_post_fire": "https://teste.com/image",
-                "nbr_pre_fire": "https://teste.com/image",
-                "nbr_post_fire": "https://teste.com/image",
-                "delta_nbr": "https://teste.com/image",
-                "rbr": "https://teste.com/image",
-                "severity": "https://teste.com/image",
-                "severity_sumary": {
-                    "unburned": 46.51,
-                    "low": 17.64,
-                    "moderate": 23.03,
-                    "high": 12.74,
-                    "very_high": 0.0009,
-                },
-                "polygon_area": 8.955,
+                "pre_fire_date": pre_fire_range,
+                "post_fire_date": post_fire_range,
+                **presigned_data
             }
         )
+    def calculate_date_range(self, date, days_before=60, days_after=60):
+        if not date:
+            return None, None
+        try:
+            date_before = date - timedelta(days=days_before)
+            date_after = date + timedelta(days=days_after)
+            return date_before, date_after
+        except (ValueError, TypeError):
+            return None, None

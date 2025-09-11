@@ -10,29 +10,20 @@ def get_sentinel_collection(polygon):
     Returns:
         ee.ImageCollection, Coleção de imagens Sentinel-2 filtrada.
     """
-    collection = (ee.ImageCollection('COPERNICUS/S2_SR')
+    collection = (ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
                   .filterBounds(polygon)
                   .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20)))
-    print(f"Bandas disponíveis na coleção Sentinel-2: {collection.first().bandNames().getInfo()}")
+    # print(f"Bandas disponíveis na coleção Sentinel-2: {collection.first().bandNames().getInfo()}")
     return collection
 
 
-def get_best_image(collection, start_date, end_date):
-    """Seleciona a melhor imagem da coleção com base na cobertura de nuvens.
-
-    Args:
-        collection: ee.ImageCollection, Coleção de imagens filtrada.
-        start_date: str, Data de início (formato YYYY-MM-DD).
-        end_date: str, Data de fim (formato YYYY-MM-DD).
-
-    Returns:
-        ee.Image, Imagem com menor cobertura de nuvens.
-    """
-    image = (collection.filterDate(start_date, end_date)
-             .sort('CLOUDY_PIXEL_PERCENTAGE')
-             .first())
-    print(f"Bandas da imagem selecionada ({start_date} a {end_date}): {image.bandNames().getInfo()}")
-    return image
+def get_best_image(collection, start_date, end_date, polygon=None):  # Adicione polygon como param opcional
+    filtered = collection.filterDate(start_date, end_date) \
+                         .filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 10)  # Filtre nuvens <10%
+    composite = filtered.median()  # Ou .mean() para média; .qualityMosaic('NDVI') para priorizar vegetação
+    if polygon:
+        composite = composite.clip(polygon)
+    return composite
 
 
 def calculate_differences(pre_fire, post_fire):
