@@ -39,9 +39,3 @@ variable "az_count" {
   }
 }
 
-variable "aurora_root_password" {
-  description = "Aurora cluster root password"
-  type        = string
-  sensitive   = true
-  default     = "5UperSecretPassw04d!"
-}

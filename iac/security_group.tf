@@ -27,6 +27,14 @@ resource "aws_security_group" "ecs_api" {
     cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
+  ingress {
+    description = "Allow ALB to access ECS task on port 10000"
+    from_port   = 10000
+    to_port     = 10000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Or restrict to ALB security group if you want more security
+  }
+
   egress {
     description = "Allow all outbound"
     from_port   = 0
