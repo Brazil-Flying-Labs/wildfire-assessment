@@ -3,10 +3,12 @@ FROM python:3.13-slim-bookworm
 ENV PYTHONUNBUFFERED 1
 
 # Install dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential 
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential unzip
 RUN apt-get install -y curl gdal-bin libgdal-dev libpq-dev postgresql-client 
 ENV GDAL_VERSION=3.6.0
 RUN rm -rf /var/lib/apt/lists/* 
+
+RUN pip install --upgrade pip awscli
 
 COPY ./requirements.txt /requirements.txt
 

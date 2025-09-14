@@ -10,8 +10,19 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import json
 import os
 from pathlib import Path
+
+from wildfire_assessment.svc.src.aws import get_aws_secret_manager_secret
+
+env = os.environ.get("ENV", "dev")
+
+secret = (
+    json.loads(get_aws_secret_manager_secret("local"))
+    if env in ["local"]
+    else json.loads(get_aws_secret_manager_secret("dev"))
+)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -94,18 +105,19 @@ TEMPLATES = [
 WSGI_APPLICATION = "api.wsgi.application"
 
 # Auth0 settings
-SOCIAL_AUTH_TRAILING_SLASH = os.environ.get("SOCIAL_AUTH_TRAILING_SLASH")
-SOCIAL_AUTH_AUTH0_DOMAIN = os.environ.get("SOCIAL_AUTH_AUTH0_DOMAIN")
-SOCIAL_AUTH_AUTH0_KEY = os.environ.get("SOCIAL_AUTH_AUTH0_KEY")
-SOCIAL_AUTH_AUTH0_SECRET = os.environ.get("SOCIAL_AUTH_AUTH0_SECRET")
-SOCIAL_AUTH_AUTH0_SCOPE = os.environ.get("SOCIAL_AUTH_AUTH0_SCOPE").split(",")
+SOCIAL_AUTH_TRAILING_SLASH = secret[
+    "SOCIAL_AUTH_TRAILING_SLASH"
+]  # Remove trailing slash from routes
+SOCIAL_AUTH_AUTH0_DOMAIN = secret["SOCIAL_AUTH_AUTH0_DOMAIN"]
+SOCIAL_AUTH_AUTH0_KEY = secret["SOCIAL_AUTH_AUTH0_KEY"]
+SOCIAL_AUTH_AUTH0_SECRET = secret["SOCIAL_AUTH_AUTH0_SECRET"]
+SOCIAL_AUTH_AUTH0_SCOPE = secret["SOCIAL_AUTH_AUTH0_SCOPE"].split(",")
 
-
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS").split(",")
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
-DEBUG = os.environ.get("DJANGO_DEBUG")
-CSRF_TRUSTED_ORIGINS = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS").split(",")
-DB_USERNAME = os.environ.get("DB_USERNAME")
+ALLOWED_HOSTS = secret["DJANGO_ALLOWED_HOSTS"].split(",")
+SECRET_KEY = secret["DJANGO_SECRET_KEY"]
+DEBUG = secret["DJANGO_DEBUG"]
+CSRF_TRUSTED_ORIGINS = secret["DJANGO_CSRF_TRUSTED_ORIGINS"].split(",")
+DB_USERNAME = secret["DB_USERNAME"]
 DB_PASSWORD = os.environ.get("DB_PASSWORD")
 DB_NAME = os.environ.get("DB_NAME")
 DB_HOST = os.environ.get("DB_HOST")

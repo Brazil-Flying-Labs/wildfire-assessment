@@ -10,7 +10,7 @@ from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import EcologicalReserveSerializer
 from wildfire_assessment.svc.src.analyzer import WildfireAnalyzer
 from wildfire_assessment.svc.src.auth import initialize_gee
-from wildfire_assessment.utils import load_polygon
+from wildfire_assessment.utils import calculate_date_range, load_polygon
 
 
 class EcologicalReserveViewSet(viewsets.ModelViewSet):
@@ -21,22 +21,6 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
     queryset = EcologicalReserve.objects.all().order_by("name")
     serializer_class = EcologicalReserveSerializer
     permission_classes = [permissions.IsAuthenticated]
-
-    def calculate_date_range(
-        self, date_str, days_before=60, days_after=60, date_format="%Y-%m-%d"
-    ):
-        if not date_str or not isinstance(date_str, str):
-            return None, None
-        try:
-            date = datetime.strptime(date_str, date_format)
-            date_before = date - timedelta(days=days_before)
-            date_after = date + timedelta(days=days_after)
-            return (
-                (date.strftime(date_format), date_before.strftime(date_format)),
-                (date.strftime(date_format), date_after.strftime(date_format)),
-            )
-        except ValueError:
-            return None, None
 
     @extend_schema(
         methods=["POST"],
@@ -54,6 +38,12 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
             OpenApiParameter(
                 name="pre_fire_date",
                 description="Pre-fire date",
+                type=OpenApiTypes.DATE,
+                required=True,
+            ),
+            OpenApiParameter(
+                name="post_fire_date",
+                description="Post-fire date",
                 type=OpenApiTypes.DATE,
                 required=True,
             ),
@@ -82,13 +72,13 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
             else None
         )
 
-        pre_fire_date_before, pre_fire_date_after = (
-            self.calculate_date_range(pre_fire_date_to_date)
+        pre_fire_date_before, _ = (
+            calculate_date_range(pre_fire_date_to_date)
             if pre_fire_date_to_date
             else (None, None)
         )
-        post_fire_date_before, post_fire_date_after = (
-            self.calculate_date_range(post_fire_date_from_date)
+        _, post_fire_date_after = (
+            calculate_date_range(post_fire_date_from_date)
             if post_fire_date_from_date
             else (None, None)
         )
@@ -152,13 +142,3 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
                 **presigned_data,
             }
         )
-
-    def calculate_date_range(self, date, days_before=60, days_after=60):
-        if not date:
-            return None, None
-        try:
-            date_before = date - timedelta(days=days_before)
-            date_after = date + timedelta(days=days_after)
-            return date_before, date_after
-        except (ValueError, TypeError):
-            return None, None

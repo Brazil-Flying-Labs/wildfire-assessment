@@ -17,13 +17,14 @@ def get_boto3_session() -> boto3.Session:
     """
 
     try:
-        return boto3.Session(profile_name="default")
+        return boto3.Session()
     except ProfileNotFound:
         raise ValueError(
             "The 'default' profile is not configured in ~/.aws/credentials. "
             "Please run 'aws configure' to set it up or use environment variables."
         )
-    
+
+
 def generate_presigned_url(bucket_name: str, object_key: str, expiration=3600) -> str:
     """
     Generates a pre-signed URL for an S3 object.
@@ -41,15 +42,34 @@ def generate_presigned_url(bucket_name: str, object_key: str, expiration=3600) -
     """
     try:
         s3_session = get_boto3_session()
-        s3_client = s3_session.client('s3')
+        s3_client = s3_session.client("s3")
         url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={
-                'Bucket': bucket_name,
-                'Key': object_key
-            },
-            ExpiresIn=expiration
+            "get_object",
+            Params={"Bucket": bucket_name, "Key": object_key},
+            ExpiresIn=expiration,
         )
         return url
     except Exception as e:
         raise ValueError(f"Failed to generate pre-signed URL: {str(e)}")
+
+
+def get_aws_secret_manager_secret(secret_name: str) -> str:
+    """
+    Retrieves a secret value from AWS Secrets Manager.
+
+    Args:
+        secret_name (str): The name of the secret to retrieve.
+
+    Returns:
+        str: The value of the secret.
+
+    Raises:
+        ValueError: If the secret cannot be retrieved.
+    """
+    try:
+        session = get_boto3_session()
+        client = session.client("secretsmanager")
+        response = client.get_secret_value(SecretId=secret_name)
+        return response["SecretString"]
+    except Exception as e:
+        raise ValueError(f"Failed to retrieve secret '{secret_name}': {str(e)}")

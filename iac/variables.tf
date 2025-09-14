@@ -32,9 +32,16 @@ variable "az_count" {
   description = "Number of Availability Zones to use"
   type        = number
   default     = 2
-  
+
   validation {
     condition     = var.az_count >= 2 && var.az_count <= 6
     error_message = "The az_count value must be between 2 and 6."
   }
-} 
+}
+
+variable "aurora_root_password" {
+  description = "Aurora cluster root password"
+  type        = string
+  sensitive   = true
+  default     = "5UperSecretPassw04d!"
+}
