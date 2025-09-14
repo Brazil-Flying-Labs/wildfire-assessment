@@ -59,7 +59,6 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
             ),
         ],
     )
-
     @action(detail=True, methods=["post"], url_path="analyze")
     def analyze(self, request, pk=None):
         """
@@ -72,27 +71,53 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
         pre_fire_date_to = request.query_params.get("pre_fire_date")
         post_fire_date_from = request.query_params.get("post_fire_date")
 
-        pre_fire_date_to_date = datetime.strptime(pre_fire_date_to, "%Y-%m-%d").date() if pre_fire_date_to else None
-        post_fire_date_from_date = datetime.strptime(post_fire_date_from, "%Y-%m-%d").date() if post_fire_date_from else None
-        
-        pre_fire_date_before, pre_fire_date_after = self.calculate_date_range(pre_fire_date_to_date) if pre_fire_date_to_date else (None, None)
-        post_fire_date_before, post_fire_date_after = self.calculate_date_range(post_fire_date_from_date) if post_fire_date_from_date else (None, None)
+        pre_fire_date_to_date = (
+            datetime.strptime(pre_fire_date_to, "%Y-%m-%d").date()
+            if pre_fire_date_to
+            else None
+        )
+        post_fire_date_from_date = (
+            datetime.strptime(post_fire_date_from, "%Y-%m-%d").date()
+            if post_fire_date_from
+            else None
+        )
+
+        pre_fire_date_before, pre_fire_date_after = (
+            self.calculate_date_range(pre_fire_date_to_date)
+            if pre_fire_date_to_date
+            else (None, None)
+        )
+        post_fire_date_before, post_fire_date_after = (
+            self.calculate_date_range(post_fire_date_from_date)
+            if post_fire_date_from_date
+            else (None, None)
+        )
         polygon = load_polygon(polygon_path)
 
         # Ajuste os ranges para strings formatadas, assumindo que WildfireAnalyzer espera tuplas de strings (start, end)
         pre_fire_range = (
-            pre_fire_date_before.strftime("%Y-%m-%d"),
-            pre_fire_date_to_date.strftime("%Y-%m-%d")
-        ) if pre_fire_date_before and pre_fire_date_to_date else None
+            (
+                pre_fire_date_before.strftime("%Y-%m-%d"),
+                pre_fire_date_to_date.strftime("%Y-%m-%d"),
+            )
+            if pre_fire_date_before and pre_fire_date_to_date
+            else None
+        )
         post_fire_range = (
-            post_fire_date_from_date.strftime("%Y-%m-%d"),
-            post_fire_date_after.strftime("%Y-%m-%d")
-        ) if post_fire_date_from_date and post_fire_date_after else None
+            (
+                post_fire_date_from_date.strftime("%Y-%m-%d"),
+                post_fire_date_after.strftime("%Y-%m-%d"),
+            )
+            if post_fire_date_from_date and post_fire_date_after
+            else None
+        )
 
         # Descomente e ajuste se necessário
-        analyzer = WildfireAnalyzer(polygon, pre_fire_range, post_fire_range, instance.id)
+        analyzer = WildfireAnalyzer(
+            polygon, pre_fire_range, post_fire_range, instance.id
+        )
         images = analyzer.calculate_severity()
-        stats_df, total_area = analyzer.calculate_area_stats(images['severity'])
+        stats_df, total_area = analyzer.calculate_area_stats(images["severity"])
         presigned_urls = analyzer.export_results(images)
 
         prefix = str(instance.id)
@@ -102,13 +127,19 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
             s3_key = item["key"]
             if s3_key.endswith(f"{prefix}_RBR.tif"):
                 presigned_data["rbr"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RBR_Severity.png"):  # Ajuste se rbr_classified tiver nome diferente
+            elif s3_key.endswith(
+                f"{prefix}_RBR_Severity.png"
+            ):  # Ajuste se rbr_classified tiver nome diferente
                 presigned_data["rbr_classified_color"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RBR_Classified.tif"):  # Ajuste se rbr_classified tiver nome diferente
+            elif s3_key.endswith(
+                f"{prefix}_RBR_Classified.tif"
+            ):  # Ajuste se rbr_classified tiver nome diferente
                 presigned_data["rbr_classified"] = item["url"]
             elif s3_key.endswith(f"{prefix}_poligono_geojson.geojson"):
                 presigned_data["polygon"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_severity_stats.csv"):  # Ajuste se for .tif ou outro formato
+            elif s3_key.endswith(
+                f"{prefix}_severity_stats.csv"
+            ):  # Ajuste se for .tif ou outro formato
                 presigned_data["severity_stats"] = item["url"]
 
         # You can implement your logic here
@@ -118,9 +149,10 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
                 "polygon_path": polygon_path,
                 "pre_fire_date": pre_fire_range,
                 "post_fire_date": post_fire_range,
-                **presigned_data
+                **presigned_data,
             }
         )
+
     def calculate_date_range(self, date, days_before=60, days_after=60):
         if not date:
             return None, None

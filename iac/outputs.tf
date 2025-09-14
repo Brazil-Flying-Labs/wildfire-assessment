@@ -62,3 +62,23 @@ output "ecr_repository_url" {
   description = "URL of the ECR repository"
   value       = aws_ecr_repository.wildfire_assessment.repository_url
 }
+
+output "alb_dns_name" {
+  description = "DNS name of the Application Load Balancer"
+  value       = aws_lb.api.dns_name
+}
+
+output "alb_arn" {
+  description = "ARN of the Application Load Balancer"
+  value       = aws_lb.api.arn
+}
+
+output "alb_listener_http_arn" {
+  description = "ARN of the HTTP (80) listener"
+  value       = aws_lb_listener.api_http.arn
+}
+
+output "alb_target_group_arn" {
+  description = "ARN of the ALB target group for ECS"
+  value       = aws_lb_target_group.api.arn
+}

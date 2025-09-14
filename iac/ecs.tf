@@ -93,3 +93,34 @@ resource "aws_ecs_task_definition" "api" {
     Service     = "api"
   }
 }
+
+
+resource "aws_ecs_service" "api" {
+  name            = "wildfire-assessment-api-${var.environment}"
+  cluster         = aws_ecs_cluster.wildfire_assessment.id
+  task_definition = aws_ecs_task_definition.api.arn
+  desired_count   = 1
+
+  network_configuration {
+    subnets          = [for subnet in aws_subnet.private : subnet.id]
+    security_groups  = [aws_security_group.ecs_api.id]
+    assign_public_ip = false
+  }
+
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE"
+    weight            = 1
+    base              = 0
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api.arn
+    container_name   = "api"
+    container_port   = 10000
+  }
+
+  tags = {
+    Environment = var.environment
+    Service     = "api"
+  }
+}
