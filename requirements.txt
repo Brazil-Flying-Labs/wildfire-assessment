@@ -209,5 +209,6 @@ websocket-client==1.8.0
 Werkzeug==3.1.3
 whitebox==2.3.6
 whiteboxgui==2.3.0
+whitenoise==6.10.0
 widgetsnbextension==3.6.10
 xyzservices==2025.4.0

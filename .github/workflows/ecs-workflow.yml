@@ -51,7 +51,7 @@ jobs:
             ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
       - name: Update ECS service
         run: |
-          aws ecs update-service \
+          aws ecs wait services-stable \
             --cluster wildfire-assessment-${{ env.BRANCH }} \
             --service wildfire-assessment-api-${{ env.BRANCH }} \
             --force-new-deployment \
