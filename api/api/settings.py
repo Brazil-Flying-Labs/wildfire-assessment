@@ -122,9 +122,9 @@ SECRET_KEY = secret["DJANGO_SECRET_KEY"]
 DEBUG = secret["DJANGO_DEBUG"]
 CSRF_TRUSTED_ORIGINS = secret["DJANGO_CSRF_TRUSTED_ORIGINS"].split(",")
 DB_USERNAME = secret["DB_USERNAME"]
-DB_PASSWORD = os.environ.get("DB_PASSWORD")
-DB_NAME = os.environ.get("DB_NAME")
-DB_HOST = os.environ.get("DB_HOST")
+DB_PASSWORD = secret["DB_PASSWORD"]
+DB_NAME = secret["DB_NAME"]
+DB_HOST = secret["DB_HOST"]
 
 
 # PostgreSQL
@@ -139,13 +139,6 @@ DATABASES = {
     }
 }
 
-LOG.info(
-    "##############################################################################"
-)
-LOG.info(DATABASES)
-LOG.info(
-    "##############################################################################"
-)
 
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/admin/"
