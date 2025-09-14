@@ -11,24 +11,26 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 
 from wildfire_assessment.svc.src.aws import get_aws_secret_manager_secret
 
-env = os.environ.get("ENV", "dev")
+LOG = logging.getLogger(__name__)
+
+# Check the environment
+ENV = os.environ.get("ENV")
 
 secret = (
     json.loads(get_aws_secret_manager_secret("local"))
-    if env in ["local"]
+    if ENV in ["local"]
     else json.loads(get_aws_secret_manager_secret("dev"))
 )
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Check the environment
-ENV = os.environ.get("ENV")
 
 STATIC_URL = "static/"
 
@@ -134,6 +136,14 @@ DATABASES = {
         "PORT": "5432",
     }
 }
+
+LOG.info(
+    "##############################################################################"
+)
+LOG.info(DATABASES)
+LOG.info(
+    "##############################################################################"
+)
 
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/admin/"
