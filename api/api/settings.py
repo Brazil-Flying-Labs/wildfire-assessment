@@ -17,6 +17,8 @@ from pathlib import Path
 
 from wildfire_assessment.svc.src.aws import get_aws_secret_manager_secret
 
+logging.basicConfig(level=logging.INFO)
+
 LOG = logging.getLogger(__name__)
 
 # Check the environment
