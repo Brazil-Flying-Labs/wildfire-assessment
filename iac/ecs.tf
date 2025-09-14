@@ -64,7 +64,7 @@ resource "aws_ecs_task_definition" "api" {
 
       # (Optional) Env vars
       environment = [
-        { name = "ENVIRONMENT", value = var.environment }
+        { name = "ENV", value = var.environment }
       ]
 
       # Logs -> CloudWatch (2-day retention already set on the log group)

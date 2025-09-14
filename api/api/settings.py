@@ -22,13 +22,9 @@ logging.basicConfig(level=logging.INFO)
 LOG = logging.getLogger(__name__)
 
 # Check the environment
-ENV = os.environ.get("ENV")
+ENV = os.environ.get("ENV", "local")
 
-secret = (
-    json.loads(get_aws_secret_manager_secret("local"))
-    if ENV in ["local"]
-    else json.loads(get_aws_secret_manager_secret("dev"))
-)
+secret = json.loads(get_aws_secret_manager_secret(ENV))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,7 +33,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_URL = "static/"
 
 
-STATIC_ROOT = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 STATICFILES_DIRS = [
@@ -79,9 +75,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    # "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

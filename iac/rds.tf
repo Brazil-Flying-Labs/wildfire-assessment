@@ -3,7 +3,6 @@ resource "aws_rds_cluster" "aurora_postgres" {
   engine                  = "aurora-postgresql"
   engine_version          = "15.3"
   master_username         = "root"
-  master_password         = var.aurora_root_password
   database_name           = "wildfiredb"
   backup_retention_period = 7
   preferred_backup_window = "07:00-09:00"
