@@ -14,13 +14,22 @@ from wildfire_assessment.utils import calculate_date_range, load_polygon
 
 
 class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    API endpoint that allows Ecological Reserves to be viewed or edited.
-    """
 
     queryset = EcologicalReserve.objects.all().order_by("name")
     serializer_class = EcologicalReserveSerializer
     permission_classes = [permissions.AllowAny]
+
+    def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieve a specific EcologicalReserve by its ID.
+        """
+        return super().retrieve(request, *args, **kwargs)
+
+    def list(self, request, *args, **kwargs):
+        """
+        List all EcologicalReserves.
+        """
+        return super().list(request, *args, **kwargs)
 
     @extend_schema(
         methods=["POST"],
@@ -53,7 +62,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
     def analyze(self, request, pk=None):
         """
         Custom action to analyze an EcologicalReserve.
-        The 'pk' parameter is the id of the EcologicalReserve.
+        The 'id' parameter is the id of the EcologicalReserve.
         """
         initialize_gee()
         instance = self.get_object()
