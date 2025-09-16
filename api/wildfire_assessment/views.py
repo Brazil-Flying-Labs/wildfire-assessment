@@ -13,14 +13,14 @@ from wildfire_assessment.svc.src.auth import initialize_gee
 from wildfire_assessment.utils import calculate_date_range, load_polygon
 
 
-class EcologicalReserveViewSet(viewsets.ModelViewSet):
+class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
     """
     API endpoint that allows Ecological Reserves to be viewed or edited.
     """
 
     queryset = EcologicalReserve.objects.all().order_by("name")
     serializer_class = EcologicalReserveSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     @extend_schema(
         methods=["POST"],
