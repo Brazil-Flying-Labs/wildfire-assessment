@@ -46,13 +46,13 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         parameters=[
             OpenApiParameter(
                 name="pre_fire_date",
-                description="Pre-fire date",
+                description="Pre-fire date (YYYY-MM-DD)",
                 type=OpenApiTypes.DATE,
                 required=True,
             ),
             OpenApiParameter(
                 name="post_fire_date",
-                description="Post-fire date",
+                description="Post-fire date (YYYY-MM-DD)",
                 type=OpenApiTypes.DATE,
                 required=True,
             ),
