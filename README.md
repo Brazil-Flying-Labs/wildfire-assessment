@@ -30,7 +30,7 @@ Open the `.env` file and set the variables with the correct values.
 
 # Usage
 
-Run `make reset` the first time to setup your environment, Subsequent use can be `make up`. (If you add any nrew requirement to requirements.txt, a `make reset` will be required).
+Run `make reset` the first time to setup your environment, Subsequent use can be `make up`. (If you add any new requirement to requirements.txt, a `make reset` will be required).
 
 If your OS doesn't support `make` commands, you can simply do `docker-compose down -v --rmi all --remove-orphans` followed by `docker-compose up --build -d` for the first time, the subsequent times you can just do `docker-compose up`.
 
