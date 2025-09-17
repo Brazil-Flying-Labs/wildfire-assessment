@@ -2,7 +2,12 @@ from datetime import datetime, timedelta
 
 from django.contrib.auth.models import Group, User
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -10,6 +15,10 @@ from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import EcologicalReserveSerializer
 from wildfire_assessment.svc.src.analyzer import WildfireAnalyzer
 from wildfire_assessment.svc.src.auth import initialize_gee
+from wildfire_assessment.svc.src.image_processor import (
+    get_best_image,
+    get_sentinel_collection,
+)
 from wildfire_assessment.utils import calculate_date_range, load_polygon
 
 
@@ -47,6 +56,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
                 type=OpenApiTypes.DATE,
                 required=True,
             ),
+            
         ],
     )
     @action(detail=True, methods=["post"], url_path="analyze")
@@ -106,8 +116,12 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         analyzer = WildfireAnalyzer(
             polygon, pre_fire_range, post_fire_range, instance.id
         )
+        # Obtenha as datas das melhores imagens
+        _, pre_fire_date = get_best_image(get_sentinel_collection(polygon), *pre_fire_range, polygon)
+        _, post_fire_date = get_best_image(get_sentinel_collection(polygon), *post_fire_range, polygon)
+
         images = analyzer.calculate_severity()
-        stats_df, total_area = analyzer.calculate_area_stats(images["severity"])
+        _, total_area = analyzer.calculate_area_stats(images["severity"])
         presigned_urls = analyzer.export_results(images)
 
         prefix = str(instance.id)
@@ -119,26 +133,22 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
                 presigned_data["rbr"] = item["url"]
             elif s3_key.endswith(
                 f"{prefix}_RBR_Severity.png"
-            ):  # Ajuste se rbr_classified tiver nome diferente
+            ):
                 presigned_data["rbr_classified_color"] = item["url"]
             elif s3_key.endswith(
                 f"{prefix}_RBR_Classified.tif"
-            ):  # Ajuste se rbr_classified tiver nome diferente
+            ):
                 presigned_data["rbr_classified"] = item["url"]
             elif s3_key.endswith(f"{prefix}_poligono_geojson.geojson"):
                 presigned_data["polygon"] = item["url"]
             elif s3_key.endswith(
                 f"{prefix}_severity_stats.csv"
-            ):  # Ajuste se for .tif ou outro formato
+            ):
                 presigned_data["severity_stats"] = item["url"]
 
-        # You can implement your logic here
-        # Example: reserve = self.get_object()
-        return Response(
-            {
-                "polygon_path": polygon_path,
-                "pre_fire_date": pre_fire_range,
-                "post_fire_date": post_fire_range,
-                **presigned_data,
-            }
-        )
+        return Response({
+            **presigned_data,
+            "pre_fire_best_date": pre_fire_date,
+            "post_fire_best_date": post_fire_date,
+        })
+        

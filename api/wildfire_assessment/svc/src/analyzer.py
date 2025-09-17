@@ -60,8 +60,8 @@ class WildfireAnalyzer:
             dict: Dicionário com imagens pré/pós-fogo, NDVI, NBR, ΔNDVI, ΔNBR, RBR e severidade.
         """
         sentinel = get_sentinel_collection(self.polygon)
-        pre_fire = get_best_image(sentinel, *self.pre_fire_dates, self.polygon)  # Passe polygon
-        post_fire = get_best_image(sentinel, *self.post_fire_dates, self.polygon)  # Passe polygon
+        pre_fire, date = get_best_image(sentinel, *self.pre_fire_dates, self.polygon)  # Passe polygon
+        post_fire, date = get_best_image(sentinel, *self.post_fire_dates, self.polygon)  # Passe polygon
         
         # Clip explícito para garantir recorte
         pre_fire = pre_fire.clip(self.polygon)
@@ -106,6 +106,7 @@ class WildfireAnalyzer:
             'severity': severity,
             'rbr_classified': rbr_classified  # Novo: RBR classificado
         }
+
     def calculate_area_stats(self, severity_image):
         """Calcula estatísticas de área para cada classe de severidade e exporta para CSV localmente.
 
@@ -113,7 +114,7 @@ class WildfireAnalyzer:
             severity_image: ee.Image, Imagem de severidade.
 
         Returns:
-            pd.DataFrame, Tabela com classes de severidade, áreas (ha) e porcentagens.
+            pd.DataFrame, Tabela com classes de severidade, áreas (ha), porcentagens e cores.
         """
         prefix = str(self.filename).replace('.geojson', '') if isinstance(self.filename, str) else f"{self.filename}"
         pixel_area = ee.Image.pixelArea().divide(10000)  # Converte para hectares
@@ -126,15 +127,30 @@ class WildfireAnalyzer:
         )
         groups = ee.List(stats.get('groups'))
         total_area = groups.map(lambda obj: ee.Dictionary(obj).get('sum')).reduce(ee.Reducer.sum())
-        names = ee.Dictionary({str(val): name for _, name, val in SEVERITY_THRESHOLDS})
-        table = groups.map(lambda obj:
-            ee.Dictionary(obj).combine({
-                'SeverityName': names.get(ee.Number(ee.Dictionary(obj).get('Severity')).format('%d')),
-                'Area_ha': ee.Dictionary(obj).get('sum'),
-                'Percent': ee.Number(ee.Dictionary(obj).get('sum')).divide(total_area).multiply(100)
-            }).select(['Severity', 'SeverityName', 'Area_ha', 'Percent'])
-        )
-        df = pd.DataFrame(table.getInfo())
+        
+        # Definir paleta de cores (mesma usada em export_results para consistência)
+        severity_palette = ['green', 'yellow', 'orange', 'red', 'maroon']
+        # Mapear valores de severidade para cores usando SEVERITY_THRESHOLDS
+        severity_colors = {str(val): color for (_, _, val), color in zip(SEVERITY_THRESHOLDS, severity_palette)}
+        names = {str(val): name for _, name, val in SEVERITY_THRESHOLDS}
+        print("Groups:", groups.getInfo())
+
+        # Converter grupos para lista de dicionários Python
+        table_py = []
+        for obj in groups.getInfo():
+            severity_val = str(obj.get('Severity'))
+            color_name = severity_colors.get(severity_val, 'unknown')
+            name = names.get(severity_val, '')
+            area_ha = obj.get('sum')
+            percent = (area_ha / sum([g.get('sum') for g in groups.getInfo()])) * 100 if area_ha is not None else 0
+            table_py.append({
+                'Severity': severity_val,
+                'SeverityName': name,
+                'Area_ha': area_ha,
+                'Percent': percent,
+                'Color': color_name
+            })
+        df = pd.DataFrame(table_py)
         export_dir = f'exports/{prefix}'
         os.makedirs(export_dir, exist_ok=True)  # Cria o diretório se não existir
         csv_local_path = f'{export_dir}/{self.filename}_severity_stats.csv'
@@ -154,6 +170,7 @@ class WildfireAnalyzer:
             print(f"Erro ao enviar {csv_local_path} para S3: {str(e)}")
 
         return df, total_area.getInfo()
+
     def export_results(self, images):
         """Exporta resultados da análise para arquivos locais.
 
@@ -265,5 +282,4 @@ class WildfireAnalyzer:
             presigned_urls.append({"key": s3_key, "url": presigned_url})
             print(f"Pre-signed URL gerado para {s3_key}: {presigned_url}")
 
-        
         return presigned_urls

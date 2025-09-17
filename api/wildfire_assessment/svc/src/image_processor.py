@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import ee
 
 
@@ -20,10 +22,17 @@ def get_sentinel_collection(polygon):
 def get_best_image(collection, start_date, end_date, polygon=None):  # Adicione polygon como param opcional
     filtered = collection.filterDate(start_date, end_date) \
                          .filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 10)  # Filtre nuvens <10%
-    composite = filtered.median()  # Ou .mean() para média; .qualityMosaic('NDVI') para priorizar vegetação
-    if polygon:
-        composite = composite.clip(polygon)
-    return composite
+    # Seleciona a melhor imagem (menor porcentagem de nuvem)
+    best = filtered.sort('CLOUDY_PIXEL_PERCENTAGE').first()
+    if polygon and best:
+        best = best.clip(polygon)
+    # Pega a data da imagem
+    date = None
+    if best:
+        timestamp = best.get('system:time_start').getInfo()
+        
+        date = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc).strftime('%Y-%m-%d')
+    return best, date
 
 
 def calculate_differences(pre_fire, post_fire):
