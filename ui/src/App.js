@@ -1,22 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import './App.css';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import "./App.css";
 
 function App() {
   const [ecologicalReserves, setEcologicalReserves] = useState([]);
   const [fetchState, setFetchState] = useState({ loading: true, error: null });
-  const [selectedReserve, setSelectedReserve] = useState('');
-  const [preFireDate, setPreFireDate] = useState('');
-  const [postFireDate, setPostFireDate] = useState('');
+  const [selectedReserve, setSelectedReserve] = useState("");
+  const [preFireDate, setPreFireDate] = useState("");
+  const [postFireDate, setPostFireDate] = useState("");
   const [analysisResult, setAnalysisResult] = useState(null);
-  const [analysisState, setAnalysisState] = useState({ loading: false, error: null });
+  const [analysisState, setAnalysisState] = useState({
+    loading: false,
+    error: null,
+  });
+  const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo.png`, []);
   const baseUrl = useMemo(() => {
     const url = process.env.REACT_APP_WILDLIFE_API_URL;
 
     if (!url) {
-      return '';
+      return "";
     }
 
-    return url.endsWith('/') ? url.slice(0, -1) : url;
+    return url.endsWith("/") ? url.slice(0, -1) : url;
   }, []);
   const analyzeControllerRef = useRef(null);
 
@@ -24,7 +28,8 @@ function App() {
     if (!baseUrl) {
       setFetchState({
         loading: false,
-        error: 'Variável de ambiente REACT_APP_WILDLIFE_API_URL não configurada.'
+        error:
+          "Variável de ambiente REACT_APP_WILDLIFE_API_URL não configurada.",
       });
       return undefined;
     }
@@ -36,7 +41,7 @@ function App() {
     (async () => {
       try {
         const response = await fetch(`${baseUrl}/ecological_reserve/`, {
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -47,9 +52,9 @@ function App() {
         setEcologicalReserves(data);
         setFetchState({ loading: false, error: null });
       } catch (error) {
-        if (error.name === 'AbortError') return;
+        if (error.name === "AbortError") return;
 
-        console.error('Erro ao buscar reservas ecológicas:', error);
+        console.error("Erro ao buscar reservas ecológicas:", error);
         setFetchState({ loading: false, error: error.message });
       }
     })();
@@ -60,7 +65,7 @@ function App() {
   useEffect(() => {
     const abort = loadReserves();
     return () => {
-      if (typeof abort === 'function') {
+      if (typeof abort === "function") {
         abort();
       }
     };
@@ -109,7 +114,7 @@ function App() {
         <option key={reserve.id} value={reserve.id}>
           {reserve.name}
         </option>
-      ))
+      )),
     ];
   };
 
@@ -122,39 +127,44 @@ function App() {
     !postFireDate;
 
   const formatLabel = useCallback((key) => {
-    const withoutSuffix = key.replace(/_(jpg|tif)$/i, '');
+    const withoutSuffix = key.replace(/_(jpg|tif)$/i, "");
     return withoutSuffix
-      .split('_')
+      .split("_")
       .map((word) => {
         if (word.length <= 3) return word.toUpperCase();
         return word.charAt(0).toUpperCase() + word.slice(1);
       })
-      .join(' ');
+      .join(" ");
   }, []);
 
   const imageEntries = useMemo(() => {
     if (!analysisResult) return [];
-    return Object.entries(analysisResult).filter(([key, value]) =>
-      key.endsWith('_jpg') && typeof value === 'string'
+    return Object.entries(analysisResult).filter(
+      ([key, value]) => key.endsWith("_jpg") && typeof value === "string"
     );
   }, [analysisResult]);
 
   const tiffEntries = useMemo(() => {
     if (!analysisResult) return [];
-    return Object.entries(analysisResult).filter(([key, value]) =>
-      key.endsWith('_tif') && typeof value === 'string'
+    return Object.entries(analysisResult).filter(
+      ([key, value]) => key.endsWith("_tif") && typeof value === "string"
     );
   }, [analysisResult]);
 
   const csvEntry = useMemo(() => {
     if (!analysisResult) return null;
     const entry = Object.entries(analysisResult).find(
-      ([key, value]) => key.endsWith('_stats') && typeof value === 'string'
+      ([key, value]) => key.endsWith("_stats") && typeof value === "string"
     );
     return entry || null;
   }, [analysisResult]);
 
-  const [severityStats, setSeverityStats] = useState({ loading: false, error: null, headers: [], rows: [] });
+  const [severityStats, setSeverityStats] = useState({
+    loading: false,
+    error: null,
+    headers: [],
+    rows: [],
+  });
 
   useEffect(() => {
     async function loadSeverityStats(url) {
@@ -169,20 +179,30 @@ function App() {
 
         const text = await response.text();
         const [headerLine, ...lines] = text.trim().split(/\r?\n/);
-        const headers = headerLine.split(',').map((item) => item.trim());
+        const headers = headerLine.split(",").map((item) => item.trim());
         const parsedRows = lines.map((line) => {
-          const values = line.split(',').map((item) => item.trim());
+          const values = line.split(",").map((item) => item.trim());
           return headers.reduce((accumulator, header, index) => {
             // eslint-disable-next-line no-param-reassign
-            accumulator[header] = values[index] ?? '';
+            accumulator[header] = values[index] ?? "";
             return accumulator;
           }, {});
         });
 
-        setSeverityStats({ loading: false, error: null, headers, rows: parsedRows });
+        setSeverityStats({
+          loading: false,
+          error: null,
+          headers,
+          rows: parsedRows,
+        });
       } catch (error) {
-        console.error('Falha ao ler CSV de estatísticas:', error);
-        setSeverityStats({ loading: false, error: error.message, headers: [], rows: [] });
+        console.error("Falha ao ler CSV de estatísticas:", error);
+        setSeverityStats({
+          loading: false,
+          error: error.message,
+          headers: [],
+          rows: [],
+        });
       }
     }
 
@@ -195,7 +215,8 @@ function App() {
 
   const bestDates = useMemo(() => {
     if (!analysisResult) return null;
-    const { pre_fire_best_date: preBest, post_fire_best_date: postBest } = analysisResult;
+    const { pre_fire_best_date: preBest, post_fire_best_date: postBest } =
+      analysisResult;
     if (!preBest && !postBest) return null;
     return { preBest, postBest };
   }, [analysisResult]);
@@ -208,7 +229,10 @@ function App() {
     }
 
     if (!baseUrl) {
-      setAnalysisState({ loading: false, error: 'Endpoint da API não configurado.' });
+      setAnalysisState({
+        loading: false,
+        error: "Endpoint da API não configurado.",
+      });
       return;
     }
 
@@ -225,17 +249,14 @@ function App() {
     try {
       const queryParams = new URLSearchParams({
         pre_fire_date: preFireDate,
-        post_fire_date: postFireDate
+        post_fire_date: postFireDate,
       });
       const url = `${baseUrl}/ecological_reserve/${selectedReserve}/analyze/?${queryParams.toString()}`;
 
-      const response = await fetch(
-        url,
-        {
-          method: 'POST',
-          signal: controller.signal
-        }
-      );
+      const response = await fetch(url, {
+        method: "POST",
+        signal: controller.signal,
+      });
 
       if (!response.ok) {
         throw new Error(`Erro ao analisar (${response.status})`);
@@ -245,14 +266,14 @@ function App() {
       setAnalysisResult(data);
       setAnalysisState({ loading: false, error: null });
     } catch (error) {
-      if (error.name === 'AbortError') {
+      if (error.name === "AbortError") {
         if (analyzeControllerRef.current === controller) {
           setAnalysisState({ loading: false, error: null });
         }
         return;
       }
 
-      console.error('Erro durante a análise:', error);
+      console.error("Erro durante a análise:", error);
       setAnalysisState({ loading: false, error: error.message });
     } finally {
       if (analyzeControllerRef.current === controller) {
@@ -262,222 +283,264 @@ function App() {
   };
 
   return (
-    <div className="app-wrapper d-flex min-vh-100">
-      <aside className="sidebar bg-light border-end p-4">
-        <h1 className="h5 mb-4">Parâmetros da análise</h1>
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label htmlFor="preFireDate" className="form-label">
-              Data pré-fogo
-            </label>
-            <input
-              type="date"
-              className="form-control"
-              id="preFireDate"
-              name="preFireDate"
-              value={preFireDate}
-              onChange={(event) => setPreFireDate(event.target.value)}
-              max={postFireDate || undefined}
+    <div className="app-root d-flex flex-column min-vh-100">
+      <header className="app-header text-white">
+        <div className="container-fluid d-flex align-items-center justify-content-between py-3">
+          <div className="d-flex align-items-center gap-3">
+            <img
+              src={logoSrc}
+              alt="Wildfire Assessment"
+              className="brand-logo"
             />
-          </div>
-
-          <div className="mb-3">
-            <label htmlFor="postFireDate" className="form-label">
-              Data pós-fogo
-            </label>
-            <input
-              type="date"
-              className="form-control"
-              id="postFireDate"
-              name="postFireDate"
-              value={postFireDate}
-              onChange={(event) => setPostFireDate(event.target.value)}
-              min={preFireDate || undefined}
-            />
-          </div>
-
-          <div className="mb-3">
-            <label htmlFor="reserve" className="form-label">
-              Selecione uma reserva ecológica
-            </label>
-            <select
-              className="form-select"
-              id="reserve"
-              name="reserve"
-              value={selectedReserve}
-              onChange={(event) => setSelectedReserve(event.target.value)}
-              disabled={fetchState.loading || hasError}
-            >
-              {renderReserveOptions()}
-            </select>
-            {hasError ? (
-              <div className="mt-2">
-                <p className="small text-danger mb-2">
-                  Verifique se a API está acessível e se o certificado é confiável. Em ambientes
-                  de desenvolvimento com HTTPS autoassinado, abra o endpoint diretamente no
-                  navegador para aceitar o certificado antes de usar a aplicação.
-                </p>
-                <button type="button" className="btn btn-outline-danger btn-sm" onClick={loadReserves}>
-                  Tentar novamente
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          <button type="submit" className="btn btn-primary w-100" disabled={isAnalyzeDisabled}>
-            {analysisState.loading ? 'Analisando…' : 'Analisar'}
-          </button>
-        </form>
-      </aside>
-
-      <main className="flex-grow-1 p-5">
-        <h2 className="h3 mb-3">Avaliação de incêndios florestais</h2>
-        <p className="text-muted mb-5">
-          Configure as datas e a reserva ecológica no menu lateral para visualizar as análises pós-fogo.
-        </p>
-        {analysisState.loading ? (
-          <div className="placeholder-card border border-dashed rounded-3 p-5 text-center">
-            <div className="spinner-border text-primary mb-3" role="status">
-              <span className="visually-hidden">Carregando...</span>
+            <div>
+              <h1 className="h4 mb-1">Avaliação de incêndios florestais</h1>
+              <p className="mb-0 small opacity-75">
+                Monitoramento de áreas afetadas antes e após eventos de fogo
+              </p>
             </div>
-            <p className="mb-0">Processando análise. Isso pode levar alguns instantes…</p>
           </div>
-        ) : null}
+        </div>
+      </header>
 
-        {!analysisState.loading && analysisState.error ? (
-          <div className="alert alert-danger" role="alert">
-            {analysisState.error}
-          </div>
-        ) : null}
+      <div className="app-body d-flex flex-grow-1">
+        <aside className="sidebar bg-light border-end p-4">
+          <h1 className="h5 mb-4">Parâmetros da análise</h1>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label htmlFor="preFireDate" className="form-label">
+                Data pré-fogo
+              </label>
+              <input
+                type="date"
+                className="form-control"
+                id="preFireDate"
+                name="preFireDate"
+                value={preFireDate}
+                onChange={(event) => setPreFireDate(event.target.value)}
+                max={postFireDate || undefined}
+              />
+            </div>
 
-        {!analysisState.loading && !analysisState.error && analysisResult ? (
-          <div className="analysis-results d-flex flex-column gap-4">
-            {bestDates ? (
-              <div className="card border-0 shadow-sm">
-                <div className="card-body">
-                  <h3 className="card-title h5 mb-3">Melhores datas identificadas</h3>
-                  <dl className="row mb-0">
-                    {bestDates.preBest ? (
-                      <>
-                        <dt className="col-sm-4">Pré-fogo</dt>
-                        <dd className="col-sm-8">{bestDates.preBest}</dd>
-                      </>
-                    ) : null}
-                    {bestDates.postBest ? (
-                      <>
-                        <dt className="col-sm-4">Pós-fogo</dt>
-                        <dd className="col-sm-8">{bestDates.postBest}</dd>
-                      </>
-                    ) : null}
-                  </dl>
+            <div className="mb-3">
+              <label htmlFor="postFireDate" className="form-label">
+                Data pós-fogo
+              </label>
+              <input
+                type="date"
+                className="form-control"
+                id="postFireDate"
+                name="postFireDate"
+                value={postFireDate}
+                onChange={(event) => setPostFireDate(event.target.value)}
+                min={preFireDate || undefined}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label htmlFor="reserve" className="form-label">
+                Selecione uma reserva ecológica
+              </label>
+              <select
+                className="form-select"
+                id="reserve"
+                name="reserve"
+                value={selectedReserve}
+                onChange={(event) => setSelectedReserve(event.target.value)}
+                disabled={fetchState.loading || hasError}
+              >
+                {renderReserveOptions()}
+              </select>
+              {hasError ? (
+                <div className="mt-2">
+                  <p className="small text-danger mb-2">
+                    Verifique se a API está acessível e se o certificado é
+                    confiável. Em ambientes de desenvolvimento com HTTPS
+                    autoassinado, abra o endpoint diretamente no navegador para
+                    aceitar o certificado antes de usar a aplicação.
+                  </p>
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger btn-sm"
+                    onClick={loadReserves}
+                  >
+                    Tentar novamente
+                  </button>
                 </div>
+              ) : null}
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary w-100"
+              disabled={isAnalyzeDisabled}
+            >
+              {analysisState.loading ? "Analisando…" : "Analisar"}
+            </button>
+          </form>
+        </aside>
+
+        <main className="app-main flex-grow-1 d-flex flex-column">
+          <section className="app-main-content p-5 flex-grow-1">
+            {analysisState.loading ? (
+              <div className="placeholder-card border border-dashed rounded-3 p-5 text-center">
+                <div className="spinner-border text-primary mb-3" role="status">
+                  <span className="visually-hidden">Carregando...</span>
+                </div>
+                <p className="mb-0">
+                  Processando análise. Isso pode levar alguns instantes…
+                </p>
               </div>
             ) : null}
 
-            {imageEntries.length ? (
-              <section>
-                <h3 className="h5 mb-3">Visualizações geradas</h3>
-                <div className="analysis-images row g-4">
-                  {imageEntries.map(([key, url]) => (
-                    <div className="col-12 col-md-6 col-lg-4" key={key}>
-                      <div className="card h-100 shadow-sm">
-                        <img src={url} className="card-img-top" alt={formatLabel(key)} loading="lazy" />
-                        <div className="card-body">
-                          <h4 className="card-title h6 mb-0">{formatLabel(key)}</h4>
-                        </div>
-                      </div>
+            {!analysisState.loading && analysisState.error ? (
+              <div className="alert alert-danger" role="alert">
+                {analysisState.error}
+              </div>
+            ) : null}
+
+            {!analysisState.loading &&
+            !analysisState.error &&
+            analysisResult ? (
+              <div className="analysis-results d-flex flex-column gap-4">
+                {bestDates ? (
+                  <div className="card border-0 shadow-sm">
+                    <div className="card-body">
+                      <h3 className="card-title h5 mb-3">
+                        Melhores datas identificadas
+                      </h3>
+                      <dl className="row mb-0">
+                        {bestDates.preBest ? (
+                          <>
+                            <dt className="col-sm-4">Pré-fogo</dt>
+                            <dd className="col-sm-8">{bestDates.preBest}</dd>
+                          </>
+                        ) : null}
+                        {bestDates.postBest ? (
+                          <>
+                            <dt className="col-sm-4">Pós-fogo</dt>
+                            <dd className="col-sm-8">{bestDates.postBest}</dd>
+                          </>
+                        ) : null}
+                      </dl>
                     </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
+                  </div>
+                ) : null}
 
-            {severityStats.headers.length && severityStats.rows.length ? (
-              <section>
-                <h3 className="h5 mb-3">Distribuição da severidade</h3>
-                <div className="table-responsive">
-                  <table className="table table-sm table-striped align-middle">
-                    <thead className="table-light">
-                      <tr>
-                        {severityStats.headers.map((header) => (
-                          <th key={header} scope="col">
-                            {header}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {severityStats.rows.map((row, rowIndex) => (
-                        <tr key={`${rowIndex.toString()}-${rowIndex}`}>
-                          {severityStats.headers.map((header) => (
-                            <td key={header}>{row[header] ?? ''}</td>
-                          ))}
-                        </tr>
+                {imageEntries.length ? (
+                  <section>
+                    <h3 className="h5 mb-3">Visualizações geradas</h3>
+                    <div className="analysis-images row g-4">
+                      {imageEntries.map(([key, url]) => (
+                        <div className="col-12 col-md-6 col-lg-4" key={key}>
+                          <div className="card h-100 shadow-sm">
+                            <img
+                              src={url}
+                              className="card-img-top"
+                              alt={formatLabel(key)}
+                              loading="lazy"
+                            />
+                            <div className="card-body">
+                              <h4 className="card-title h6 mb-0">
+                                {formatLabel(key)}
+                              </h4>
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            ) : null}
+                    </div>
+                  </section>
+                ) : null}
 
-            {severityStats.loading ? (
-              <div className="alert alert-info" role="status">
-                Carregando estatísticas de severidade...
+                {severityStats.headers.length && severityStats.rows.length ? (
+                  <section>
+                    <h3 className="h5 mb-3">Distribuição da severidade</h3>
+                    <div className="table-responsive">
+                      <table className="table table-sm table-striped align-middle">
+                        <thead className="table-light">
+                          <tr>
+                            {severityStats.headers.map((header) => (
+                              <th key={header} scope="col">
+                                {header}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {severityStats.rows.map((row, rowIndex) => (
+                            <tr key={`${rowIndex.toString()}-${rowIndex}`}>
+                              {severityStats.headers.map((header) => (
+                                <td key={header}>{row[header] ?? ""}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+                ) : null}
+
+                {severityStats.loading ? (
+                  <div className="alert alert-info" role="status">
+                    Carregando estatísticas de severidade...
+                  </div>
+                ) : null}
+
+                {!severityStats.loading && severityStats.error ? (
+                  <div className="alert alert-warning" role="alert">
+                    {severityStats.error}
+                  </div>
+                ) : null}
+
+                {tiffEntries.length || csvEntry ? (
+                  <section>
+                    <h3 className="h5 mb-3">Downloads</h3>
+                    <div className="analysis-downloads d-flex flex-wrap gap-2">
+                      {tiffEntries.map(([key, url]) => (
+                        <a
+                          key={key}
+                          href={url}
+                          className="btn btn-outline-secondary btn-sm"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {formatLabel(key)} (TIFF)
+                        </a>
+                      ))}
+                      {csvEntry ? (
+                        <a
+                          href={csvEntry[1]}
+                          className="btn btn-outline-secondary btn-sm"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {formatLabel(csvEntry[0])} (CSV)
+                        </a>
+                      ) : null}
+                    </div>
+                  </section>
+                ) : null}
+
+                <section>
+                  <details className="analysis-raw border rounded-3 p-3 bg-white shadow-sm">
+                    <summary className="fw-medium mb-2">
+                      Ver resposta completa (JSON)
+                    </summary>
+                    <pre className="mb-0 bg-light p-3 rounded overflow-auto">
+                      {JSON.stringify(analysisResult, null, 2)}
+                    </pre>
+                  </details>
+                </section>
               </div>
             ) : null}
 
-            {!severityStats.loading && severityStats.error ? (
-              <div className="alert alert-warning" role="alert">
-                {severityStats.error}
-              </div>
+            {!analysisState.loading &&
+            !analysisState.error &&
+            !analysisResult ? (
+              <div className="placeholder-card border border-dashed rounded-3 p-5 text-center text-muted"></div>
             ) : null}
-
-            {tiffEntries.length || csvEntry ? (
-              <section>
-                <h3 className="h5 mb-3">Downloads</h3>
-                <div className="analysis-downloads d-flex flex-wrap gap-2">
-                  {tiffEntries.map(([key, url]) => (
-                    <a
-                      key={key}
-                      href={url}
-                      className="btn btn-outline-secondary btn-sm"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {formatLabel(key)} (TIFF)
-                    </a>
-                  ))}
-                  {csvEntry ? (
-                    <a
-                      href={csvEntry[1]}
-                      className="btn btn-outline-secondary btn-sm"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {formatLabel(csvEntry[0])} (CSV)
-                    </a>
-                  ) : null}
-                </div>
-              </section>
-            ) : null}
-
-            <section>
-              <details className="analysis-raw border rounded-3 p-3 bg-white shadow-sm">
-                <summary className="fw-medium mb-2">Ver resposta completa (JSON)</summary>
-                <pre className="mb-0 bg-light p-3 rounded overflow-auto">
-                  {JSON.stringify(analysisResult, null, 2)}
-                </pre>
-              </details>
-            </section>
-          </div>
-        ) : null}
-
-        {!analysisState.loading && !analysisState.error && !analysisResult ? (
-          <div className="placeholder-card border border-dashed rounded-3 p-5 text-center text-muted">
-            Área principal do mapa e resultados disponível em breve.
-          </div>
-        ) : null}
-      </main>
+          </section>
+        </main>
+      </div>
     </div>
   );
 }

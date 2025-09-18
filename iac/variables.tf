@@ -25,7 +25,7 @@ variable "environment" {
 variable "s3_cors_allowed_origins" {
   description = "List of origins allowed to access public assets in the S3 bucket"
   type        = list(string)
-  default     = ["http://localhost:3000", "https://d3o6p3bj2dy1t.cloudfront.net/"]
+  default     = ["http://localhost:3000", "https://d3o6p3bj2dy1t.cloudfront.net", "https://wildfire-dev.droneai.com.br"]
 }
 
 variable "vpc_cidr" {

@@ -1,5 +1,9 @@
-.app-wrapper {
+.app-root {
   background-color: #f8f9fa;
+}
+
+.app-body {
+  flex: 1 1 auto;
 }
 
 .sidebar {
@@ -22,4 +26,22 @@
 
 .analysis-raw summary {
   cursor: pointer;
+}
+
+.app-main {
+  background-color: #f1f4f8;
+}
+
+.app-header {
+  background-color: #1a2740;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.app-header .brand-logo {
+  height: 60px;
+  width: auto;
+}
+
+.app-main-content {
+  background-color: transparent;
 }
