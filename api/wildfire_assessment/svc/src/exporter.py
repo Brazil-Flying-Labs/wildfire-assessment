@@ -1,5 +1,6 @@
 import io
 import os
+import time
 
 import ee
 import geopandas as gpd
@@ -7,6 +8,7 @@ import numpy as np
 import rasterio
 import requests
 from rasterio.io import MemoryFile
+from requests.exceptions import RequestException
 from wildfire_assessment.svc.config.settings import (
     EXPORT_CRS,
     EXPORT_MAX_PIXELS,
