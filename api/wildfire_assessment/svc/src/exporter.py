@@ -86,17 +86,25 @@ def export_local(data, description, region, extension, output_dir='exports', min
                 download_params['region'] = region
             download_info = data.getDownloadURL(download_params)
             print(f"Download URL para {description}: {download_info}")
-            response = requests.get(download_info)
-            if response.status_code != 200:
-                raise Exception(f"Erro ao baixar {description}: {response.text}")
-            print(f"Tipo de conteúdo para {description}: {response.headers.get('content-type')}")
-            output_path = os.path.join(output_dir, f"{description}.{extension}")
-            if extension in ['jpeg', 'jpg']:
-                # Salva JPEG diretamente
-                with open(output_path, 'wb') as f:
-                    f.write(response.content)
-            elif 'image/tiff' in response.headers.get('content-type', ''):
-                with MemoryFile(response.content) as memfile:
+            # Baixar arquivo em stream para evitar OOM
+            with requests.get(download_info, stream=True) as response:
+                if response.status_code != 200:
+                    raise Exception(f"Erro ao baixar {description}: {response.text}")
+                print(f"Tipo de conteúdo para {description}: {response.headers.get('content-type')}")
+                output_path = os.path.join(output_dir, f"{description}.{extension}")
+                if extension in ['jpeg', 'jpg']:
+                    # Salva JPEG diretamente
+                    with open(output_path, 'wb') as f:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            f.write(chunk)
+            if 'image/tiff' in response.headers.get('content-type', ''):
+                # Salva conteúdo em arquivo temporário para abrir com rasterio
+                import tempfile
+                with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        tmp_file.write(chunk)
+                    tmp_file_path = tmp_file.name
+                with MemoryFile(open(tmp_file_path, 'rb').read()) as memfile:
                     with memfile.open() as src:
                         profile = src.profile
                         array = src.read()
@@ -112,29 +120,8 @@ def export_local(data, description, region, extension, output_dir='exports', min
                         )
                     with rasterio.open(output_path, 'w', **profile) as dst:
                         dst.write(array)
-            else:
-                import tempfile
-                import zipfile
-                with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-                    with tempfile.TemporaryDirectory() as tmp_dir:
-                        z.extractall(tmp_dir)
-                        tiff_file = [f for f in os.listdir(tmp_dir) if f.endswith(f".{extension}")][0]
-                        tiff_path = os.path.join(tmp_dir, tiff_file)
-                        with rasterio.open(tiff_path) as src:
-                            profile = src.profile
-                            array = src.read()
-                            print(f"Forma do array para {description}: {array.shape}")
-                            print(f"Perfil do GeoTIFF para {description}: {profile}")
-                        if description.endswith(('RGB_PreFire', 'RGB_PostFire', 'RBR')):
-                            if array.shape[0] != 3:
-                                raise ValueError(f"Esperado 3 bandas para {description}, mas encontrado {array.shape[0]}")
-                            profile.update(
-                                count=3,
-                                dtype=rasterio.uint8,
-                                photometric='rgb'
-                            )
-                        with rasterio.open(output_path, 'w', **profile) as dst:
-                            dst.write(array)
+                os.remove(tmp_file_path)
+            # Removido o else inválido
             print(f"Exportação local {description}.{extension} concluída em {output_path}")
 
         elif isinstance(data, ee.FeatureCollection):
