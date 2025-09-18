@@ -15,6 +15,17 @@ from wildfire_assessment.svc.src.image_processor import (
 
 
 class WildfireAnalyzer:
+    # Planejamento das nove imagens finais para entrega
+    # 1. RBR puro (1 banda, TIFF georreferenciado)
+    # 2. RBR colorido com polígono (TIFF georreferenciado)
+    # 3. RBR colorido com polígono (JPEG não georreferenciado)
+    # 4. Severity RBR colorido com polígono (TIFF georreferenciado)
+    # 5. Severity RBR colorido com polígono (JPEG não georreferenciado)
+    # 6. RGB pré fogo com polígono (TIFF georreferenciado)
+    # 7. RGB pré fogo com polígono (JPEG não georreferenciado)
+    # 8. RGB pós fogo com polígono (TIFF georreferenciado)
+    # 9. RGB pós fogo com polígono (JPEG não georreferenciado)
+    # Para cada imagem, definir: imagem base, formato, overlay, georreferenciamento
     """Classe para realizar análise de severidade de incêndios florestais usando dados Sentinel-2.
 
     Atributos:
@@ -40,7 +51,7 @@ class WildfireAnalyzer:
         self.post_fire_dates = post_fire_dates
         self.center_point = polygon.centroid()
         # Usar o envelope do polígono com buffer de 1000 metros
-        self.export_region = polygon.buffer(1000).bounds()
+        self.export_region = polygon.bounds()
         print(f"Coordenadas do polígono original: {self.polygon.coordinates().getInfo()}")
         print(f"Coordenadas da região de exportação: {self.export_region.coordinates().getInfo()}")
         # Verificar dimensões aproximadas da grade de pixels
@@ -63,9 +74,7 @@ class WildfireAnalyzer:
         pre_fire, date = get_best_image(sentinel, *self.pre_fire_dates, self.polygon)  # Passe polygon
         post_fire, date = get_best_image(sentinel, *self.post_fire_dates, self.polygon)  # Passe polygon
         
-        # Clip explícito para garantir recorte
-        pre_fire = pre_fire.clip(self.polygon)
-        post_fire = post_fire.clip(self.polygon)
+
         
         # Verifique cobertura
         print(f"Cobertura pre_fire: {pre_fire.geometry().bounds().getInfo()}")
@@ -171,84 +180,184 @@ class WildfireAnalyzer:
 
         return df, total_area.getInfo()
 
-    def export_results(self, images):
+    def export_results(self, images, export_full_image=False):
         """Exporta resultados da análise para arquivos locais.
 
         Args:
             images: dict, Dicionário com imagens a exportar (de calculate_severity).
+            export_full_image: bool, Se True exporta a imagem Sentinel-2 sem corte por polígono.
 
         Returns:
             list, Lista de caminhos dos arquivos salvos.
         """
-        # Usar o nome do arquivo GeoJSON ou ID como prefixo e subpasta
         prefix = str(self.filename).replace('.geojson', '') if isinstance(self.filename, str) else f"{self.filename}"
-        # Paleta de cores para RBR (valores de -1 a 1, azul para baixo, vermelho para alto)
         rbr_palette = ['green', 'yellow', 'orange', 'red', 'maroon']
-        rbr_rgb = images['rbr_classified'].clip(self.polygon).visualize(
+        rbr_rgb = images['rbr_classified'].visualize(
             min=0,
             max=len(rbr_palette) - 1,
             palette=rbr_palette
         )
-        # Verificar bandas disponíveis
         print(f"Bandas disponíveis para pre_fire: {images['pre_fire'].bandNames().getInfo()}")
         print(f"Bandas disponíveis para post_fire: {images['post_fire'].bandNames().getInfo()}")
-        # Combinar bandas RGB explicitamente
         rgb_pre = ee.Image.cat([
             images['pre_fire'].select('B4').divide(10000).multiply(255).uint8(),
             images['pre_fire'].select('B3').divide(10000).multiply(255).uint8(),
             images['pre_fire'].select('B2').divide(10000).multiply(255).uint8()
-        ]).rename(['R', 'G', 'B']).clip(self.polygon)  # Clip
+        ]).rename(['R', 'G', 'B'])
         rgb_post = ee.Image.cat([
             images['post_fire'].select('B4').divide(10000).multiply(255).uint8(),
             images['post_fire'].select('B3').divide(10000).multiply(255).uint8(),
             images['post_fire'].select('B2').divide(10000).multiply(255).uint8()
-        ]).rename(['R', 'G', 'B']).clip(self.polygon)  # Clip
+        ]).rename(['R', 'G', 'B'])
         print(f"Bandas selecionadas para RGB_PreFire: {rgb_pre.bandNames().getInfo()}")
         print(f"Bandas selecionadas para RGB_PostFire: {rgb_post.bandNames().getInfo()}")
-        
-        # Clip nas outras imagens antes de exportar
+
         for key in ['pre_ndvi', 'post_ndvi', 'pre_nbr', 'post_nbr', 'delta_ndvi', 'delta_nbr', 'severity']:
-            images[key] = images[key].clip(self.polygon)
-        
+            images[key] = images[key]
+
+        # Usa buffer do polígono para exportar área de interesse sem exceder limites
+        buffer_m = 5000
+        region_buffer = self.polygon.buffer(buffer_m).bounds(1)
+        # Overlay do polígono em roxo
+        poly_overlay = ee.Image().paint(self.polygon, 1, 1).visualize(palette=['purple'], opacity=0.7)
+
+        # 1. RBR puro (TIFF georreferenciado, 1 banda) + overlay
+        rbr_pure_vis = images['rbr'].visualize(min=0, max=1).blend(poly_overlay)
         output_paths = [
             export_local(
-                ee.FeatureCollection([ee.Feature(self.polygon)]),
-                f'{prefix}_poligono_geojson',
-                self.export_region,
-                'geojson',
-                output_dir=f'exports/{prefix}'
-            ),
-            export_local(
-                rbr_rgb,
-                f'{prefix}_RBR',
-                self.polygon,
+                rbr_pure_vis,
+                f'{prefix}_RBR_Pure',
+                region_buffer,
                 'tif',
                 output_dir=f'exports/{prefix}'
             ),
+        ]
+        # 2. RBR colorido com polígono (TIFF georreferenciado) + overlay
+        rbr_color_vis = rbr_rgb.blend(poly_overlay)
+        output_paths.append(
             export_local(
-                images['severity'],
-                f'{prefix}_Severity',
-                self.polygon,
-                'tif',
-                output_dir=f'exports/{prefix}'
-            ),
-            export_local(
-                rbr_rgb,
-                f'{prefix}_RBR_Severity',
-                self.polygon,
-                'png',
-                output_dir=f'exports/{prefix}'
-            ),
-            
-            # Opcional: Se quiser também exportar o RBR classificado numérico (sem cor, para análise)
-            export_local(
-                images['rbr_classified'],
-                f'{prefix}_RBR_Classified',
-                self.polygon,
+                rbr_color_vis,
+                f'{prefix}_RBR_Color',
+                region_buffer,
                 'tif',
                 output_dir=f'exports/{prefix}'
             )
-        ]
+        )
+        # 3. RBR colorido com polígono (JPEG não georreferenciado) + overlay
+        output_paths.append(
+            export_local(
+                rbr_color_vis,
+                f'{prefix}_RBR_Color',
+                region_buffer,
+                'jpg',
+                output_dir=f'exports/{prefix}'
+            )
+        )
+        # 4. Severity RBR colorido com polígono (TIFF georreferenciado) + overlay
+        severity_rgb = images['rbr_classified'].visualize(
+            min=0,
+            max=len(rbr_palette) - 1,
+            palette=rbr_palette
+        ).blend(poly_overlay)
+        output_paths.append(
+            export_local(
+                severity_rgb,
+                f'{prefix}_Severity_RBR_Color',
+                region_buffer,
+                'tif',
+                output_dir=f'exports/{prefix}'
+            )
+        )
+        # 5. Severity RBR colorido com polígono (JPEG não georreferenciado) + overlay
+        output_paths.append(
+            export_local(
+                severity_rgb,
+                f'{prefix}_Severity_RBR_Color',
+                region_buffer,
+                'jpg',
+                output_dir=f'exports/{prefix}'
+            )
+        )
+        # 6. RGB pré fogo com polígono (TIFF georreferenciado) + overlay
+        rgb_pre_vis = rgb_pre.visualize(min=0, max=255).blend(poly_overlay)
+        output_paths.append(
+            export_local(
+                rgb_pre_vis,
+                f'{prefix}_RGB_PreFire',
+                region_buffer,
+                'tif',
+                output_dir=f'exports/{prefix}'
+            )
+        )
+        # 7. RGB pré fogo com polígono (JPEG não georreferenciado) + overlay
+        output_paths.append(
+            export_local(
+                rgb_pre_vis,
+                f'{prefix}_RGB_PreFire',
+                region_buffer,
+                'jpg',
+                output_dir=f'exports/{prefix}'
+            )
+        )
+        # 8. RGB pós fogo com polígono (TIFF georreferenciado) + overlay
+        rgb_post_vis = rgb_post.visualize(min=0, max=255).blend(poly_overlay)
+        output_paths.append(
+            export_local(
+                rgb_post_vis,
+                f'{prefix}_RGB_PostFire',
+                region_buffer,
+                'tif',
+                output_dir=f'exports/{prefix}'
+            )
+        )
+        # 9. RGB pós fogo com polígono (JPEG não georreferenciado) + overlay
+        output_paths.append(
+            export_local(
+                rgb_post_vis,
+                f'{prefix}_RGB_PostFire',
+                region_buffer,
+                'jpg',
+                output_dir=f'exports/{prefix}'
+            )
+        )
+
+        if export_full_image:
+            # Visualização RGB do tile completo
+            rgb_pre_full = ee.Image.cat([
+                images['pre_fire'].select('B4').divide(10000).multiply(255).uint8(),
+                images['pre_fire'].select('B3').divide(10000).multiply(255).uint8(),
+                images['pre_fire'].select('B2').divide(10000).multiply(255).uint8()
+            ]).rename(['R', 'G', 'B'])
+            rgb_post_full = ee.Image.cat([
+                images['post_fire'].select('B4').divide(10000).multiply(255).uint8(),
+                images['post_fire'].select('B3').divide(10000).multiply(255).uint8(),
+                images['post_fire'].select('B2').divide(10000).multiply(255).uint8()
+            ]).rename(['R', 'G', 'B'])
+
+            # Desenhar polígono sobre o tile
+            poly_mask = ee.Image().paint(self.polygon, 1, 3)  # 3px de largura
+            poly_mask_vis = poly_mask.visualize(palette=['blue'], min=1, max=1)
+            rgb_pre_full_vis = rgb_pre_full.visualize(min=0, max=255).blend(poly_mask_vis)
+            rgb_post_full_vis = rgb_post_full.visualize(min=0, max=255).blend(poly_mask_vis)
+
+            output_paths.append(
+                export_local(
+                    rgb_pre_full_vis,
+                    f'{prefix}_PreFire_Full',
+                    region_buffer,
+                    'tif',
+                    output_dir=f'exports/{prefix}'
+                )
+            )
+            output_paths.append(
+                export_local(
+                    rgb_post_full_vis,
+                    f'{prefix}_PostFire_Full',
+                    region_buffer,
+                    'tif',
+                    output_dir=f'exports/{prefix}'
+                )
+            )
 
         session = get_boto3_session()
         s3 = session.client('s3')
@@ -267,7 +376,7 @@ class WildfireAnalyzer:
                 print(f"Erro ao enviar {local_path} para S3: {str(e)}")
     
         for path in output_paths:
-            if path.endswith(('.tif', '.geojson', 'png', 'csv')):  # Filtra apenas arquivos de imagem ou geojson
+            if path.endswith(('.tif', '.geojson', '.png', '.jpg', '.jpeg', '.csv')):  # Inclui .jpg/.jpeg/.png
                 s3_key = f"{s3_prefix}{path.split('/')[-1]}"
                 upload_to_s3(path, s3_key)
                 presigned_url = generate_presigned_url(bucket_name, s3_key, expiration=3600)

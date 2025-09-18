@@ -24,8 +24,6 @@ def get_best_image(collection, start_date, end_date, polygon=None):  # Adicione 
                          .filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 10)  # Filtre nuvens <10%
     # Seleciona a melhor imagem (menor porcentagem de nuvem)
     best = filtered.sort('CLOUDY_PIXEL_PERCENTAGE').first()
-    if polygon and best:
-        best = best.clip(polygon)
     # Pega a data da imagem
     date = None
     if best:

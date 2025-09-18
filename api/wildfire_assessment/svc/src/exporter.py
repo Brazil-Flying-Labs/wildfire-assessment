@@ -14,7 +14,7 @@ from wildfire_assessment.svc.config.settings import (
 )
 
 
-def export_local(data, description, region, extension, output_dir='exports'):
+def export_local(data, description, region, extension, output_dir='exports', min_scale=30):
     """Exporta dados do Google Earth Engine para arquivos locais (GeoTIFF ou GeoJSON).
 
     Args:
@@ -30,46 +30,89 @@ def export_local(data, description, region, extension, output_dir='exports'):
         # Criar diretório de saída, se não existir
         os.makedirs(output_dir, exist_ok=True)
 
+        # Suporte para overlay do polígono
+        overlay_polygon = None
+        if hasattr(data, 'overlay_polygon'):
+            overlay_polygon = data.overlay_polygon
+
         if isinstance(data, ee.Image):
-            # Obter informações de download
-            download_info = data.getDownloadURL({
-                'name': description,
-                'scale': EXPORT_SCALE,
-                'crs': EXPORT_CRS,
-                'region': region,
-                'maxPixels': EXPORT_MAX_PIXELS,
-                'format': 'GEO_TIFF'
-            })
+            scale = EXPORT_SCALE
+            if region is None:
+                try:
+                    poly_geom = data.geometry().bounds(1)
+                    region = poly_geom
+                    bounds = poly_geom.getInfo()['coordinates'][0]
+                    lon_min, lat_min = bounds[0]
+                    lon_max, lat_max = bounds[2]
+                    width_m = abs(lon_max - lon_min) * 111320
+                    height_m = abs(lat_max - lat_min) * 111320
+                    max_dim = max(width_m, height_m)
+                    scale = max_dim / 32768
+                    scale = max(scale, min_scale)
+                    if scale < min_scale or max_dim / scale > 32768:
+                        scale = max(min_scale, 1000)
+                except Exception:
+                    scale = max(min_scale, 1000)
+            # Overlay do polígono (borda vermelha)
+            if overlay_polygon is not None:
+                data = data.visualize(**{
+                    'bands': ['R', 'G', 'B'] if 'R' in data.bandNames().getInfo() else data.bandNames().getInfo(),
+                    'min': 0,
+                    'max': 255,
+                }).blend(
+                    ee.Image().paint(overlay_polygon, 1, 3).visualize(**{
+                        'palette': ['red'],
+                        'opacity': 0.7
+                    })
+                )
+            # Exportação JPEG não georreferenciado
+            if extension in ['jpeg', 'jpg']:
+                download_params = {
+                    'name': description,
+                    'scale': scale,
+                    'crs': EXPORT_CRS,
+                    'maxPixels': EXPORT_MAX_PIXELS,
+                    'format': 'jpg'
+                }
+            else:
+                download_params = {
+                    'name': description,
+                    'scale': scale,
+                    'crs': EXPORT_CRS,
+                    'maxPixels': EXPORT_MAX_PIXELS,
+                    'format': 'GEO_TIFF'
+                }
+            if region is not None:
+                download_params['region'] = region
+            download_info = data.getDownloadURL(download_params)
             print(f"Download URL para {description}: {download_info}")
-            # Baixar dados
             response = requests.get(download_info)
             if response.status_code != 200:
                 raise Exception(f"Erro ao baixar {description}: {response.text}")
             print(f"Tipo de conteúdo para {description}: {response.headers.get('content-type')}")
-            
-            # Verificar se o conteúdo é um GeoTIFF direto
             output_path = os.path.join(output_dir, f"{description}.{extension}")
-            if 'image/tiff' in response.headers.get('content-type', ''):
-                # Abrir o GeoTIFF diretamente do conteúdo da resposta
+            if extension in ['jpeg', 'jpg']:
+                # Salva JPEG diretamente
+                with open(output_path, 'wb') as f:
+                    f.write(response.content)
+            elif 'image/tiff' in response.headers.get('content-type', ''):
                 with MemoryFile(response.content) as memfile:
                     with memfile.open() as src:
                         profile = src.profile
                         array = src.read()
                         print(f"Forma do array para {description}: {array.shape}")
                         print(f"Perfil do GeoTIFF para {description}: {profile}")
-                    # Atualizar perfil para imagens RGB
                     if description.endswith(('RGB_PreFire', 'RGB_PostFire', 'RBR')):
                         if array.shape[0] != 3:
                             raise ValueError(f"Esperado 3 bandas para {description}, mas encontrado {array.shape[0]}")
                         profile.update(
-                            count=3,  # Três bandas para RGB
-                            dtype=rasterio.uint8,  # Garantir tipo uint8
-                            photometric='rgb'  # Especificar interpretação RGB
+                            count=3,
+                            dtype=rasterio.uint8,
+                            photometric='rgb'
                         )
                     with rasterio.open(output_path, 'w', **profile) as dst:
                         dst.write(array)
             else:
-                # Tratar como ZIP (caso o comportamento do GEE mude no futuro)
                 import tempfile
                 import zipfile
                 with zipfile.ZipFile(io.BytesIO(response.content)) as z:
@@ -82,21 +125,19 @@ def export_local(data, description, region, extension, output_dir='exports'):
                             array = src.read()
                             print(f"Forma do array para {description}: {array.shape}")
                             print(f"Perfil do GeoTIFF para {description}: {profile}")
-                        # Atualizar perfil para imagens RGB
                         if description.endswith(('RGB_PreFire', 'RGB_PostFire', 'RBR')):
                             if array.shape[0] != 3:
                                 raise ValueError(f"Esperado 3 bandas para {description}, mas encontrado {array.shape[0]}")
                             profile.update(
-                                count=3,  # Três bandas para RGB
-                                dtype=rasterio.uint8,  # Garantir tipo uint8
-                                photometric='rgb'  # Especificar interpretação RGB
+                                count=3,
+                                dtype=rasterio.uint8,
+                                photometric='rgb'
                             )
                         with rasterio.open(output_path, 'w', **profile) as dst:
                             dst.write(array)
             print(f"Exportação local {description}.{extension} concluída em {output_path}")
 
         elif isinstance(data, ee.FeatureCollection):
-            # Obter dados como GeoJSON
             geojson = data.getInfo()
             gdf = gpd.GeoDataFrame.from_features(geojson['features'], crs='EPSG:4326')
             output_path = os.path.join(output_dir, f"{description}.geojson")
