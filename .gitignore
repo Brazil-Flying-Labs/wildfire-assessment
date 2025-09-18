@@ -51,3 +51,6 @@ venv/
 db/
 exports/
 api/static
+
+# React
+node_modules/

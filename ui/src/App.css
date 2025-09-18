@@ -1,0 +1,25 @@
+.app-wrapper {
+  background-color: #f8f9fa;
+}
+
+.sidebar {
+  max-width: 320px;
+  width: 100%;
+}
+
+.border-dashed {
+  border-style: dashed !important;
+}
+
+.analysis-images img {
+  height: 220px;
+  object-fit: cover;
+}
+
+.analysis-downloads a {
+  text-transform: none;
+}
+
+.analysis-raw summary {
+  cursor: pointer;
+}

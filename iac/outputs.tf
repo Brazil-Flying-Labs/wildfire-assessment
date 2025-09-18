@@ -82,3 +82,23 @@ output "alb_target_group_arn" {
   description = "ARN of the ALB target group for ECS"
   value       = aws_lb_target_group.api.arn
 }
+
+output "data_bucket_name" {
+  description = "Name of the wildfire assessment data bucket"
+  value       = aws_s3_bucket.wildfire_assessment.id
+}
+
+output "ui_bucket_name" {
+  description = "Name of the UI website bucket"
+  value       = aws_s3_bucket.ui_website.id
+}
+
+output "ui_bucket_domain" {
+  description = "Regional domain name of the UI bucket"
+  value       = aws_s3_bucket.ui_website.bucket_regional_domain_name
+}
+
+output "ui_cloudfront_domain" {
+  description = "CloudFront domain for accessing the UI"
+  value       = aws_cloudfront_distribution.ui_website.domain_name
+}

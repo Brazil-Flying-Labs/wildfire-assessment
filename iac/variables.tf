@@ -22,6 +22,12 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "s3_cors_allowed_origins" {
+  description = "List of origins allowed to access public assets in the S3 bucket"
+  type        = list(string)
+  default     = ["http://localhost:3000"]
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
@@ -38,4 +44,3 @@ variable "az_count" {
     error_message = "The az_count value must be between 2 and 6."
   }
 }
-

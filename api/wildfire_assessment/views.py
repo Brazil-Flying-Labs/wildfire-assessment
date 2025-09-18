@@ -38,6 +38,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         """
         List all EcologicalReserves.
         """
+        self.pagination_class = None
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
@@ -65,7 +66,6 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
                 type=OpenApiTypes.DATE,
                 required=True,
             ),
-            
         ],
     )
     @action(detail=True, methods=["post"], url_path="analyze")
@@ -126,8 +126,12 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
             polygon, pre_fire_range, post_fire_range, instance.id
         )
         # Obtenha as datas das melhores imagens
-        _, pre_fire_date = get_best_image(get_sentinel_collection(polygon), *pre_fire_range, polygon)
-        _, post_fire_date = get_best_image(get_sentinel_collection(polygon), *post_fire_range, polygon)
+        _, pre_fire_date = get_best_image(
+            get_sentinel_collection(polygon), *pre_fire_range, polygon
+        )
+        _, post_fire_date = get_best_image(
+            get_sentinel_collection(polygon), *post_fire_range, polygon
+        )
 
         images = analyzer.calculate_severity()
         _, total_area = analyzer.calculate_area_stats(images["severity"])
@@ -161,9 +165,10 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
             elif s3_key.endswith(f"{prefix}_severity_stats.csv"):
                 presigned_data["severity_stats"] = item["url"]
 
-        return Response({
-            **presigned_data,
-            "pre_fire_best_date": pre_fire_date,
-            "post_fire_best_date": post_fire_date,
-        })
-        
+        return Response(
+            {
+                **presigned_data,
+                "pre_fire_best_date": pre_fire_date,
+                "post_fire_best_date": post_fire_date,
+            }
+        )
