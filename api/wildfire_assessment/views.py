@@ -31,6 +31,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         """
         Retrieve a specific EcologicalReserve by its ID.
+
         """
         return super().retrieve(request, *args, **kwargs)
 
