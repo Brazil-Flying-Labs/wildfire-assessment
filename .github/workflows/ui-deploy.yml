@@ -3,15 +3,18 @@ name: Deploy UI
 on:
   push:
     branches:
-      - main
       - dev
+    paths:
+      - "ui/**"
+      - ".github/workflows/ui-deploy.yml"
+
   workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      NODE_VERSION: '20'
+      NODE_VERSION: "20"
       UI_DIRECTORY: ui
       S3_UI_BUCKET: wildfire-assessment-dev-ui
       CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
@@ -24,7 +27,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: ${{ env.UI_DIRECTORY }}/package-lock.json
 
       - name: Install dependencies

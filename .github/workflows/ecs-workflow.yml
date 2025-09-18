@@ -2,7 +2,11 @@ name: Deploy API to ECS (per-branch)
 
 on:
   push:
-    branches: ["dev"]
+    branches:
+      - dev
+    paths:
+      - "api/**"
+      - ".github/workflows/ecs-workflow.yml"
 
 env:
   AWS_ACCOUNT_ID: "055213706289"
