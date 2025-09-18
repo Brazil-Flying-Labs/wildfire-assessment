@@ -376,7 +376,13 @@ class WildfireAnalyzer:
                 print(f"Erro ao enviar {local_path} para S3: {str(e)}")
     
         for path in output_paths:
+            if not path or not isinstance(path, str):
+                print(f"Arquivo não gerado ou caminho inválido: {path}. Ignorando upload para S3.")
+                continue
             if path.endswith(('.tif', '.geojson', '.png', '.jpg', '.jpeg', '.csv')):  # Inclui .jpg/.jpeg/.png
+                if not os.path.exists(path):
+                    print(f"Arquivo {path} não existe. Ignorando upload para S3.")
+                    continue
                 s3_key = f"{s3_prefix}{path.split('/')[-1]}"
                 upload_to_s3(path, s3_key)
                 presigned_url = generate_presigned_url(bucket_name, s3_key, expiration=3600)

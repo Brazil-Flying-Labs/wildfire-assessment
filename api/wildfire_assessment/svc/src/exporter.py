@@ -31,6 +31,8 @@ def export_local(
         str, Caminho do arquivo salvo.
     """
     try:
+        print(f"[EXPORT_LOCAL] Iniciando exportação: {description}.{extension}")
+        print(f"[EXPORT_LOCAL] Parâmetros: output_dir={output_dir}, min_scale={min_scale}, region={region}")
         # Criar diretório de saída, se não existir
         os.makedirs(output_dir, exist_ok=True)
 
@@ -55,8 +57,10 @@ def export_local(
                     scale = max(scale, min_scale)
                     if scale < min_scale or max_dim / scale > 32768:
                         scale = max(min_scale, 1000)
-                except Exception:
+                except Exception as e:
+                    print(f"[EXPORT_LOCAL] Erro ao calcular escala dinâmica: {e}")
                     scale = max(min_scale, 1000)
+            print(f"[EXPORT_LOCAL] Usando escala: {scale}")
             # Overlay do polígono (borda vermelha)
             if overlay_polygon is not None:
                 data = data.visualize(
@@ -94,12 +98,12 @@ def export_local(
             if region is not None:
                 download_params["region"] = region
             try:
-                print("#########################################################")
+                print(f"[EXPORT_LOCAL] Solicitando URL de download para {description} com parâmetros: {download_params}")
                 download_info = data.getDownloadURL(download_params)
-                print(f"Download URL para {description}: {download_info}")
+                print(f"[EXPORT_LOCAL] Download URL para {description}: {download_info}")
 
             except Exception as e:
-                print(f"Erro ao obter URL de download para {description}: {e}")
+                print(f"[EXPORT_LOCAL] Erro ao obter URL de download para {description}: {e}")
                 return None
             finally:
                 print("#########################################################")
@@ -180,21 +184,24 @@ def export_local(
                         break
                 return False, None, None, None
 
+            print(f"[EXPORT_LOCAL] Iniciando download e validação para {description}.{extension}")
             ok, output_path, profile, array = download_and_validate(
                 download_info, description, extension, output_dir
             )
+            print(f"[EXPORT_LOCAL] Resultado do download: ok={ok}, output_path={output_path}")
             # Se o arquivo baixado estiver vazio, tenta novamente com escala maior
             if not ok and extension in ["tif", "tiff", "geotiff"]:
-                print(
-                    f"Arquivo vazio para {description}, tentando novamente com escala maior..."
-                )
+                print(f"[EXPORT_LOCAL] Arquivo vazio para {description}, tentando novamente com escala maior...")
                 download_params["scale"] = max(
                     download_params.get("scale", min_scale) * 2, min_scale * 2
                 )
+                print(f"[EXPORT_LOCAL] Nova escala para retry: {download_params['scale']}")
                 download_info = data.getDownloadURL(download_params)
+                print(f"[EXPORT_LOCAL] Nova URL de download para retry: {download_info}")
                 ok, output_path, profile, array = download_and_validate(
                     download_info, description, extension, output_dir
                 )
+                print(f"[EXPORT_LOCAL] Resultado do retry: ok={ok}, output_path={output_path}")
                 if not ok:
                     raise RuntimeError(
                         f"Arquivo baixado está vazio para {description} mesmo após aumentar a escala. Verifique limites de pixels, autenticação ou parâmetros da requisição."
@@ -249,9 +256,7 @@ def export_local(
                     ) as dst:
                         dst.write(array)
             # Removido o else inválido
-            print(
-                f"Exportação local {description}.{extension} concluída em {output_path}"
-            )
+            print(f"[EXPORT_LOCAL] Exportação local {description}.{extension} concluída em {output_path}")
 
         elif isinstance(data, ee.FeatureCollection):
             geojson = data.getInfo()
