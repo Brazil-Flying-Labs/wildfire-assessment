@@ -7,14 +7,14 @@ on:
       - dev
   workflow_dispatch:
 
-env:
-  NODE_VERSION: '20'
-  UI_DIRECTORY: ui
-  S3_UI_BUCKET: wildfire-assessment-dev-ui
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      NODE_VERSION: '20'
+      UI_DIRECTORY: ui
+      S3_UI_BUCKET: wildfire-assessment-dev-ui
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
 
     steps:
       - name: Checkout repository
@@ -47,3 +47,9 @@ jobs:
       - name: Sync build artifacts to S3
         run: aws s3 sync ${{ env.UI_DIRECTORY }}/build s3://${{ env.S3_UI_BUCKET }} --delete
 
+      - name: Invalidate CloudFront cache
+        if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths '/*'

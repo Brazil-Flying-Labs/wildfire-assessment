@@ -102,3 +102,8 @@ output "ui_cloudfront_domain" {
   description = "CloudFront domain for accessing the UI"
   value       = aws_cloudfront_distribution.ui_website.domain_name
 }
+
+output "ui_cloudfront_distribution_id" {
+  description = "ID of the CloudFront distribution serving the UI"
+  value       = aws_cloudfront_distribution.ui_website.id
+}
