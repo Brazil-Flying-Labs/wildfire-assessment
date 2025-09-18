@@ -91,8 +91,16 @@ def export_local(
                 }
             if region is not None:
                 download_params["region"] = region
-            download_info = data.getDownloadURL(download_params)
-            print(f"Download URL para {description}: {download_info}")
+            try:
+                print("#########################################################")
+                download_info = data.getDownloadURL(download_params)
+                print(f"Download URL para {description}: {download_info}")
+
+            except Exception as e:
+                print(f"Erro ao obter URL de download para {description}: {e}")
+                return None
+            finally:
+                print("#########################################################")
 
             # Baixar arquivo em stream para evitar OOM
             def download_and_validate(
