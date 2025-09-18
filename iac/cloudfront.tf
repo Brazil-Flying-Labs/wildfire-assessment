@@ -11,6 +11,7 @@ resource "aws_cloudfront_distribution" "ui_website" {
   is_ipv6_enabled     = true
   comment             = "${var.project_name}-${var.environment} UI distribution"
   default_root_object = local.ui_default_root
+  aliases             = var.ui_domain_aliases
 
   origin {
     domain_name              = aws_s3_bucket.ui_website.bucket_regional_domain_name
@@ -40,7 +41,10 @@ resource "aws_cloudfront_distribution" "ui_website" {
   }
 
   viewer_certificate {
-    cloudfront_default_certificate = true
+    cloudfront_default_certificate = var.ui_certificate_arn == ""
+    acm_certificate_arn            = var.ui_certificate_arn == "" ? null : var.ui_certificate_arn
+    minimum_protocol_version       = var.ui_certificate_arn == "" ? null : "TLSv1.2_2021"
+    ssl_support_method             = var.ui_certificate_arn == "" ? null : "sni-only"
   }
 
   depends_on = [

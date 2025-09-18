@@ -6,6 +6,8 @@ aws_profile = "bfl"  # Your AWS profile name
 project_name = "wildfire-assessment"
 environment  = "dev"
 s3_cors_allowed_origins = ["http://localhost:3000"]
+ui_domain_aliases        = ["wildfire-dev.droneai.com.br"]
+ui_certificate_arn       = "arn:aws:acm:us-east-1:055213706289:certificate/7895e08e-00c7-474e-9e04-10b7784bf753"
 
 # VPC Configuration
 vpc_cidr = "10.0.0.0/16"

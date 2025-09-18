@@ -25,7 +25,19 @@ variable "environment" {
 variable "s3_cors_allowed_origins" {
   description = "List of origins allowed to access public assets in the S3 bucket"
   type        = list(string)
-  default     = ["http://localhost:3000", "https://d3o6p3bj2dy1t.cloudfront.net", "https://wildfire-dev.droneai.com.br"]
+  default     = ["http://localhost:3000"]
+}
+
+variable "ui_domain_aliases" {
+  description = "List of alternate domain names (CNAMEs) for the UI CloudFront distribution"
+  type        = list(string)
+  default     = []
+}
+
+variable "ui_certificate_arn" {
+  description = "ARN of the ACM certificate in us-east-1 for the UI CloudFront distribution"
+  type        = string
+  default     = ""
 }
 
 variable "vpc_cidr" {

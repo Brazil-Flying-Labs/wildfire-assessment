@@ -46,8 +46,8 @@ resource "aws_ecs_task_definition" "api" {
   family                   = "wildfire-assessment-api-${var.environment}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "512"  # 0.5 vCPU
-  memory                   = "1024" # 1 GB
+  cpu                      = "1024" # 1 vCPU
+  memory                   = "2048" # 2 GB (minimum for 1 vCPU on Fargate)
 
   execution_role_arn = aws_iam_role.task_execution.arn
   task_role_arn      = aws_iam_role.task_role.arn
