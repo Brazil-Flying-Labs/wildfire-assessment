@@ -118,10 +118,10 @@ def export_local(data, description, region, extension, output_dir='exports', min
                             dtype=rasterio.uint8,
                             photometric='rgb'
                         )
-                    # Garante que o parâmetro 'driver' está presente
-                    if 'driver' not in profile:
-                        profile['driver'] = 'GTiff'
-                    with rasterio.open(output_path, 'w', **profile) as dst:
+                    # Garante que o parâmetro 'driver' está presente e não duplicado
+                    driver = profile.get('driver', 'GTiff')
+                    profile_no_driver = {k: v for k, v in profile.items() if k != 'driver'}
+                    with rasterio.open(output_path, 'w', driver=driver, **profile_no_driver) as dst:
                         dst.write(array)
                 os.remove(tmp_file_path)
             # Removido o else inválido
