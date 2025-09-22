@@ -5,6 +5,7 @@ resource "aws_lb" "api" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.ecs_api.id]
   subnets            = [for subnet in aws_subnet.public : subnet.id]
+  idle_timeout       = 600
 
   tags = {
     Environment = var.environment

@@ -166,6 +166,106 @@ function App() {
     rows: [],
   });
 
+  const severityHeaderDefinitions = useMemo(
+    () =>
+      severityStats.headers.map((header) => ({
+        key: header,
+        label: header === "Area_ha" ? "ha" : header,
+      })),
+    [severityStats.headers]
+  );
+
+  const parseLocaleNumber = useCallback((rawValue) => {
+    if (rawValue === null || rawValue === undefined) return Number.NaN;
+    if (typeof rawValue === "number") return rawValue;
+    if (typeof rawValue !== "string") return Number.NaN;
+
+    const trimmed = rawValue.trim();
+    if (!trimmed) return Number.NaN;
+
+    const sanitized = trimmed
+      .replace(/%$/g, "")
+      .replace(/ha$/gi, "")
+      .trim();
+
+    if (!sanitized) return Number.NaN;
+
+    let normalized = sanitized;
+
+    if (sanitized.includes(",") && sanitized.includes(".")) {
+      normalized = sanitized.replace(/\./g, "").replace(",", ".");
+    } else if (sanitized.includes(",")) {
+      normalized = sanitized.replace(",", ".");
+    }
+
+    const numeric = Number(normalized);
+
+    if (Number.isNaN(numeric)) {
+      return Number.NaN;
+    }
+
+    return numeric;
+  }, []);
+
+  const formatAreaValue = useCallback(
+    (value) => {
+      if (value === null || value === undefined || value === "") return "";
+
+      const numericValue = parseLocaleNumber(value);
+
+      if (Number.isNaN(numericValue)) {
+        return typeof value === "string" ? value : `${value}`;
+      }
+
+      const formatted = numericValue.toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+      return `${formatted} ha`;
+    },
+    [parseLocaleNumber]
+  );
+
+  const formatPercentValue = useCallback(
+    (value) => {
+      if (value === null || value === undefined || value === "") return "";
+
+      const numericValue = parseLocaleNumber(value);
+
+      if (Number.isNaN(numericValue)) {
+        return typeof value === "string" ? value : `${value}`;
+      }
+
+      const formatted = numericValue.toLocaleString("pt-BR", {
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3,
+      });
+
+      return `${formatted}%`;
+    },
+    [parseLocaleNumber]
+  );
+
+  const formatSeverityCell = useCallback(
+    (headerKey, value) => {
+      if (headerKey === "Area_ha" || headerKey === "ha") {
+        return formatAreaValue(value);
+      }
+
+      if (headerKey === "Percent") {
+        return formatPercentValue(value);
+      }
+
+      if (value === null || value === undefined) {
+        return "";
+      }
+
+      return value;
+    },
+    [formatAreaValue, formatPercentValue]
+  );
+
   useEffect(() => {
     async function loadSeverityStats(url) {
       setSeverityStats({ loading: true, error: null, headers: [], rows: [] });
@@ -458,9 +558,9 @@ function App() {
                       <table className="table table-sm table-striped align-middle">
                         <thead className="table-light">
                           <tr>
-                            {severityStats.headers.map((header) => (
-                              <th key={header} scope="col">
-                                {header}
+                            {severityHeaderDefinitions.map(({ key, label }) => (
+                              <th key={key} scope="col">
+                                {label}
                               </th>
                             ))}
                           </tr>
@@ -468,8 +568,8 @@ function App() {
                         <tbody>
                           {severityStats.rows.map((row, rowIndex) => (
                             <tr key={`${rowIndex.toString()}-${rowIndex}`}>
-                              {severityStats.headers.map((header) => (
-                                <td key={header}>{row[header] ?? ""}</td>
+                              {severityHeaderDefinitions.map(({ key }) => (
+                                <td key={key}>{formatSeverityCell(key, row[key])}</td>
                               ))}
                             </tr>
                           ))}
