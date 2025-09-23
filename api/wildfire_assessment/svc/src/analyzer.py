@@ -233,6 +233,15 @@ class WildfireAnalyzer:
                     if not path:
                         logger.warning("Falha ao exportar %s.%s — caminho retornado vazio", name, ext)
                         return None
+                    # assegura que o arquivo exista fisicamente
+                    if not os.path.exists(path):
+                        logger.warning("export_local retornou caminho %s mas arquivo não existe no disco", path)
+                        return None
+                    size = os.path.getsize(path)
+                    if size == 0:
+                        logger.warning("Arquivo %s existe mas está vazio (0 bytes)", path)
+                        return None
+                    logger.debug("Arquivo %s existe e tem %s bytes", path, size)
                     return path
                 except Exception as e:
                     logger.exception("Exceção ao exportar %s.%s: %s", name, ext, e)

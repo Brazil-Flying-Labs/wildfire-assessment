@@ -172,6 +172,7 @@ def export_local(
                                 raise Exception(f"Erro ao baixar {description}: {response.status_code} {response.text}")
                             logger.debug("Tipo de conteúdo para %s: %s", description, response.headers.get('content-type'))
                             output_path = os.path.join(output_dir, f"{description}.{extension}")
+                            output_path = os.path.abspath(output_path)
                             if extension in ["jpeg", "jpg"]:
                                 with open(output_path, "wb") as f:
                                     for chunk in response.iter_content(chunk_size=8192):
@@ -342,6 +343,15 @@ def export_local(
                     ) as dst:
                         dst.write(array)
             # Removido o else inválido
+            # Validação final: garantir que o arquivo existe e tem tamanho maior que zero
+            try:
+                if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                    logger.error("Arquivo esperado %s não encontrado ou vazio após exportação", output_path)
+                    raise RuntimeError(f"Arquivo esperado {output_path} não encontrado ou vazio após exportação")
+            except Exception:
+                logger.exception("Erro ao validar arquivo exportado %s", output_path)
+                raise
+
             logger.info("Exportação local %s.%s concluída em %s", description, extension, output_path)
 
         elif isinstance(data, ee.FeatureCollection):
