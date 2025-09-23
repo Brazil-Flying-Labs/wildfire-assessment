@@ -1,7 +1,10 @@
 import json
+import logging
 
 import ee
 from wildfire_assessment.svc.config.settings import CREDENTIALS_PATH
+
+logger = logging.getLogger(__name__)
 
 
 def initialize_gee():
@@ -24,10 +27,10 @@ def initialize_gee():
             email="", key_data=json.dumps(service_account_dict)
         )
         ee.Initialize(credentials, project="well-stem")
-        print("Google Earth Engine inicializado com sucesso.")
+        logger.info("Google Earth Engine inicializado com sucesso.")
     except ee.EEException as e:
-        print(f"Erro ao inicializar o Google Earth Engine: {e}")
+        logger.exception("Erro ao inicializar o Google Earth Engine: %s", e)
         raise
     except Exception as e:
-        print(f"Erro inesperado durante a inicialização: {e}")
+        logger.exception("Erro inesperado durante a inicialização: %s", e)
         raise

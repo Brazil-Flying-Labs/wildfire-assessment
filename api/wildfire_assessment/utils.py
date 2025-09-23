@@ -18,8 +18,18 @@ def load_polygon(file_name):
 
     with open(file_path, "r", encoding="utf-8") as f:
         geojson = json.load(f)
-    # Carregar a primeira feature do GeoJSON
-    geometry = ee.Geometry(geojson["features"][0]["geometry"])
+
+    # Se o GeoJSON tiver múltiplas features, use FeatureCollection e pegue a geometria agregada
+    try:
+        features = geojson.get("features")
+        if features and len(features) > 1:
+            fc = ee.FeatureCollection(features)
+            geometry = fc.geometry()
+        else:
+            geometry = ee.Geometry(features[0]["geometry"]) if features else ee.Geometry(geojson)
+    except Exception:
+        # Fallback genérico
+        geometry = ee.Geometry(geojson)
 
     return geometry
 

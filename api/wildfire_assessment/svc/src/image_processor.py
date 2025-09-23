@@ -1,6 +1,9 @@
+import logging
 from datetime import datetime, timezone
 
 import ee
+
+logger = logging.getLogger(__name__)
 
 
 def get_sentinel_collection(polygon):
@@ -21,31 +24,37 @@ def get_sentinel_collection(polygon):
     return collection
 
 
-def get_best_image(
-    collection, start_date, end_date, polygon=None
-):  # Adicione polygon como param opcional
-    print("########################################################")
-    print("Start date:", start_date)
-    print("End date:", end_date)
+def get_best_image(collection, start_date, end_date, polygon=None):
+    logger.debug("%s", "########################################################")
+    logger.debug("Start date: %s", start_date)
+    logger.debug("End date: %s", end_date)
     filtered = collection.filterDate(start_date, end_date).filterMetadata(
-        "CLOUDY_PIXEL_PERCENTAGE", "less_than", 10
-    )  # Filtre nuvens <10%
-
-    print(
-        f"Número de imagens após filtragem por data e nuvens: {filtered.size().getInfo()}"
+        "CLOUDY_PIXEL_PERCENTAGE", "less_than", 20
     )
-    print("########################################################")
 
-    # Seleciona a melhor imagem (menor porcentagem de nuvem)
-    best = filtered.sort("CLOUDY_PIXEL_PERCENTAGE").first()
-    # Pega a data da imagem
-    date = None
-    if best:
-        timestamp = best.get("system:time_start").getInfo()
+    logger.debug(
+        "Número de imagens após filtragem por data e nuvens: %s", filtered.size().getInfo()
+    )
+    logger.debug("%s", "########################################################")
 
-        date = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc).strftime(
-            "%Y-%m-%d"
-        )
+    # Mosaic the filtered collection to cover the entire area, sorting by lowest cloud cover first
+    if filtered.size().getInfo() > 0:
+        best = filtered.sort("CLOUDY_PIXEL_PERCENTAGE").mosaic()
+    else:
+        raise ValueError("Nenhuma imagem válida encontrada para as datas e região fornecidas.")
+
+    # Get timestamp from the first image in the filtered collection
+    first_image = filtered.sort("CLOUDY_PIXEL_PERCENTAGE").first()
+    timestamp = None
+    if first_image:
+        timestamp = first_image.get("system:time_start").getInfo()
+        logger.debug("Timestamp bruto: %s", timestamp)
+
+    if timestamp is None:
+        raise ValueError("Não foi possível obter o timestamp da imagem. Verifique a coleção ou as datas.")
+
+    # Convert timestamp to date
+    date = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
     return best, date
 
 

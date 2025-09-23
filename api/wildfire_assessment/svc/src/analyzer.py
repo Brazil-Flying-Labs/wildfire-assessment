@@ -1,4 +1,5 @@
 """Lógica de análise de severidade de incêndios florestais usando Google Earth Engine."""
+import logging
 import os
 
 import ee
@@ -12,6 +13,8 @@ from wildfire_assessment.svc.src.image_processor import (
     get_best_image,
     get_sentinel_collection,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class WildfireAnalyzer:
@@ -52,8 +55,8 @@ class WildfireAnalyzer:
         self.center_point = polygon.centroid()
         # Usar o envelope do polígono com buffer de 1000 metros
         self.export_region = polygon.bounds()
-        print(f"Coordenadas do polígono original: {self.polygon.coordinates().getInfo()}")
-        print(f"Coordenadas da região de exportação: {self.export_region.coordinates().getInfo()}")
+        logger.debug("Coordenadas do polígono original: %s", self.polygon.coordinates().getInfo())
+        logger.debug("Coordenadas da região de exportação: %s", self.export_region.coordinates().getInfo())
         # Verificar dimensões aproximadas da grade de pixels
         bounds = self.export_region.bounds().coordinates().getInfo()[0]
         lon_min, lat_min = bounds[0]
@@ -62,7 +65,8 @@ class WildfireAnalyzer:
         width_m = (lon_max - lon_min) * 111320  # 1 grau ≈ 111.32 km na longitude
         height_m = (lat_max - lat_min) * 111320  # 1 grau ≈ 111.32 km na latitude
         scale = 10  # Escala ajustada para 10 metros (nativa Sentinel-2)
-        print(f"Dimensões aproximadas: {width_m/scale:.0f} x {height_m/scale:.0f} pixels (escala: {scale}m)")
+        logger.debug("Dimensões aproximadas: %s x %s pixels (escala: %sm)",
+                     f"{width_m/scale:.0f}", f"{height_m/scale:.0f}", scale)
 
     def calculate_severity(self):
         """Calcula a severidade do incêndio (ΔNBR) e retorna imagens.
@@ -77,8 +81,8 @@ class WildfireAnalyzer:
 
         
         # Verifique cobertura
-        print(f"Cobertura pre_fire: {pre_fire.geometry().bounds().getInfo()}")
-        print(f"Cobertura post_fire: {post_fire.geometry().bounds().getInfo()}")
+        logger.debug("Cobertura pre_fire: %s", pre_fire.geometry().bounds().getInfo())
+        logger.debug("Cobertura post_fire: %s", post_fire.geometry().bounds().getInfo())
         
         # Obtém NDVI, NBR, ΔNDVI, ΔNBR e RBR
         pre_ndvi, post_ndvi, pre_nbr, post_nbr, delta_ndvi, delta_nbr, rbr = calculate_differences(pre_fire, post_fire)
@@ -142,7 +146,7 @@ class WildfireAnalyzer:
         # Mapear valores de severidade para cores usando SEVERITY_THRESHOLDS
         severity_colors = {str(val): color for (_, _, val), color in zip(SEVERITY_THRESHOLDS, severity_palette)}
         names = {str(val): name for _, name, val in SEVERITY_THRESHOLDS}
-        print("Groups:", groups.getInfo())
+        logger.debug("Groups: %s", groups.getInfo())
 
         # Converter grupos para lista de dicionários Python
         table_py = []
@@ -172,11 +176,11 @@ class WildfireAnalyzer:
         s3_key = f'wildfire/{prefix}/{self.filename}_severity_stats.csv'
         try:
             s3.upload_file(csv_local_path, bucket_name, s3_key)
-            print(f"Arquivo CSV {csv_local_path} enviado para s3://{bucket_name}/{s3_key}")
+            logger.info("Arquivo CSV %s enviado para s3://%s/%s", csv_local_path, bucket_name, s3_key)
         except NoCredentialsError:
-            print("Credenciais da AWS não encontradas. Configure suas credenciais.")
+            logger.error("Credenciais da AWS não encontradas. Configure suas credenciais.")
         except Exception as e:
-            print(f"Erro ao enviar {csv_local_path} para S3: {str(e)}")
+            logger.exception("Erro ao enviar %s para S3: %s", csv_local_path, str(e))
 
         return df, total_area.getInfo()
 
@@ -192,13 +196,14 @@ class WildfireAnalyzer:
         """
         prefix = str(self.filename).replace('.geojson', '') if isinstance(self.filename, str) else f"{self.filename}"
         rbr_palette = ['green', 'yellow', 'orange', 'red', 'maroon']
+        rbr_severity_palette = ['black','yellow','red']
         rbr_rgb = images['rbr_classified'].visualize(
             min=0,
             max=len(rbr_palette) - 1,
             palette=rbr_palette
         )
-        print(f"Bandas disponíveis para pre_fire: {images['pre_fire'].bandNames().getInfo()}")
-        print(f"Bandas disponíveis para post_fire: {images['post_fire'].bandNames().getInfo()}")
+        logger.debug("Bandas disponíveis para pre_fire: %s", images['pre_fire'].bandNames().getInfo())
+        logger.debug("Bandas disponíveis para post_fire: %s", images['post_fire'].bandNames().getInfo())
         rgb_pre = ee.Image.cat([
             images['pre_fire'].select('B4').divide(10000).multiply(255).uint8(),
             images['pre_fire'].select('B3').divide(10000).multiply(255).uint8(),
@@ -209,8 +214,8 @@ class WildfireAnalyzer:
             images['post_fire'].select('B3').divide(10000).multiply(255).uint8(),
             images['post_fire'].select('B2').divide(10000).multiply(255).uint8()
         ]).rename(['R', 'G', 'B'])
-        print(f"Bandas selecionadas para RGB_PreFire: {rgb_pre.bandNames().getInfo()}")
-        print(f"Bandas selecionadas para RGB_PostFire: {rgb_post.bandNames().getInfo()}")
+        logger.debug("Bandas selecionadas para RGB_PreFire: %s", rgb_pre.bandNames().getInfo())
+        logger.debug("Bandas selecionadas para RGB_PostFire: %s", rgb_post.bandNames().getInfo())
 
         for key in ['pre_ndvi', 'post_ndvi', 'pre_nbr', 'post_nbr', 'delta_ndvi', 'delta_nbr', 'severity']:
             images[key] = images[key]
@@ -221,105 +226,64 @@ class WildfireAnalyzer:
         # Overlay do polígono em roxo
         poly_overlay = ee.Image().paint(self.polygon, 1, 1).visualize(palette=['purple'], opacity=0.7)
 
+        # Helper para exportar e logar falhas
+        def do_export(img, name, region, ext, out_dir):
+                try:
+                    path = export_local(img, name, region, ext, output_dir=out_dir)
+                    if not path:
+                        logger.warning("Falha ao exportar %s.%s — caminho retornado vazio", name, ext)
+                        return None
+                    return path
+                except Exception as e:
+                    logger.exception("Exceção ao exportar %s.%s: %s", name, ext, e)
+                    return None
+
         # 1. RBR puro (TIFF georreferenciado, 1 banda) + overlay
         rbr_pure_vis = images['rbr'].visualize(min=0, max=1).blend(poly_overlay)
-        output_paths = [
-            export_local(
-                rbr_pure_vis,
-                f'{prefix}_RBR_Pure',
-                region_buffer,
-                'tif',
-                output_dir=f'exports/{prefix}'
-            ),
-        ]
+        output_paths = []
+        p = do_export(rbr_pure_vis, f'{prefix}_RBR_Pure', region_buffer, 'tif', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
         # 2. RBR colorido com polígono (TIFF georreferenciado) + overlay
         rbr_color_vis = rbr_rgb.blend(poly_overlay)
-        output_paths.append(
-            export_local(
-                rbr_color_vis,
-                f'{prefix}_RBR_Color',
-                region_buffer,
-                'tif',
-                output_dir=f'exports/{prefix}'
-            )
-        )
+        p = do_export(rbr_color_vis, f'{prefix}_RBR_Color', region_buffer, 'tif', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
         # 3. RBR colorido com polígono (JPEG não georreferenciado) + overlay
-        output_paths.append(
-            export_local(
-                rbr_color_vis,
-                f'{prefix}_RBR_Color',
-                region_buffer,
-                'jpg',
-                output_dir=f'exports/{prefix}'
-            )
-        )
+        p = do_export(rbr_color_vis, f'{prefix}_RBR_Color', region_buffer, 'jpg', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
         # 4. Severity RBR colorido com polígono (TIFF georreferenciado) + overlay
         severity_rgb = images['rbr_classified'].visualize(
             min=0,
-            max=len(rbr_palette) - 1,
-            palette=rbr_palette
+            max=len(rbr_severity_palette) - 1,
+            palette=rbr_severity_palette
         ).blend(poly_overlay)
-        output_paths.append(
-            export_local(
-                severity_rgb,
-                f'{prefix}_Severity_RBR_Color',
-                region_buffer,
-                'tif',
-                output_dir=f'exports/{prefix}'
-            )
-        )
+        p = do_export(severity_rgb, f'{prefix}_Severity_RBR_Color', region_buffer, 'tif', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
         # 5. Severity RBR colorido com polígono (JPEG não georreferenciado) + overlay
-        output_paths.append(
-            export_local(
-                severity_rgb,
-                f'{prefix}_Severity_RBR_Color',
-                region_buffer,
-                'jpg',
-                output_dir=f'exports/{prefix}'
-            )
-        )
+        p = do_export(severity_rgb, f'{prefix}_Severity_RBR_Color', region_buffer, 'jpg', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
         # 6. RGB pré fogo com polígono (TIFF georreferenciado) + overlay
         rgb_pre_vis = rgb_pre.visualize(min=0, max=255).blend(poly_overlay)
-        output_paths.append(
-            export_local(
-                rgb_pre_vis,
-                f'{prefix}_RGB_PreFire',
-                region_buffer,
-                'tif',
-                output_dir=f'exports/{prefix}'
-            )
-        )
+        p = do_export(rgb_pre_vis, f'{prefix}_RGB_PreFire', region_buffer, 'tif', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
         # 7. RGB pré fogo com polígono (JPEG não georreferenciado) + overlay
-        output_paths.append(
-            export_local(
-                rgb_pre_vis,
-                f'{prefix}_RGB_PreFire',
-                region_buffer,
-                'jpg',
-                output_dir=f'exports/{prefix}'
-            )
-        )
+        p = do_export(rgb_pre_vis, f'{prefix}_RGB_PreFire', region_buffer, 'jpg', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
         # 8. RGB pós fogo com polígono (TIFF georreferenciado) + overlay
         rgb_post_vis = rgb_post.visualize(min=0, max=255).blend(poly_overlay)
-        output_paths.append(
-            export_local(
-                rgb_post_vis,
-                f'{prefix}_RGB_PostFire',
-                region_buffer,
-                'tif',
-                output_dir=f'exports/{prefix}'
-            )
-        )
+        p = do_export(rgb_post_vis, f'{prefix}_RGB_PostFire', region_buffer, 'tif', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
         # 9. RGB pós fogo com polígono (JPEG não georreferenciado) + overlay
-        output_paths.append(
-            export_local(
-                rgb_post_vis,
-                f'{prefix}_RGB_PostFire',
-                region_buffer,
-                'jpg',
-                output_dir=f'exports/{prefix}'
-            )
-        )
+        p = do_export(rgb_post_vis, f'{prefix}_RGB_PostFire', region_buffer, 'jpg', f'exports/{prefix}')
+        if p:
+            output_paths.append(p)
 
         if export_full_image:
             # Visualização RGB do tile completo
@@ -340,24 +304,12 @@ class WildfireAnalyzer:
             rgb_pre_full_vis = rgb_pre_full.visualize(min=0, max=255).blend(poly_mask_vis)
             rgb_post_full_vis = rgb_post_full.visualize(min=0, max=255).blend(poly_mask_vis)
 
-            output_paths.append(
-                export_local(
-                    rgb_pre_full_vis,
-                    f'{prefix}_PreFire_Full',
-                    region_buffer,
-                    'tif',
-                    output_dir=f'exports/{prefix}'
-                )
-            )
-            output_paths.append(
-                export_local(
-                    rgb_post_full_vis,
-                    f'{prefix}_PostFire_Full',
-                    region_buffer,
-                    'tif',
-                    output_dir=f'exports/{prefix}'
-                )
-            )
+            p = do_export(rgb_pre_full_vis, f'{prefix}_PreFire_Full', region_buffer, 'tif', f'exports/{prefix}')
+            if p:
+                output_paths.append(p)
+            p = do_export(rgb_post_full_vis, f'{prefix}_PostFire_Full', region_buffer, 'tif', f'exports/{prefix}')
+            if p:
+                output_paths.append(p)
 
         session = get_boto3_session()
         s3 = session.client('s3')
@@ -369,25 +321,25 @@ class WildfireAnalyzer:
         def upload_to_s3(local_path, s3_key):
             try:
                 s3.upload_file(local_path, bucket_name, s3_key)
-                print(f"Arquivo {local_path} enviado para s3://{bucket_name}/{s3_key}")
+                logger.info("Arquivo %s enviado para s3://%s/%s", local_path, bucket_name, s3_key)
             except NoCredentialsError:
-                print("Credenciais da AWS não encontradas. Configure suas credenciais.")
+                logger.error("Credenciais da AWS não encontradas. Configure suas credenciais.")
             except Exception as e:
-                print(f"Erro ao enviar {local_path} para S3: {str(e)}")
+                logger.exception("Erro ao enviar %s para S3: %s", local_path, str(e))
     
         for path in output_paths:
             if not path or not isinstance(path, str):
-                print(f"Arquivo não gerado ou caminho inválido: {path}. Ignorando upload para S3.")
+                logger.warning("Arquivo não gerado ou caminho inválido: %s. Ignorando upload para S3.", path)
                 continue
             if path.endswith(('.tif', '.geojson', '.png', '.jpg', '.jpeg', '.csv')):  # Inclui .jpg/.jpeg/.png
                 if not os.path.exists(path):
-                    print(f"Arquivo {path} não existe. Ignorando upload para S3.")
+                    logger.warning("Arquivo %s não existe. Ignorando upload para S3.", path)
                     continue
                 s3_key = f"{s3_prefix}{path.split('/')[-1]}"
                 upload_to_s3(path, s3_key)
                 presigned_url = generate_presigned_url(bucket_name, s3_key, expiration=3600)
                 presigned_urls.append({"key": s3_key, "url": presigned_url})
-                print(f"Pre-signed URL gerado para {s3_key}: {presigned_url}")
+                logger.info("Pre-signed URL gerado para %s", s3_key)
         
         csv_local_path = f'exports/{prefix}/{self.filename}_severity_stats.csv'
         if os.path.exists(csv_local_path):
@@ -395,6 +347,6 @@ class WildfireAnalyzer:
             upload_to_s3(csv_local_path, s3_key)
             presigned_url = generate_presigned_url(bucket_name, s3_key, expiration=3600)
             presigned_urls.append({"key": s3_key, "url": presigned_url})
-            print(f"Pre-signed URL gerado para {s3_key}: {presigned_url}")
+            logger.info("Pre-signed URL gerado para %s", s3_key)
 
         return presigned_urls
