@@ -39,14 +39,23 @@ def load_polygon(directory_path):
                     geojson = json.load(f)
                 # Verificar se o arquivo GeoJSON contém features
                 if 'features' not in geojson or not geojson['features']:
-                    print(f"Aviso: Nenhum polígono encontrado em {file_path}")
+                    logger.warning("Nenhum polígono encontrado em %s", file_path)
                     continue
-                # Carregar a primeira feature do GeoJSON
-                geometry = ee.Geometry(geojson['features'][0]['geometry'])
+                # Se houver múltiplas features no GeoJSON, agrega como FeatureCollection
+                try:
+                    features = geojson.get('features')
+                    if features and len(features) > 1:
+                        fc = ee.FeatureCollection(features)
+                        geometry = fc.geometry()
+                    else:
+                        geometry = ee.Geometry(features[0]['geometry']) if features else ee.Geometry(geojson)
+                except Exception as e:
+                    logger.warning("Erro ao processar geometria como FeatureCollection: %s. Tentando abordagem genérica.", e)
+                    geometry = ee.Geometry(geojson)
                 geometries.append((file_path.name, geometry))
-                print(f"Polígono carregado de {file_path}")
+                logger.info("Polígono carregado de %s", file_path)
             except Exception as e:
-                print(f"Erro ao carregar o polígono de {file_path}: {e}")
+                logger.exception("Erro ao carregar o polígono de %s: %s", file_path, e)
                 continue  # Continuar com o próximo arquivo em caso de erro
 
         if not geometries:
@@ -54,7 +63,7 @@ def load_polygon(directory_path):
         return geometries
 
     except Exception as e:
-        print(f"Erro ao varrer o diretório {directory_path}: {e}")
+        logger.exception("Erro ao varrer o diretório %s: %s", directory_path, e)
         raise
 
 def main():
@@ -70,26 +79,26 @@ def main():
 
         # Processar cada polígono
         for filename, polygon in polygon_list:
-            print(f"\nProcessando polígono: {filename}")
+            logger.info("Processando polígono: %s", filename)
             # Criar e executar análise, passando o nome do arquivo
             analyzer = WildfireAnalyzer(polygon, filename=filename, pre_fire_dates=PRE_FIRE_DATES, post_fire_dates=POST_FIRE_DATES)
             images = analyzer.calculate_severity()
             
             # Calcular estatísticas de área
             stats_df, total_area = analyzer.calculate_area_stats(images['severity'])
-            print(f"Resumo de Severidade (ΔNBR - área e %) para {filename}:")
-            print(stats_df)
-            print(f"Área total do polígono (geométrica, ha): {total_area}")
+            logger.info("Resumo de Severidade (ΔNBR - área e %) para %s:", filename)
+            logger.info("%s", stats_df)
+            logger.info("Área total do polígono (geométrica, ha): %s", total_area)
 
             # Exportar resultados localmente
-            print(f"Iniciando exportações locais para {filename}. Aguarde...")
+            logger.info("Iniciando exportações locais para %s. Aguarde...", filename)
             output_paths = analyzer.export_results(images)
-            print(f"Exportações concluídas para {filename}! Arquivos salvos em:")
+            logger.info("Exportações concluídas para %s! Arquivos salvos em:", filename)
             for path in output_paths:
-                print(f"- {path}")
+                logger.info("- %s", path)
 
     except Exception as e:
-        print(f"Erro durante a análise: {e}")
+        logger.exception("Erro durante a análise: %s", e)
         raise
 
 if __name__ == "__main__":
