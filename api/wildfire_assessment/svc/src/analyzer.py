@@ -1,6 +1,7 @@
 """Lógica de análise de severidade de incêndios florestais usando Google Earth Engine."""
 import logging
 import os
+import shutil
 
 import ee
 import pandas as pd
@@ -357,5 +358,24 @@ class WildfireAnalyzer:
             presigned_url = generate_presigned_url(bucket_name, s3_key, expiration=3600)
             presigned_urls.append({"key": s3_key, "url": presigned_url})
             logger.info("Pre-signed URL gerado para %s", s3_key)
+
+        # Remover diretório local de exportação do polígono para não deixar sujeira no container
+        export_dir = f'exports/{prefix}'
+        try:
+            if os.path.exists(export_dir) and os.path.isdir(export_dir):
+                # Apenas remover se houver arquivos (safety check)
+                contents = os.listdir(export_dir)
+                if contents:
+                    shutil.rmtree(export_dir)
+                    logger.info("Diretório de exportação removido: %s", export_dir)
+                else:
+                    # Se estiver vazio, remover também
+                    try:
+                        os.rmdir(export_dir)
+                        logger.info("Diretório de exportação vazio removido: %s", export_dir)
+                    except Exception:
+                        logger.debug("Não foi possível remover diretório vazio %s", export_dir, exc_info=True)
+        except Exception as e:
+            logger.exception("Erro ao remover diretório de exportação %s: %s", export_dir, e)
 
         return presigned_urls

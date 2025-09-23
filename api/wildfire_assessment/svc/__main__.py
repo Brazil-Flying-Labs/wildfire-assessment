@@ -35,11 +35,34 @@ def load_polygon(directory_path):
         geometries = []
         for file_path in geojson_files:
             try:
+                # Checar tamanho do arquivo primeiro (diagnóstico para arquivos vazios)
+                try:
+                    file_size = os.path.getsize(file_path)
+                except Exception:
+                    file_size = None
+                if file_size == 0:
+                    logger.warning("Arquivo GeoJSON vazio (%s bytes): %s", file_size, file_path)
+                    continue
                 with open(file_path, 'r', encoding='utf-8') as f:
-                    geojson = json.load(f)
+                    try:
+                        geojson = json.load(f)
+                    except Exception as e:
+                        # Se falhar no parse, mostramos um preview do conteúdo para diagnóstico
+                        try:
+                            f.seek(0)
+                            preview = f.read(500)
+                        except Exception:
+                            preview = '<não foi possível ler conteúdo>'
+                        logger.exception("Falha ao parsear GeoJSON %s: %s. Preview: %s", file_path, e, preview)
+                        continue
                 # Verificar se o arquivo GeoJSON contém features
                 if 'features' not in geojson or not geojson['features']:
-                    logger.warning("Nenhum polígono encontrado em %s", file_path)
+                    # Mostrar um preview do conteúdo para ajudar o diagnóstico
+                    try:
+                        preview = json.dumps(geojson)[:500]
+                    except Exception:
+                        preview = '<conteúdo não serializável para preview>'
+                    logger.warning("Nenhum polígono encontrado em %s (tamanho: %s). Preview: %s", file_path, file_size, preview)
                     continue
                 # Se houver múltiplas features no GeoJSON, agrega como FeatureCollection
                 try:
