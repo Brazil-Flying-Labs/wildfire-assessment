@@ -196,11 +196,11 @@ class WildfireAnalyzer:
             list, Lista de caminhos dos arquivos salvos.
         """
         prefix = str(self.filename).replace('.geojson', '') if isinstance(self.filename, str) else f"{self.filename}"
-        rbr_palette = ['green', 'yellow', 'orange', 'red', 'maroon']
-        rbr_severity_palette = ['black','yellow','red']
-        rbr_rgb = images['rbr_classified'].visualize(
-            min=0,
-            max=len(rbr_palette) - 1,
+        rbr_severity_palette = ['00FF00', 'FFFF00', 'FFA500', 'FF0000', '8B4513']
+        rbr_palette = ['black','yellow','red']
+        rbr_rgb = images['rbr'].visualize(
+            min=-0.5,
+            max=0.6,
             palette=rbr_palette
         )
         logger.debug("Bandas disponíveis para pre_fire: %s", images['pre_fire'].bandNames().getInfo())
@@ -225,28 +225,30 @@ class WildfireAnalyzer:
         buffer_m = 5000
         region_buffer = self.polygon.buffer(buffer_m).bounds(1)
         # Overlay do polígono em roxo
-        poly_overlay = ee.Image().paint(self.polygon, 1, 1).visualize(palette=['purple'], opacity=0.7)
+        # Largura do traço do overlay (em pixels) — aumentar para melhor visibilidade
+        overlay_width = 3
+        poly_overlay = ee.Image().paint(self.polygon, 1, overlay_width).visualize(palette=['purple'], opacity=0.7)
 
         # Helper para exportar e logar falhas
         def do_export(img, name, region, ext, out_dir):
-                try:
-                    path = export_local(img, name, region, ext, output_dir=out_dir)
-                    if not path:
-                        logger.warning("Falha ao exportar %s.%s — caminho retornado vazio", name, ext)
-                        return None
-                    # assegura que o arquivo exista fisicamente
-                    if not os.path.exists(path):
-                        logger.warning("export_local retornou caminho %s mas arquivo não existe no disco", path)
-                        return None
-                    size = os.path.getsize(path)
-                    if size == 0:
-                        logger.warning("Arquivo %s existe mas está vazio (0 bytes)", path)
-                        return None
-                    logger.debug("Arquivo %s existe e tem %s bytes", path, size)
-                    return path
-                except Exception as e:
-                    logger.exception("Exceção ao exportar %s.%s: %s", name, ext, e)
+            try:
+                path = export_local(img, name, region, ext, output_dir=out_dir)
+                if not path:
+                    logger.warning("Falha ao exportar %s.%s — caminho retornado vazio", name, ext)
                     return None
+                # assegura que o arquivo exista fisicamente
+                if not os.path.exists(path):
+                    logger.warning("export_local retornou caminho %s mas arquivo não existe no disco", path)
+                    return None
+                size = os.path.getsize(path)
+                if size == 0:
+                    logger.warning("Arquivo %s existe mas está vazio (0 bytes)", path)
+                    return None
+                logger.debug("Arquivo %s existe e tem %s bytes", path, size)
+                return path
+            except Exception as e:
+                logger.exception("Exceção ao exportar %s.%s: %s", name, ext, e)
+                return None
 
         # 1. RBR puro (TIFF georreferenciado, 1 banda) + overlay
         rbr_pure_vis = images['rbr'].visualize(min=0, max=1).blend(poly_overlay)
@@ -266,7 +268,7 @@ class WildfireAnalyzer:
         # 4. Severity RBR colorido com polígono (TIFF georreferenciado) + overlay
         severity_rgb = images['rbr_classified'].visualize(
             min=0,
-            max=len(rbr_severity_palette) - 1,
+            max=4,
             palette=rbr_severity_palette
         ).blend(poly_overlay)
         p = do_export(severity_rgb, f'{prefix}_Severity_RBR_Color', region_buffer, 'tif', f'exports/{prefix}')
@@ -309,7 +311,7 @@ class WildfireAnalyzer:
             ]).rename(['R', 'G', 'B'])
 
             # Desenhar polígono sobre o tile
-            poly_mask = ee.Image().paint(self.polygon, 1, 3)  # 3px de largura
+            poly_mask = ee.Image().paint(self.polygon, 1, overlay_width)  # usar mesma largura configurada
             poly_mask_vis = poly_mask.visualize(palette=['blue'], min=1, max=1)
             rgb_pre_full_vis = rgb_pre_full.visualize(min=0, max=255).blend(poly_mask_vis)
             rgb_post_full_vis = rgb_post_full.visualize(min=0, max=255).blend(poly_mask_vis)
