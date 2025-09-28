@@ -200,7 +200,7 @@ if ENV in ["local", "dev"]:
     INSTALLED_APPS += ["corsheaders"]
 
     MIDDLEWARE.insert(2, "corsheaders.middleware.CorsMiddleware")
-
+    CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOW_METHODS = [
         "DELETE",

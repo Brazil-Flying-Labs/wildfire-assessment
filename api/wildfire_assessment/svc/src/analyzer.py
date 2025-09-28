@@ -203,6 +203,14 @@ class WildfireAnalyzer:
             max=0.6,
             palette=rbr_palette
         )
+        # Ajuste de brilho (multiplicador) para imagens RGB/RBR antes da visualização final.
+        # Pode ser configurado via variável de ambiente POLYGON_BRIGHTNESS_FACTOR (padrão 1.2).
+        # try:
+        #     brightness_factor = float(os.environ.get('POLYGON_BRIGHTNESS_FACTOR', '1.2'))
+        # except Exception:
+        #     brightness_factor = 1.2
+
+        brightness_factor = 1.8
         logger.debug("Bandas disponíveis para pre_fire: %s", images['pre_fire'].bandNames().getInfo())
         logger.debug("Bandas disponíveis para post_fire: %s", images['post_fire'].bandNames().getInfo())
         rgb_pre = ee.Image.cat([
@@ -217,6 +225,19 @@ class WildfireAnalyzer:
         ]).rename(['R', 'G', 'B'])
         logger.debug("Bandas selecionadas para RGB_PreFire: %s", rgb_pre.bandNames().getInfo())
         logger.debug("Bandas selecionadas para RGB_PostFire: %s", rgb_post.bandNames().getInfo())
+
+        # Aplica o fator de brilho se for diferente de 1.0
+        if brightness_factor and float(brightness_factor) != 1.0:
+            try:
+                rgb_pre = rgb_pre.toFloat().multiply(float(brightness_factor)).clamp(0, 255).uint8()
+                rgb_post = rgb_post.toFloat().multiply(float(brightness_factor)).clamp(0, 255).uint8()
+            except Exception:
+                logger.debug("Não foi possível aplicar o ajuste de brilho em rgb_pre/rgb_post", exc_info=True)
+            try:
+                # rbr_rgb pode ser uma imagem já visualizada; tentamos converter e aplicar
+                rbr_rgb = rbr_rgb.toFloat().multiply(float(1.2)).clamp(0, 255).uint8()
+            except Exception:
+                logger.debug("Não foi possível aplicar o ajuste de brilho em rbr_rgb (provavelmente já é visualizada)", exc_info=True)
 
         for key in ['pre_ndvi', 'post_ndvi', 'pre_nbr', 'post_nbr', 'delta_ndvi', 'delta_nbr', 'severity']:
             images[key] = images[key]
