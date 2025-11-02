@@ -23,7 +23,7 @@ aws configure --profile bfl
 You need to create a `.env` file in the root directory of the project with the following variables:
 
 ```base
-cp .env.example .env
+cp .env.template .env
 ```
 
 Open the `.env` file and set the variables with the correct values.

@@ -54,3 +54,6 @@ api/static
 
 # React
 node_modules/
+
+#aws
+aws/
