@@ -1,41 +1,41 @@
 # Wildfire Assessment UI
 
-Interface React responsável por interagir com a API do sistema de avaliação de incêndios florestais. A aplicação agora exige autenticação via Auth0 antes de permitir o acesso aos recursos protegidos.
+React interface responsible for interacting with the wildfire assessment API. The application now enforces Auth0 authentication before granting access to protected resources.
 
-## Pré-requisitos
+## Prerequisites
 
-- Node.js 16+ (recomenda-se a versão suportada pelo projeto)
-- Conta e aplicativo registrado no [Auth0](https://auth0.com/) com Refresh Token Rotation habilitado
+- Node.js 16+ (use the version supported by the project)
+- Auth0 account and application with Refresh Token Rotation enabled
 
-## Variáveis de ambiente
+## Environment variables
 
-Crie um arquivo `.env.local` dentro da pasta `ui` com os valores abaixo:
+Create a `.env.local` file inside the `ui` folder with the values below:
 
 ```
-REACT_APP_WILDLIFE_API_URL=https://sua-api.example.com
+REACT_APP_WILDLIFE_API_URL=https://your-api.example.com
 REACT_APP_AUTH0_DOMAIN=example-region.auth0.com
 REACT_APP_AUTH0_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxx
-REACT_APP_AUTH0_AUDIENCE=https://sua-api.example.com
+REACT_APP_AUTH0_AUDIENCE=https://your-api.example.com
 ```
 
-> Observações
+> Notes
 >
-> - `REACT_APP_WILDLIFE_API_URL` já era utilizada anteriormente e continua obrigatória.
-> - O domínio, Client ID e Audience devem corresponder à API configurada no Auth0.
-> - O Auth0Provider está configurado com `useRefreshTokens` e `cacheLocation="localstorage"`, portanto a aplicação precisa ter o Refresh Token Rotation habilitado no dashboard do Auth0.
+> - `REACT_APP_WILDLIFE_API_URL` remains mandatory just like in the previous versions.
+> - The domain, client ID, and audience must match the API configured in Auth0.
+> - The Auth0Provider uses `useRefreshTokens` and `cacheLocation="localstorage"`, so enable Refresh Token Rotation for this application in the Auth0 dashboard.
 
 ## Scripts
 
-No diretório `ui` execute:
+Inside the `ui` directory run:
 
-- `npm start` — inicia a aplicação em modo desenvolvimento em `http://localhost:3000`.
-- `npm run build` — gera o bundle minificado para produção em `ui/build`.
-- `npm test` — executa a suíte de testes padrão do Create React App.
+- `npm start` — starts the development server at `http://localhost:3000`.
+- `npm run build` — generates the production bundle inside `ui/build`.
+- `npm test` — runs the default Create React App test suite.
 
-## Fluxo de autenticação
+## Authentication flow
 
-- Usuários não autenticados são imediatamente redirecionados para o Auth0.
-- Após o login, cada chamada à API (`/ecological_reserve/` e `/analyze/`) envia o header `Authorization: Bearer <token>` obtido via `getAccessTokenSilently`.
-- O uso de refresh tokens garante que a sessão permaneça válida sem exigir novas interações do usuário até que o Auth0 determine o contrário.
+- Unauthenticated users are redirected to Auth0 immediately.
+- After login, each API call (`/ecological_reserve/` and `/analyze/`) sends the `Authorization: Bearer <token>` header obtained via `getAccessTokenSilently`.
+- Refresh tokens help keep the session valid without prompting the user again until Auth0 requires it.
 
-Caso algum dos parâmetros do Auth0 não esteja configurado, a interface exibirá uma mensagem informando o problema em vez de iniciar normalmente.
+If any Auth0 parameter is missing, the interface shows an explanatory message instead of starting normally.

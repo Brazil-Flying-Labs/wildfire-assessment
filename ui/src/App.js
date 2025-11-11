@@ -3,7 +3,7 @@ import { useAuth0 } from "@auth0/auth0-react";
 import "./App.css";
 
 const BACKEND_UNAUTHORIZED_MESSAGE =
-  "Sua conta já está autenticada, mas ainda não foi autorizada nos servidores internos. Contate um administrador.";
+  "Your account is already authenticated, but it has not been authorized on our backend servers yet. Contact an administrator.";
 
 function App() {
   const authAudience = process.env.REACT_APP_AUTH0_AUDIENCE || "";
@@ -19,8 +19,8 @@ function App() {
   const [ecologicalReserves, setEcologicalReserves] = useState([]);
   const [fetchState, setFetchState] = useState({ loading: true, error: null });
   const [selectedReserve, setSelectedReserve] = useState("");
-  const [preFireDate, setPreFireDate] = useState("");
-  const [postFireDate, setPostFireDate] = useState("");
+  const [preFireInput, setPreFireInput] = useState("");
+  const [postFireInput, setPostFireInput] = useState("");
   const [analysisResult, setAnalysisResult] = useState(null);
   const [analysisState, setAnalysisState] = useState({
     loading: false,
@@ -38,11 +38,13 @@ function App() {
     return url.endsWith("/") ? url.slice(0, -1) : url;
   }, []);
   const analyzeControllerRef = useRef(null);
+  const preFirePickerRef = useRef(null);
+  const postFirePickerRef = useRef(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       loginWithRedirect().catch((error) => {
-        console.error("Falha ao redirecionar para o Auth0:", error);
+        console.error("Failed to redirect to Auth0:", error);
       });
     }
   }, [authLoading, isAuthenticated, loginWithRedirect]);
@@ -95,7 +97,7 @@ function App() {
         : new URL(baseUrl);
       return resolved.origin;
     } catch (error) {
-      console.warn("URL base inválida para comparação de origem:", error);
+      console.warn("Invalid base URL for origin comparison:", error);
       return null;
     }
   }, [baseUrl]);
@@ -118,7 +120,7 @@ function App() {
       setFetchState({
         loading: false,
         error:
-          "Variável de ambiente REACT_APP_WILDLIFE_API_URL não configurada.",
+          "Environment variable REACT_APP_WILDLIFE_API_URL is not configured.",
       });
       return undefined;
     }
@@ -139,7 +141,7 @@ function App() {
         ensureAuthorizedResponse(response);
 
         if (!response.ok) {
-          throw new Error(`Erro ao carregar reservas (${response.status})`);
+          throw new Error(`Error loading reserves (${response.status})`);
         }
 
         const data = await response.json();
@@ -148,7 +150,7 @@ function App() {
       } catch (error) {
         if (error.name === "AbortError") return;
 
-        console.error("Erro ao buscar reservas ecológicas:", error);
+        console.error("Failed to fetch ecological reserves:", error);
         setFetchState({ loading: false, error: error.message });
       }
     })();
@@ -179,11 +181,69 @@ function App() {
 
   const hasError = Boolean(fetchState.error);
 
+  const normalizeDateValue = useCallback((rawValue) => {
+    if (!rawValue) {
+      return "";
+    }
+
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+      return "";
+    }
+
+    return parsed.toISOString().slice(0, 10);
+  }, []);
+
+  const formatIsoInput = useCallback((rawValue) => {
+    if (!rawValue) {
+      return "";
+    }
+
+    const digits = rawValue.replace(/[^0-9]/g, "").slice(0, 8);
+    if (!digits) {
+      return "";
+    }
+
+    if (digits.length <= 4) {
+      return digits;
+    }
+
+    if (digits.length <= 6) {
+      return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+    }
+
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+  }, []);
+
+  const isIsoDate = useCallback(
+    (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || ""),
+    []
+  );
+
+  const preFireDate = useMemo(
+    () => (isIsoDate(preFireInput) ? preFireInput : ""),
+    [preFireInput, isIsoDate]
+  );
+
+  const postFireDate = useMemo(
+    () => (isIsoDate(postFireInput) ? postFireInput : ""),
+    [postFireInput, isIsoDate]
+  );
+
   const renderReserveOptions = () => {
     if (fetchState.loading) {
       return (
         <option value="" disabled>
-          Carregando reservas...
+          Loading reserves...
         </option>
       );
     }
@@ -199,14 +259,14 @@ function App() {
     if (!ecologicalReserves.length) {
       return (
         <option value="" disabled>
-          Nenhuma reserva encontrada.
+          No reserves found.
         </option>
       );
     }
 
     return [
       <option key="placeholder" value="" disabled>
-        Escolha uma opção
+        Choose an option
       </option>,
       ...ecologicalReserves.map((reserve) => (
         <option key={reserve.id} value={reserve.id}>
@@ -380,7 +440,7 @@ function App() {
           }
 
           if (!response.ok) {
-            throw new Error(`Erro ao carregar estatísticas (${response.status})`);
+            throw new Error(`Error loading statistics (${response.status})`);
           }
 
           const text = await response.text();
@@ -405,7 +465,7 @@ function App() {
           if (error.name === "AbortError") {
             return;
           }
-          console.error("Falha ao ler CSV de estatísticas:", error);
+          console.error("Failed to read statistics CSV:", error);
           setSeverityStats({
             loading: false,
             error: error.message,
@@ -439,9 +499,11 @@ function App() {
     if (!analysisResult) return null;
     const { pre_fire_best_date: preBest, post_fire_best_date: postBest } =
       analysisResult;
-    if (!preBest && !postBest) return null;
-    return { preBest, postBest };
-  }, [analysisResult]);
+    const formattedPre = normalizeDateValue(preBest);
+    const formattedPost = normalizeDateValue(postBest);
+    if (!formattedPre && !formattedPost) return null;
+    return { preBest: formattedPre, postBest: formattedPost };
+  }, [analysisResult, normalizeDateValue]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -453,7 +515,7 @@ function App() {
     if (!baseUrl) {
       setAnalysisState({
         loading: false,
-        error: "Endpoint da API não configurado.",
+        error: "API endpoint is not configured.",
       });
       return;
     }
@@ -483,7 +545,7 @@ function App() {
       ensureAuthorizedResponse(response);
 
       if (!response.ok) {
-        throw new Error(`Erro ao analisar (${response.status})`);
+        throw new Error(`Error running analysis (${response.status})`);
       }
 
       const data = await response.json();
@@ -497,7 +559,7 @@ function App() {
         return;
       }
 
-      console.error("Erro durante a análise:", error);
+      console.error("Error during analysis:", error);
       setAnalysisState({ loading: false, error: error.message });
     } finally {
       if (analyzeControllerRef.current === controller) {
@@ -510,14 +572,14 @@ function App() {
     return (
       <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
         <div className="alert alert-danger m-4" role="alert">
-          {authError.message || "Falha na autenticação."}
+          {authError.message || "Authentication failed."}
           <div className="mt-3">
             <button
               type="button"
               className="btn btn-primary"
               onClick={() => loginWithRedirect()}
             >
-              Tentar novamente
+              Try again
             </button>
           </div>
         </div>
@@ -530,15 +592,15 @@ function App() {
       <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
         <div className="text-center">
           <div className="spinner-border text-primary mb-3" role="status">
-            <span className="visually-hidden">Autenticando...</span>
+            <span className="visually-hidden">Authenticating...</span>
           </div>
-          <p className="mb-0">Redirecionando para a página de login…</p>
+          <p className="mb-0">Redirecting to the login page...</p>
         </div>
       </div>
     );
   }
 
-  const displayName = user?.name || user?.email || "Usuário";
+  const displayName = user?.name || user?.email || "User";
 
   return (
     <div className="app-root d-flex flex-column min-vh-100">
@@ -551,15 +613,15 @@ function App() {
               className="brand-logo"
             />
             <div>
-              <h1 className="h4 mb-1">Avaliação de incêndios florestais</h1>
+              <h1 className="h4 mb-1">Wildfire assessment</h1>
               <p className="mb-0 small opacity-75">
-                Monitoramento de áreas afetadas antes e após eventos de fogo
+                Monitoring areas affected before and after fire events
               </p>
             </div>
           </div>
           <div className="d-flex align-items-center gap-3">
             <div className="text-end">
-              <p className="mb-0 small opacity-75">Autenticado como</p>
+              <p className="mb-0 small opacity-75">Signed in as</p>
               <strong className="small">{displayName}</strong>
             </div>
             <button
@@ -578,41 +640,91 @@ function App() {
       <div className="app-body d-flex flex-grow-1">
         {!backendAuthorizationError ? (
           <aside className="sidebar bg-light border-end p-4">
-            <h1 className="h5 mb-4">Parâmetros da análise</h1>
+            <h1 className="h5 mb-4">Analysis parameters</h1>
             <form onSubmit={handleSubmit}>
               <div className="mb-3">
                 <label htmlFor="preFireDate" className="form-label">
-                  Data pré-fogo
+                  Pre-fire date
                 </label>
-                <input
-                  type="date"
-                  className="form-control"
-                  id="preFireDate"
-                  name="preFireDate"
-                  value={preFireDate}
-                  onChange={(event) => setPreFireDate(event.target.value)}
-                  max={postFireDate || undefined}
-                />
+                <div className="date-input-wrapper">
+                  <input
+                    type="text"
+                    className="form-control date-input-text"
+                    id="preFireDate"
+                    name="preFireDate"
+                    placeholder="YYYY-MM-DD"
+                    value={preFireInput}
+                    onChange={(event) =>
+                      setPreFireInput(formatIsoInput(event.target.value))
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary date-picker-button"
+                    aria-label="Open calendar for pre-fire date"
+                    onClick={() =>
+                      preFirePickerRef.current?.showPicker?.() ||
+                      preFirePickerRef.current?.focus()
+                    }
+                  >
+                    Pick
+                  </button>
+                  <input
+                    ref={preFirePickerRef}
+                    type="date"
+                    className="date-input-native"
+                    value={preFireDate}
+                    onChange={(event) =>
+                      setPreFireInput(normalizeDateValue(event.target.value))
+                    }
+                    max={postFireDate || undefined}
+                  />
+                </div>
               </div>
 
               <div className="mb-3">
                 <label htmlFor="postFireDate" className="form-label">
-                  Data pós-fogo
+                  Post-fire date
                 </label>
-                <input
-                  type="date"
-                  className="form-control"
-                  id="postFireDate"
-                  name="postFireDate"
-                  value={postFireDate}
-                  onChange={(event) => setPostFireDate(event.target.value)}
-                  min={preFireDate || undefined}
-                />
+                <div className="date-input-wrapper">
+                  <input
+                    type="text"
+                    className="form-control date-input-text"
+                    id="postFireDate"
+                    name="postFireDate"
+                    placeholder="YYYY-MM-DD"
+                    value={postFireInput}
+                    onChange={(event) =>
+                      setPostFireInput(formatIsoInput(event.target.value))
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary date-picker-button"
+                    aria-label="Open calendar for post-fire date"
+                    onClick={() =>
+                      postFirePickerRef.current?.showPicker?.() ||
+                      postFirePickerRef.current?.focus()
+                    }
+                  >
+                    Pick
+                  </button>
+                  <input
+                    ref={postFirePickerRef}
+                    type="date"
+                    className="date-input-native"
+                    value={postFireDate}
+                    onChange={(event) =>
+                      setPostFireInput(normalizeDateValue(event.target.value))
+                    }
+                    min={preFireDate || undefined}
+                  />
+                </div>
               </div>
 
               <div className="mb-3">
                 <label htmlFor="reserve" className="form-label">
-                  Selecione uma reserva ecológica
+                  Select an ecological reserve
                 </label>
                 <select
                   className="form-select"
@@ -627,17 +739,17 @@ function App() {
                 {hasError ? (
                   <div className="mt-2">
                     <p className="small text-danger mb-2">
-                      Verifique se a API está acessível e se o certificado é
-                      confiável. Em ambientes de desenvolvimento com HTTPS
-                      autoassinado, abra o endpoint diretamente no navegador
-                      para aceitar o certificado antes de usar a aplicação.
+                      Make sure the API is reachable and that the certificate
+                      is trusted. In development environments with self-signed
+                      HTTPS, open the endpoint directly in the browser to
+                      accept the certificate before using the application.
                     </p>
                     <button
                       type="button"
                       className="btn btn-outline-danger btn-sm"
                       onClick={loadReserves}
                     >
-                      Tentar novamente
+                      Try again
                     </button>
                   </div>
                 ) : null}
@@ -648,7 +760,7 @@ function App() {
                 className="btn btn-primary w-100"
                 disabled={isAnalyzeDisabled}
               >
-                {analysisState.loading ? "Analisando…" : "Analisar"}
+                {analysisState.loading ? "Analyzing..." : "Run analysis"}
               </button>
             </form>
           </aside>
@@ -665,11 +777,9 @@ function App() {
             {analysisState.loading ? (
               <div className="placeholder-card border border-dashed rounded-3 p-5 text-center">
                 <div className="spinner-border text-primary mb-3" role="status">
-                  <span className="visually-hidden">Carregando...</span>
+                  <span className="visually-hidden">Loading...</span>
                 </div>
-                <p className="mb-0">
-                  Processando análise. Isso pode levar alguns instantes…
-                </p>
+                <p className="mb-0">Processing analysis. This may take a few moments...</p>
               </div>
             ) : null}
 
@@ -687,18 +797,18 @@ function App() {
                   <div className="card border-0 shadow-sm">
                     <div className="card-body">
                       <h3 className="card-title h5 mb-3">
-                        Melhores datas identificadas
+                        Best dates identified
                       </h3>
                       <dl className="row mb-0">
                         {bestDates.preBest ? (
                           <>
-                            <dt className="col-sm-4">Pré-fogo</dt>
+                            <dt className="col-sm-4">Pre-fire</dt>
                             <dd className="col-sm-8">{bestDates.preBest}</dd>
                           </>
                         ) : null}
                         {bestDates.postBest ? (
                           <>
-                            <dt className="col-sm-4">Pós-fogo</dt>
+                            <dt className="col-sm-4">Post-fire</dt>
                             <dd className="col-sm-8">{bestDates.postBest}</dd>
                           </>
                         ) : null}
@@ -709,7 +819,7 @@ function App() {
 
                 {imageEntries.length ? (
                   <section>
-                    <h3 className="h5 mb-3">Visualizações geradas</h3>
+                    <h3 className="h5 mb-3">Generated visualizations</h3>
                     <div className="analysis-images row g-4">
                       {imageEntries.map(([key, url]) => (
                         <div className="col-12 col-md-6 col-lg-4" key={key}>
@@ -734,7 +844,7 @@ function App() {
 
                 {severityStats.headers.length && severityStats.rows.length ? (
                   <section>
-                    <h3 className="h5 mb-3">Distribuição da severidade</h3>
+                    <h3 className="h5 mb-3">Severity distribution</h3>
                     <div className="table-responsive">
                       <table className="table table-sm table-striped align-middle">
                         <thead className="table-light">
@@ -762,7 +872,7 @@ function App() {
 
                 {severityStats.loading ? (
                   <div className="alert alert-info" role="status">
-                    Carregando estatísticas de severidade...
+                    Loading severity statistics...
                   </div>
                 ) : null}
 
@@ -804,7 +914,7 @@ function App() {
                 <section>
                   <details className="analysis-raw border rounded-3 p-3 bg-white shadow-sm">
                     <summary className="fw-medium mb-2">
-                      Ver resposta completa (JSON)
+                      View full response (JSON)
                     </summary>
                     <pre className="mb-0 bg-light p-3 rounded overflow-auto">
                       {JSON.stringify(analysisResult, null, 2)}

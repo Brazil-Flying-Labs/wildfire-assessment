@@ -12,11 +12,11 @@ function MissingAuthConfiguration() {
   return (
     <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
       <div className="alert alert-danger m-4" role="alert">
-        Variáveis de ambiente do Auth0 não configuradas. Configure{' '}
+        Auth0 environment variables are not configured. Set{' '}
         <code className="mx-1">REACT_APP_AUTH0_DOMAIN</code>,{' '}
-        <code className="mx-1">REACT_APP_AUTH0_CLIENT_ID</code> e{' '}
-        <code className="mx-1">REACT_APP_AUTH0_AUDIENCE</code> antes de
-        iniciar o aplicativo.
+        <code className="mx-1">REACT_APP_AUTH0_CLIENT_ID</code>, and{' '}
+        <code className="mx-1">REACT_APP_AUTH0_AUDIENCE</code> before starting
+        the application.
       </div>
     </div>
   );
