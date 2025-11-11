@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from django.db.models import Exists, OuterRef
+from django.http import JsonResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import permissions, viewsets
@@ -15,6 +16,10 @@ from wildfire_assessment.svc.src.image_processor import (
     get_sentinel_collection,
 )
 from wildfire_assessment.utils import calculate_date_range, load_polygon
+
+
+def health_status(_request):
+    return JsonResponse({"status": "ok"})
 
 
 class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
