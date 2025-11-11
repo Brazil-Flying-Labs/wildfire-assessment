@@ -26,7 +26,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = EcologicalReserve.objects.all().order_by("name")
     serializer_class = EcologicalReserveSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def retrieve(self, request, *args, **kwargs):
         """

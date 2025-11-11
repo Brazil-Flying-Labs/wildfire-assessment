@@ -43,6 +43,10 @@ STATICFILES_DIRS = [
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "wildfire_assessment.authentication.Auth0JWTAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
 
 
@@ -112,6 +116,22 @@ SOCIAL_AUTH_AUTH0_DOMAIN = secret["SOCIAL_AUTH_AUTH0_DOMAIN"]
 SOCIAL_AUTH_AUTH0_KEY = secret["SOCIAL_AUTH_AUTH0_KEY"]
 SOCIAL_AUTH_AUTH0_SECRET = secret["SOCIAL_AUTH_AUTH0_SECRET"]
 SOCIAL_AUTH_AUTH0_SCOPE = secret["SOCIAL_AUTH_AUTH0_SCOPE"].split(",")
+
+AUTH0_AUDIENCE = secret.get("AUTH0_API_AUDIENCE")
+AUTH0_DOMAIN = SOCIAL_AUTH_AUTH0_DOMAIN
+AUTH0_ISSUER = f"https://{AUTH0_DOMAIN}/"
+AUTH0_JWKS_URL = f"{AUTH0_ISSUER}.well-known/jwks.json"
+AUTH0_EMAIL_CLAIM = secret.get("AUTH0_EMAIL_CLAIM")
+AUTH0_HTTP_TIMEOUT = float(secret.get("AUTH0_HTTP_TIMEOUT"))
+AUTH0_MANAGEMENT_CLIENT_ID = secret.get("AUTH0_MANAGEMENT_CLIENT_ID")
+AUTH0_MANAGEMENT_CLIENT_SECRET = secret.get("AUTH0_MANAGEMENT_CLIENT_SECRET")
+AUTH0_MANAGEMENT_AUDIENCE = f"https://{AUTH0_DOMAIN}/api/v2/"
+AUTH0_MANAGEMENT_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
+
+if not AUTH0_AUDIENCE:
+    LOG.warning(
+        "AUTH0_API_AUDIENCE is not configured. API requests that require Auth0 tokens will fail."
+    )
 
 ALLOWED_HOSTS = secret["DJANGO_ALLOWED_HOSTS"].split(",")
 SECRET_KEY = secret["DJANGO_SECRET_KEY"]

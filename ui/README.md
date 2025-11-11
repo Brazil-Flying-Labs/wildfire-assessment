@@ -1,70 +1,41 @@
-# Getting Started with Create React App
+# Wildfire Assessment UI
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Interface React responsável por interagir com a API do sistema de avaliação de incêndios florestais. A aplicação agora exige autenticação via Auth0 antes de permitir o acesso aos recursos protegidos.
 
-## Available Scripts
+## Pré-requisitos
 
-In the project directory, you can run:
+- Node.js 16+ (recomenda-se a versão suportada pelo projeto)
+- Conta e aplicativo registrado no [Auth0](https://auth0.com/) com Refresh Token Rotation habilitado
 
-### `npm start`
+## Variáveis de ambiente
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Crie um arquivo `.env.local` dentro da pasta `ui` com os valores abaixo:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```
+REACT_APP_WILDLIFE_API_URL=https://sua-api.example.com
+REACT_APP_AUTH0_DOMAIN=example-region.auth0.com
+REACT_APP_AUTH0_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxx
+REACT_APP_AUTH0_AUDIENCE=https://sua-api.example.com
+```
 
-### `npm test`
+> Observações
+>
+> - `REACT_APP_WILDLIFE_API_URL` já era utilizada anteriormente e continua obrigatória.
+> - O domínio, Client ID e Audience devem corresponder à API configurada no Auth0.
+> - O Auth0Provider está configurado com `useRefreshTokens` e `cacheLocation="localstorage"`, portanto a aplicação precisa ter o Refresh Token Rotation habilitado no dashboard do Auth0.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Scripts
 
-### `npm run build`
+No diretório `ui` execute:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- `npm start` — inicia a aplicação em modo desenvolvimento em `http://localhost:3000`.
+- `npm run build` — gera o bundle minificado para produção em `ui/build`.
+- `npm test` — executa a suíte de testes padrão do Create React App.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Fluxo de autenticação
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- Usuários não autenticados são imediatamente redirecionados para o Auth0.
+- Após o login, cada chamada à API (`/ecological_reserve/` e `/analyze/`) envia o header `Authorization: Bearer <token>` obtido via `getAccessTokenSilently`.
+- O uso de refresh tokens garante que a sessão permaneça válida sem exigir novas interações do usuário até que o Auth0 determine o contrário.
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Caso algum dos parâmetros do Auth0 não esteja configurado, a interface exibirá uma mensagem informando o problema em vez de iniciar normalmente.

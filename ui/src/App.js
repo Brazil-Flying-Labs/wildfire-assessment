@@ -1,7 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 import "./App.css";
 
+const BACKEND_UNAUTHORIZED_MESSAGE =
+  "Sua conta já está autenticada, mas ainda não foi autorizada nos servidores internos. Contate um administrador.";
+
 function App() {
+  const authAudience = process.env.REACT_APP_AUTH0_AUDIENCE || "";
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    loginWithRedirect,
+    logout,
+    user,
+    getAccessTokenSilently,
+    error: authError,
+  } = useAuth0();
   const [ecologicalReserves, setEcologicalReserves] = useState([]);
   const [fetchState, setFetchState] = useState({ loading: true, error: null });
   const [selectedReserve, setSelectedReserve] = useState("");
@@ -12,6 +26,7 @@ function App() {
     loading: false,
     error: null,
   });
+  const [backendAuthorizationError, setBackendAuthorizationError] = useState(false);
   const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo.png`, []);
   const baseUrl = useMemo(() => {
     const url = process.env.REACT_APP_WILDLIFE_API_URL;
@@ -23,6 +38,80 @@ function App() {
     return url.endsWith("/") ? url.slice(0, -1) : url;
   }, []);
   const analyzeControllerRef = useRef(null);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      loginWithRedirect().catch((error) => {
+        console.error("Falha ao redirecionar para o Auth0:", error);
+      });
+    }
+  }, [authLoading, isAuthenticated, loginWithRedirect]);
+
+  const authReady = !authLoading && isAuthenticated;
+
+  const authorizedFetch = useCallback(
+    async (url, options = {}) => {
+      const token = await getAccessTokenSilently({
+        authorizationParams: { audience: authAudience },
+      });
+
+      const headers = {
+        ...(options.headers || {}),
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      return fetch(url, {
+        ...options,
+        headers,
+      });
+    },
+    [authAudience, getAccessTokenSilently]
+  );
+
+  const ensureAuthorizedResponse = useCallback(
+    (response) => {
+      if (response?.status === 403) {
+        setBackendAuthorizationError(true);
+        throw new Error(BACKEND_UNAUTHORIZED_MESSAGE);
+      }
+      return response;
+    },
+    [setBackendAuthorizationError]
+  );
+
+  const apiOrigin = useMemo(() => {
+    if (!baseUrl) return null;
+    const originBase =
+      typeof window !== "undefined" && window.location
+        ? window.location.origin
+        : undefined;
+
+    try {
+      const resolved = originBase
+        ? new URL(baseUrl, originBase)
+        : new URL(baseUrl);
+      return resolved.origin;
+    } catch (error) {
+      console.warn("URL base inválida para comparação de origem:", error);
+      return null;
+    }
+  }, [baseUrl]);
+
+  const isApiUrl = useCallback(
+    (url) => {
+      if (!apiOrigin) return false;
+      try {
+        const target = new URL(url, apiOrigin);
+        return target.origin === apiOrigin;
+      } catch (error) {
+        return false;
+      }
+    },
+    [apiOrigin]
+  );
 
   const loadReserves = useCallback(() => {
     if (!baseUrl) {
@@ -40,9 +129,14 @@ function App() {
 
     (async () => {
       try {
-        const response = await fetch(`${baseUrl}/ecological_reserve/`, {
-          signal: controller.signal,
-        });
+        const response = await authorizedFetch(
+          `${baseUrl}/ecological_reserve/`,
+          {
+            signal: controller.signal,
+          }
+        );
+
+        ensureAuthorizedResponse(response);
 
         if (!response.ok) {
           throw new Error(`Erro ao carregar reservas (${response.status})`);
@@ -60,16 +154,20 @@ function App() {
     })();
 
     return () => controller.abort();
-  }, [baseUrl]);
+  }, [authorizedFetch, baseUrl, ensureAuthorizedResponse]);
 
   useEffect(() => {
+    if (!authReady) {
+      return undefined;
+    }
+
     const abort = loadReserves();
     return () => {
       if (typeof abort === "function") {
         abort();
       }
     };
-  }, [loadReserves]);
+  }, [authReady, loadReserves]);
 
   useEffect(() => {
     return () => {
@@ -267,51 +365,75 @@ function App() {
   );
 
   useEffect(() => {
-    async function loadSeverityStats(url) {
+    function loadSeverityStats(url) {
+      const controller = new AbortController();
       setSeverityStats({ loading: true, error: null, headers: [], rows: [] });
 
-      try {
-        const response = await fetch(url);
+      (async () => {
+        try {
+          const fromApi = isApiUrl(url);
+          const fetchFn = fromApi ? authorizedFetch : fetch;
+          const response = await fetchFn(url, { signal: controller.signal });
 
-        if (!response.ok) {
-          throw new Error(`Erro ao carregar estatísticas (${response.status})`);
+          if (fromApi) {
+            ensureAuthorizedResponse(response);
+          }
+
+          if (!response.ok) {
+            throw new Error(`Erro ao carregar estatísticas (${response.status})`);
+          }
+
+          const text = await response.text();
+          const [headerLine, ...lines] = text.trim().split(/\r?\n/);
+          const headers = headerLine.split(",").map((item) => item.trim());
+          const parsedRows = lines.map((line) => {
+            const values = line.split(",").map((item) => item.trim());
+            return headers.reduce((accumulator, header, index) => {
+              // eslint-disable-next-line no-param-reassign
+              accumulator[header] = values[index] ?? "";
+              return accumulator;
+            }, {});
+          });
+
+          setSeverityStats({
+            loading: false,
+            error: null,
+            headers,
+            rows: parsedRows,
+          });
+        } catch (error) {
+          if (error.name === "AbortError") {
+            return;
+          }
+          console.error("Falha ao ler CSV de estatísticas:", error);
+          setSeverityStats({
+            loading: false,
+            error: error.message,
+            headers: [],
+            rows: [],
+          });
         }
+      })();
 
-        const text = await response.text();
-        const [headerLine, ...lines] = text.trim().split(/\r?\n/);
-        const headers = headerLine.split(",").map((item) => item.trim());
-        const parsedRows = lines.map((line) => {
-          const values = line.split(",").map((item) => item.trim());
-          return headers.reduce((accumulator, header, index) => {
-            // eslint-disable-next-line no-param-reassign
-            accumulator[header] = values[index] ?? "";
-            return accumulator;
-          }, {});
-        });
-
-        setSeverityStats({
-          loading: false,
-          error: null,
-          headers,
-          rows: parsedRows,
-        });
-      } catch (error) {
-        console.error("Falha ao ler CSV de estatísticas:", error);
-        setSeverityStats({
-          loading: false,
-          error: error.message,
-          headers: [],
-          rows: [],
-        });
-      }
+      return () => controller.abort();
     }
 
     if (csvEntry) {
-      loadSeverityStats(csvEntry[1]);
-    } else {
-      setSeverityStats({ loading: false, error: null, headers: [], rows: [] });
+      if (isApiUrl(csvEntry[1]) && !authReady) {
+        return undefined;
+      }
+
+      const abort = loadSeverityStats(csvEntry[1]);
+      return () => {
+        if (typeof abort === "function") {
+          abort();
+        }
+      };
     }
-  }, [csvEntry]);
+
+    setSeverityStats({ loading: false, error: null, headers: [], rows: [] });
+    return undefined;
+  }, [authorizedFetch, csvEntry, ensureAuthorizedResponse, isApiUrl, authReady]);
 
   const bestDates = useMemo(() => {
     if (!analysisResult) return null;
@@ -353,10 +475,12 @@ function App() {
       });
       const url = `${baseUrl}/ecological_reserve/${selectedReserve}/analyze/?${queryParams.toString()}`;
 
-      const response = await fetch(url, {
+      const response = await authorizedFetch(url, {
         method: "POST",
         signal: controller.signal,
       });
+
+      ensureAuthorizedResponse(response);
 
       if (!response.ok) {
         throw new Error(`Erro ao analisar (${response.status})`);
@@ -382,6 +506,40 @@ function App() {
     }
   };
 
+  if (authError) {
+    return (
+      <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
+        <div className="alert alert-danger m-4" role="alert">
+          {authError.message || "Falha na autenticação."}
+          <div className="mt-3">
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => loginWithRedirect()}
+            >
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authReady) {
+    return (
+      <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
+        <div className="text-center">
+          <div className="spinner-border text-primary mb-3" role="status">
+            <span className="visually-hidden">Autenticando...</span>
+          </div>
+          <p className="mb-0">Redirecionando para a página de login…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const displayName = user?.name || user?.email || "Usuário";
+
   return (
     <div className="app-root d-flex flex-column min-vh-100">
       <header className="app-header text-white">
@@ -399,88 +557,111 @@ function App() {
               </p>
             </div>
           </div>
+          <div className="d-flex align-items-center gap-3">
+            <div className="text-end">
+              <p className="mb-0 small opacity-75">Autenticado como</p>
+              <strong className="small">{displayName}</strong>
+            </div>
+            <button
+              type="button"
+              className="btn btn-outline-light btn-sm"
+              onClick={() =>
+                logout({ logoutParams: { returnTo: window.location.origin } })
+              }
+            >
+              Sair
+            </button>
+          </div>
         </div>
       </header>
 
       <div className="app-body d-flex flex-grow-1">
-        <aside className="sidebar bg-light border-end p-4">
-          <h1 className="h5 mb-4">Parâmetros da análise</h1>
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="preFireDate" className="form-label">
-                Data pré-fogo
-              </label>
-              <input
-                type="date"
-                className="form-control"
-                id="preFireDate"
-                name="preFireDate"
-                value={preFireDate}
-                onChange={(event) => setPreFireDate(event.target.value)}
-                max={postFireDate || undefined}
-              />
-            </div>
+        {!backendAuthorizationError ? (
+          <aside className="sidebar bg-light border-end p-4">
+            <h1 className="h5 mb-4">Parâmetros da análise</h1>
+            <form onSubmit={handleSubmit}>
+              <div className="mb-3">
+                <label htmlFor="preFireDate" className="form-label">
+                  Data pré-fogo
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  id="preFireDate"
+                  name="preFireDate"
+                  value={preFireDate}
+                  onChange={(event) => setPreFireDate(event.target.value)}
+                  max={postFireDate || undefined}
+                />
+              </div>
 
-            <div className="mb-3">
-              <label htmlFor="postFireDate" className="form-label">
-                Data pós-fogo
-              </label>
-              <input
-                type="date"
-                className="form-control"
-                id="postFireDate"
-                name="postFireDate"
-                value={postFireDate}
-                onChange={(event) => setPostFireDate(event.target.value)}
-                min={preFireDate || undefined}
-              />
-            </div>
+              <div className="mb-3">
+                <label htmlFor="postFireDate" className="form-label">
+                  Data pós-fogo
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  id="postFireDate"
+                  name="postFireDate"
+                  value={postFireDate}
+                  onChange={(event) => setPostFireDate(event.target.value)}
+                  min={preFireDate || undefined}
+                />
+              </div>
 
-            <div className="mb-3">
-              <label htmlFor="reserve" className="form-label">
-                Selecione uma reserva ecológica
-              </label>
-              <select
-                className="form-select"
-                id="reserve"
-                name="reserve"
-                value={selectedReserve}
-                onChange={(event) => setSelectedReserve(event.target.value)}
-                disabled={fetchState.loading || hasError}
+              <div className="mb-3">
+                <label htmlFor="reserve" className="form-label">
+                  Selecione uma reserva ecológica
+                </label>
+                <select
+                  className="form-select"
+                  id="reserve"
+                  name="reserve"
+                  value={selectedReserve}
+                  onChange={(event) => setSelectedReserve(event.target.value)}
+                  disabled={fetchState.loading || hasError}
+                >
+                  {renderReserveOptions()}
+                </select>
+                {hasError ? (
+                  <div className="mt-2">
+                    <p className="small text-danger mb-2">
+                      Verifique se a API está acessível e se o certificado é
+                      confiável. Em ambientes de desenvolvimento com HTTPS
+                      autoassinado, abra o endpoint diretamente no navegador
+                      para aceitar o certificado antes de usar a aplicação.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={loadReserves}
+                    >
+                      Tentar novamente
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary w-100"
+                disabled={isAnalyzeDisabled}
               >
-                {renderReserveOptions()}
-              </select>
-              {hasError ? (
-                <div className="mt-2">
-                  <p className="small text-danger mb-2">
-                    Verifique se a API está acessível e se o certificado é
-                    confiável. Em ambientes de desenvolvimento com HTTPS
-                    autoassinado, abra o endpoint diretamente no navegador para
-                    aceitar o certificado antes de usar a aplicação.
-                  </p>
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger btn-sm"
-                    onClick={loadReserves}
-                  >
-                    Tentar novamente
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn-primary w-100"
-              disabled={isAnalyzeDisabled}
-            >
-              {analysisState.loading ? "Analisando…" : "Analisar"}
-            </button>
-          </form>
-        </aside>
+                {analysisState.loading ? "Analisando…" : "Analisar"}
+              </button>
+            </form>
+          </aside>
+        ) : null}
 
         <main className="app-main flex-grow-1 d-flex flex-column">
           <section className="app-main-content p-5 flex-grow-1">
+            {backendAuthorizationError ? (
+              <div className="alert alert-warning" role="alert">
+                {BACKEND_UNAUTHORIZED_MESSAGE}
+              </div>
+            ) : null}
+
             {analysisState.loading ? (
               <div className="placeholder-card border border-dashed rounded-3 p-5 text-center">
                 <div className="spinner-border text-primary mb-3" role="status">

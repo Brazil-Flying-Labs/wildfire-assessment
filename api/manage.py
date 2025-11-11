@@ -7,6 +7,14 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
+    if os.environ.get("ENV").lower() == "local":
+        import debugpy
+
+        try:
+            debugpy.listen(("0.0.0.0", 3011))
+            print("Attached debugpy!")
+        except Exception as e:
+            print(e)
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

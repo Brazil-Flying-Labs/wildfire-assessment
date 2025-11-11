@@ -28,6 +28,23 @@ cp .env.example .env
 
 Open the `.env` file and set the variables with the correct values.
 
+In addition to the AWS credentials already used by the project, the backend now needs to know which Auth0 API audience it should trust when validating incoming Bearer tokens. Set the following key using the same identifier configured in Auth0 (the value must match `REACT_APP_AUTH0_AUDIENCE` from the UI):
+
+```
+AUTH0_API_AUDIENCE=https://wildfire-assessment-api
+```
+
+When the configured Auth0 API does not embed the user's email in the access token payload, the backend can fall back to the Auth0 Management API to retrieve it. Provide a machine-to-machine application's credentials so the Django API can request a Management token on demand:
+
+```
+AUTH0_MANAGEMENT_CLIENT_ID=<your-m2m-client-id>
+AUTH0_MANAGEMENT_CLIENT_SECRET=<your-m2m-client-secret>
+# Optional when using the default value
+AUTH0_MANAGEMENT_AUDIENCE=https://<your-auth0-domain>/api/v2/
+```
+
+If you expose the email through a custom JWT claim instead, set `AUTH0_EMAIL_CLAIM` with the claim name so the backend does not need to call the Management API.
+
 # Usage
 
 Run `make reset` the first time to setup your environment, Subsequent use can be `make up`. (If you add any new requirement to requirements.txt, a `make reset` will be required).
@@ -47,6 +64,18 @@ https://localhost:8081/admin/
 Swagger UI lives in:
 
 https://127.0.0.1:8081/api/schema/swagger-ui
+
+## API authentication
+
+Every REST endpoint exposed by the Django API now requires a valid Auth0 access token. Include the token issued for the `AUTH0_API_AUDIENCE` in the `Authorization` header of each request:
+
+```
+curl -H "Authorization: Bearer <access_token>" https://localhost:8081/ecological_reserve/
+```
+
+Tokens issued for a different audience (for example the Auth0 Management API) will be rejected with `401 Unauthorized`.
+
+On the first request made with a new Auth0 identity the backend automatically creates a matching Django user and marks it as inactive. An administrator must activate the user (through `/admin/`) before subsequent API calls succeed.
 
 # IAC
 
