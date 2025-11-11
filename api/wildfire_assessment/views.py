@@ -1,13 +1,8 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 
-from django.contrib.auth.models import Group, User
+from django.db.models import Exists, OuterRef
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import (
-    OpenApiExample,
-    OpenApiParameter,
-    OpenApiResponse,
-    extend_schema,
-)
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -43,9 +38,11 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         # We need to return only ecological reserves that the user has access to throug country
 
         user = request.user
-        country_ids = user.country_permissions.values_list("country_id", flat=True)
+        country_ids = user.country_permissions.all()
         if country_ids:
-            self.queryset = self.queryset.filter(country_id__in=country_ids)
+            self.queryset = self.queryset.filter(
+                Exists(country_ids.filter(id=OuterRef("country_id")))
+            )
         else:
             self.queryset = self.queryset.none()
 
