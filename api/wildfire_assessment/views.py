@@ -40,6 +40,15 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         List all EcologicalReserves.
         """
         self.pagination_class = None
+        # We need to return only ecological reserves that the user has access to throug country
+
+        user = request.user
+        country_ids = user.country_permissions.values_list("country_id", flat=True)
+        if country_ids:
+            self.queryset = self.queryset.filter(country_id__in=country_ids)
+        else:
+            self.queryset = self.queryset.none()
+
         return super().list(request, *args, **kwargs)
 
     @extend_schema(
