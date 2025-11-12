@@ -47,12 +47,8 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         # We need to return only ecological reserves that the user has access to throug country
         user = request.user
         if country_ids := user.country_permissions.values_list("country_id", flat=True):
-            LOG.info(
-                f"User {user.username} has access to countries: {[c for c in country_ids]}"
-            )
             self.queryset = self.queryset.filter(country_id__in=country_ids)
         else:
-            LOG.info(f"User {user.username} has no country permissions.")
             self.queryset = self.queryset.none()
 
         return super().list(request, *args, **kwargs)
