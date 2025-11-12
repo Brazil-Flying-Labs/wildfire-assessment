@@ -21,6 +21,22 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  ui:
+    container_name: wildfire-ui
+    build:
+      context: .
+      dockerfile: ui.Dockerfile
+    user: root
+    ports:
+      - "3000:3000"
+    command: >
+      npm start
+    volumes:
+      - ./ui:/ui
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
   db:
     container_name: wildfire-db
     image: postgis/postgis:15-3.3
