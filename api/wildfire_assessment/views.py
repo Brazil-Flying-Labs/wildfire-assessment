@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from django.db.models import Exists, OuterRef
@@ -16,6 +17,8 @@ from wildfire_assessment.svc.src.image_processor import (
     get_sentinel_collection,
 )
 from wildfire_assessment.utils import calculate_date_range, load_polygon
+
+LOG = logging.getLogger(__name__)
 
 
 def health_status(_request):
@@ -45,10 +48,14 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         user = request.user
         country_ids = user.country_permissions.all()
         if country_ids:
+            LOG.info(
+                f"User {user.username} has access to countries: {[c.id for c in country_ids]}"
+            )
             self.queryset = self.queryset.filter(
                 Exists(country_ids.filter(id=OuterRef("country_id")))
             )
         else:
+            LOG.info(f"User {user.username} has no country permissions.")
             self.queryset = self.queryset.none()
 
         return super().list(request, *args, **kwargs)
