@@ -1,13 +1,16 @@
 resource "aws_rds_cluster" "aurora_postgres" {
   cluster_identifier      = "wildfire-assessment-aurora-${var.environment}"
   engine                  = "aurora-postgresql"
-  engine_version          = "15.3"
   master_username         = "root"
   database_name           = "wildfiredb"
   backup_retention_period = 7
   preferred_backup_window = "07:00-09:00"
   vpc_security_group_ids  = [aws_security_group.ecs_api.id]
   db_subnet_group_name    = aws_db_subnet_group.aurora.name
+
+  lifecycle {
+    ignore_changes = [engine_version]
+  }
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5
