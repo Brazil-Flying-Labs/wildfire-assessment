@@ -40,7 +40,7 @@ class WildfireAnalyzer:
         filename: str or int, Nome do arquivo GeoJSON ou ID da reserva ecológica.
     """
 
-    def __init__(self, polygon, pre_fire_dates, post_fire_dates, filename):
+    def __init__(self, polygon, pre_fire_dates, post_fire_dates, filename, execution_id):
         """Inicializa o analisador com um polígono e intervalos de datas.
 
         Args:
@@ -50,10 +50,12 @@ class WildfireAnalyzer:
             post_fire_dates: tuple, Intervalo de datas pós-fogo (início, fim).
         """
         self.polygon = polygon
-        self.filename = filename or "poligono"
+        self.folder_polygon = filename or "poligono"
+        self.execution_id = execution_id
         self.pre_fire_dates = pre_fire_dates
         self.post_fire_dates = post_fire_dates
         self.center_point = polygon.centroid()
+        self.folder = f"{self.execution_id}/{self.folder_polygon}"
         # Usar o envelope do polígono com buffer de 1000 metros
         self.export_region = polygon.bounds()
         logger.debug("Coordenadas do polígono original: %s", self.polygon.coordinates().getInfo())
@@ -130,7 +132,7 @@ class WildfireAnalyzer:
         Returns:
             pd.DataFrame, Tabela com classes de severidade, áreas (ha), porcentagens e cores.
         """
-        prefix = str(self.filename).replace('.geojson', '') if isinstance(self.filename, str) else f"{self.filename}"
+        
         pixel_area = ee.Image.pixelArea().divide(10000)  # Converte para hectares
         stats_image = pixel_area.addBands(severity_image)
         stats = stats_image.reduceRegion(
@@ -165,16 +167,16 @@ class WildfireAnalyzer:
                 'Color': color_name
             })
         df = pd.DataFrame(table_py)
-        export_dir = f'exports/{prefix}'
+        export_dir = f'exports/{self.folder}'
         os.makedirs(export_dir, exist_ok=True)  # Cria o diretório se não existir
-        csv_local_path = f'{export_dir}/{self.filename}_severity_stats.csv'
+        csv_local_path = f'{export_dir}/severity_stats.csv'
         df.to_csv(csv_local_path, index=False)
 
         # Upload do CSV para S3
         session = get_boto3_session()
         s3 = session.client('s3')
         bucket_name = 'wildfire-assessment-dev'  # Substitua pelo nome do seu bucket S3
-        s3_key = f'wildfire/{prefix}/{self.filename}_severity_stats.csv'
+        s3_key = f'wildfire/{self.folder}/severity_stats.csv'
         try:
             s3.upload_file(csv_local_path, bucket_name, s3_key)
             logger.info("Arquivo CSV %s enviado para s3://%s/%s", csv_local_path, bucket_name, s3_key)
@@ -195,7 +197,7 @@ class WildfireAnalyzer:
         Returns:
             list, Lista de caminhos dos arquivos salvos.
         """
-        prefix = str(self.filename).replace('.geojson', '') if isinstance(self.filename, str) else f"{self.filename}"
+        
         rbr_severity_palette = ['00FF00', 'FFFF00', 'FFA500', 'FF0000', '8B4513']
         rbr_palette = ['black','yellow','red']
         rbr_rgb = images['rbr'].visualize(
@@ -274,16 +276,16 @@ class WildfireAnalyzer:
         # 1. RBR puro (TIFF georreferenciado, 1 banda) + overlay
         rbr_pure_vis = images['rbr'].visualize(min=0, max=1).blend(poly_overlay)
         output_paths = []
-        p = do_export(rbr_pure_vis, f'{prefix}_RBR_Pure', region_buffer, 'tif', f'exports/{prefix}')
+        p = do_export(rbr_pure_vis, 'RBR_Pure', region_buffer, 'tif', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
         # 2. RBR colorido com polígono (TIFF georreferenciado) + overlay
         rbr_color_vis = rbr_rgb.blend(poly_overlay)
-        p = do_export(rbr_color_vis, f'{prefix}_RBR_Color', region_buffer, 'tif', f'exports/{prefix}')
+        p = do_export(rbr_color_vis, 'RBR_Color', region_buffer, 'tif', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
         # 3. RBR colorido com polígono (JPEG não georreferenciado) + overlay
-        p = do_export(rbr_color_vis, f'{prefix}_RBR_Color', region_buffer, 'jpg', f'exports/{prefix}')
+        p = do_export(rbr_color_vis, 'RBR_Color', region_buffer, 'jpg', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
         # 4. Severity RBR colorido com polígono (TIFF georreferenciado) + overlay
@@ -292,29 +294,29 @@ class WildfireAnalyzer:
             max=4,
             palette=rbr_severity_palette
         ).blend(poly_overlay)
-        p = do_export(severity_rgb, f'{prefix}_Severity_RBR_Color', region_buffer, 'tif', f'exports/{prefix}')
+        p = do_export(severity_rgb, 'Severity_RBR_Color', region_buffer, 'tif', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
         # 5. Severity RBR colorido com polígono (JPEG não georreferenciado) + overlay
-        p = do_export(severity_rgb, f'{prefix}_Severity_RBR_Color', region_buffer, 'jpg', f'exports/{prefix}')
+        p = do_export(severity_rgb, 'Severity_RBR_Color', region_buffer, 'jpg', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
         # 6. RGB pré fogo com polígono (TIFF georreferenciado) + overlay
         rgb_pre_vis = rgb_pre.visualize(min=0, max=255).blend(poly_overlay)
-        p = do_export(rgb_pre_vis, f'{prefix}_RGB_PreFire', region_buffer, 'tif', f'exports/{prefix}')
+        p = do_export(rgb_pre_vis, 'RGB_PreFire', region_buffer, 'tif', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
         # 7. RGB pré fogo com polígono (JPEG não georreferenciado) + overlay
-        p = do_export(rgb_pre_vis, f'{prefix}_RGB_PreFire', region_buffer, 'jpg', f'exports/{prefix}')
+        p = do_export(rgb_pre_vis, 'RGB_PreFire', region_buffer, 'jpg', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
         # 8. RGB pós fogo com polígono (TIFF georreferenciado) + overlay
         rgb_post_vis = rgb_post.visualize(min=0, max=255).blend(poly_overlay)
-        p = do_export(rgb_post_vis, f'{prefix}_RGB_PostFire', region_buffer, 'tif', f'exports/{prefix}')
+        p = do_export(rgb_post_vis, 'RGB_PostFire', region_buffer, 'tif', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
         # 9. RGB pós fogo com polígono (JPEG não georreferenciado) + overlay
-        p = do_export(rgb_post_vis, f'{prefix}_RGB_PostFire', region_buffer, 'jpg', f'exports/{prefix}')
+        p = do_export(rgb_post_vis, 'RGB_PostFire', region_buffer, 'jpg', f'exports/{self.folder}')
         if p:
             output_paths.append(p)
 
@@ -337,17 +339,17 @@ class WildfireAnalyzer:
             rgb_pre_full_vis = rgb_pre_full.visualize(min=0, max=255).blend(poly_mask_vis)
             rgb_post_full_vis = rgb_post_full.visualize(min=0, max=255).blend(poly_mask_vis)
 
-            p = do_export(rgb_pre_full_vis, f'{prefix}_PreFire_Full', region_buffer, 'tif', f'exports/{prefix}')
+            p = do_export(rgb_pre_full_vis, 'PreFire_Full', region_buffer, 'tif', f'exports/{self.folder}')
             if p:
                 output_paths.append(p)
-            p = do_export(rgb_post_full_vis, f'{prefix}_PostFire_Full', region_buffer, 'tif', f'exports/{prefix}')
+            p = do_export(rgb_post_full_vis, 'PostFire_Full', region_buffer, 'tif', f'exports/{self.folder}')
             if p:
                 output_paths.append(p)
 
         session = get_boto3_session()
         s3 = session.client('s3')
         bucket_name = 'wildfire-assessment-dev'  # Substitua pelo nome do seu bucket S3
-        s3_prefix = f'wildfire/{prefix}/'
+        s3_prefix = f'wildfire/{self.folder}/'
 
         presigned_urls = []
 
@@ -374,16 +376,16 @@ class WildfireAnalyzer:
                 presigned_urls.append({"key": s3_key, "url": presigned_url})
                 logger.info("Pre-signed URL gerado para %s", s3_key)
         
-        csv_local_path = f'exports/{prefix}/{self.filename}_severity_stats.csv'
+        csv_local_path = f'exports/{self.folder}/severity_stats.csv'
         if os.path.exists(csv_local_path):
-            s3_key = f"{s3_prefix}{self.filename}_severity_stats.csv"
+            s3_key = f"{s3_prefix}severity_stats.csv"
             upload_to_s3(csv_local_path, s3_key)
             presigned_url = generate_presigned_url(bucket_name, s3_key, expiration=3600)
             presigned_urls.append({"key": s3_key, "url": presigned_url})
             logger.info("Pre-signed URL gerado para %s", s3_key)
 
         # Remover diretório local de exportação do polígono para não deixar sujeira no container
-        export_dir = f'exports/{prefix}'
+        export_dir = f'exports/{self.folder}'
         try:
             if os.path.exists(export_dir) and os.path.isdir(export_dir):
                 # Apenas remover se houver arquivos (safety check)
