@@ -210,10 +210,21 @@ if ENV in ["local", "dev"]:
     INSTALLED_APPS += ["drf_spectacular"]
 
     SPECTACULAR_SETTINGS = {
-        "TITLE": "Wildfire Assessment API",
+        "TITLE": "Wildfire Assessment API V2",
         "DESCRIPTION": "Auto generated openApi 3.0 docs",
         "VERSION": "1.0.0",
         "SORT_OPERATION_PARAMETERS": False,
+        "APPEND_COMPONENTS": {
+            "securitySchemes": {
+                "BearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "JWT",
+                    "description": "JWT Authorization header using the Bearer scheme. Example: 'Authorization: Bearer <token>'",
+                }
+            }
+        },
+        "SECURITY": [{"BearerAuth": []}],
     }
 
     # DJANGO CORS HEADERS
