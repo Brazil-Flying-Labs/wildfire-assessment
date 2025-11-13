@@ -1,4 +1,6 @@
+
 import logging
+import uuid
 from datetime import datetime
 
 from django.db.models import Exists, OuterRef
@@ -88,6 +90,10 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         """
         initialize_gee()
         instance = self.get_object()
+
+        # Generate unique execution ID
+        execution_id = uuid.uuid4()
+
         polygon_path = instance.polygon_path
         pre_fire_date_to = request.query_params.get("pre_fire_date")
         post_fire_date_from = request.query_params.get("post_fire_date")
@@ -135,7 +141,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Descomente e ajuste se necessário
         analyzer = WildfireAnalyzer(
-            polygon, pre_fire_range, post_fire_range, instance.id
+            polygon, pre_fire_range, post_fire_range, instance.id, execution_id=str(execution_id)
         )
         # Obtenha as datas das melhores imagens
         _, pre_fire_date = get_best_image(
@@ -149,7 +155,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         _, total_area = analyzer.calculate_area_stats(images["severity"])
         presigned_urls = analyzer.export_results(images, export_full_image=True)
 
-        prefix = str(instance.id)
+        prefix = str(execution_id) + "_" + str(instance.id)
 
         presigned_data = {}
         for item in presigned_urls:
