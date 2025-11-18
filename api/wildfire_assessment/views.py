@@ -163,27 +163,27 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         presigned_data = {}
         for item in presigned_urls:
             s3_key = item["key"]
-            if s3_key.endswith(f"RBR_Pure.tif"):
+            if s3_key.endswith("RBR_Pure.tif"):
                 presigned_data["rbr_pure_tif"] = item["url"]
-            elif s3_key.endswith(f"RBR_Color.tif"):
+            elif s3_key.endswith("RBR_Color.tif"):
                 presigned_data["rbr_color_tif"] = item["url"]
-            elif s3_key.endswith(f"RBR_Color.jpg"):
+            elif s3_key.endswith("RBR_Color.jpg"):
                 presigned_data["rbr_color_jpg"] = item["url"]
-            elif s3_key.endswith(f"Severity_RBR_Color.tif"):
+            elif s3_key.endswith("Severity_RBR_Color.tif"):
                 presigned_data["severity_rbr_color_tif"] = item["url"]
-            elif s3_key.endswith(f"Severity_RBR_Color.jpg"):
+            elif s3_key.endswith("Severity_RBR_Color.jpg"):
                 presigned_data["severity_rbr_color_jpg"] = item["url"]
-            elif s3_key.endswith(f"RGB_PreFire.tif"):
+            elif s3_key.endswith("RGB_PreFire.tif"):
                 presigned_data["rgb_pre_fire_tif"] = item["url"]
-            elif s3_key.endswith(f"RGB_PreFire.jpg"):
+            elif s3_key.endswith("RGB_PreFire.jpg"):
                 presigned_data["rgb_pre_fire_jpg"] = item["url"]
-            elif s3_key.endswith(f"RGB_PostFire.tif"):
+            elif s3_key.endswith("RGB_PostFire.tif"):
                 presigned_data["rgb_post_fire_tif"] = item["url"]
-            elif s3_key.endswith(f"RGB_PostFire.jpg"):
+            elif s3_key.endswith("RGB_PostFire.jpg"):
                 presigned_data["rgb_post_fire_jpg"] = item["url"]
-            elif s3_key.endswith(f"poligono_geojson.geojson"):
+            elif s3_key.endswith("poligono_geojson.geojson"):
                 presigned_data["polygon"] = item["url"]
-            elif s3_key.endswith(f"severity_stats.csv"):
+            elif s3_key.endswith("severity_stats.csv"):
                 presigned_data["severity_stats"] = item["url"]
 
         return Response(
