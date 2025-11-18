@@ -1,4 +1,3 @@
-
 import logging
 import uuid
 from datetime import datetime
@@ -141,7 +140,11 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
 
         # Descomente e ajuste se necessário
         analyzer = WildfireAnalyzer(
-            polygon, pre_fire_range, post_fire_range, instance.id, execution_id=str(execution_id)
+            polygon,
+            pre_fire_range,
+            post_fire_range,
+            instance.id,
+            execution_id=str(execution_id),
         )
         # Obtenha as datas das melhores imagens
         _, pre_fire_date = get_best_image(
@@ -160,27 +163,27 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         presigned_data = {}
         for item in presigned_urls:
             s3_key = item["key"]
-            if s3_key.endswith(f"{prefix}_RBR_Pure.tif"):
+            if s3_key.endswith(f"RBR_Pure.tif"):
                 presigned_data["rbr_pure_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RBR_Color.tif"):
+            elif s3_key.endswith(f"RBR_Color.tif"):
                 presigned_data["rbr_color_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RBR_Color.jpg"):
+            elif s3_key.endswith(f"RBR_Color.jpg"):
                 presigned_data["rbr_color_jpg"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_Severity_RBR_Color.tif"):
+            elif s3_key.endswith(f"Severity_RBR_Color.tif"):
                 presigned_data["severity_rbr_color_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_Severity_RBR_Color.jpg"):
+            elif s3_key.endswith(f"Severity_RBR_Color.jpg"):
                 presigned_data["severity_rbr_color_jpg"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RGB_PreFire.tif"):
+            elif s3_key.endswith(f"RGB_PreFire.tif"):
                 presigned_data["rgb_pre_fire_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RGB_PreFire.jpg"):
+            elif s3_key.endswith(f"RGB_PreFire.jpg"):
                 presigned_data["rgb_pre_fire_jpg"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RGB_PostFire.tif"):
+            elif s3_key.endswith(f"RGB_PostFire.tif"):
                 presigned_data["rgb_post_fire_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RGB_PostFire.jpg"):
+            elif s3_key.endswith(f"RGB_PostFire.jpg"):
                 presigned_data["rgb_post_fire_jpg"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_poligono_geojson.geojson"):
+            elif s3_key.endswith(f"poligono_geojson.geojson"):
                 presigned_data["polygon"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_severity_stats.csv"):
+            elif s3_key.endswith(f"severity_stats.csv"):
                 presigned_data["severity_stats"] = item["url"]
 
         return Response(
