@@ -3,7 +3,6 @@ import logging
 import uuid
 from datetime import datetime
 
-from django.db.models import Exists, OuterRef
 from django.http import JsonResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
@@ -14,10 +13,6 @@ from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import EcologicalReserveSerializer
 from wildfire_assessment.svc.src.analyzer import WildfireAnalyzer
 from wildfire_assessment.svc.src.auth import initialize_gee
-from wildfire_assessment.svc.src.image_processor import (
-    get_best_image,
-    get_sentinel_collection,
-)
 from wildfire_assessment.utils import calculate_date_range, load_polygon
 
 LOG = logging.getLogger(__name__)
@@ -54,6 +49,54 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
             self.queryset = self.queryset.none()
 
         return super().list(request, *args, **kwargs)
+    
+    def _parse_date(self, date_str):
+        """Converts string to date object."""
+        return datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else None
+
+    def _calculate_date_ranges(self, pre_fire_date, post_fire_date):
+        """It calculates the date ranges for analysis."""
+        pre_date = self._parse_date(pre_fire_date)
+        post_date = self._parse_date(post_fire_date)
+
+        pre_start, post_end = calculate_date_range(pre_date, post_date) if pre_date and post_date else (None, None)
+
+        return {
+            'pre_start': pre_start,
+            'pre_end': pre_date,
+            'post_start': post_date, 
+            'post_end': post_end
+        }
+    
+    def _format_date_range(self, start_date, end_date):
+        """Formats dates to the format expected by the analyzer.."""
+        if start_date and end_date:
+            return (start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
+        return None
+
+    def _map_presigned_urls(self, presigned_urls, prefix):
+        """Maps S3 URLs to standardized keys in the response."""
+        file_mapping = {
+            f"{prefix}_RBR_Pure.tif": "rbr_pure_tif",
+            f"{prefix}_RBR_Color.tif": "rbr_color_tif",
+            f"{prefix}_RBR_Color.jpg": "rbr_color_jpg",
+            f"{prefix}_Severity_RBR_Color.tif": "severity_rbr_color_tif", 
+            f"{prefix}_Severity_RBR_Color.jpg": "severity_rbr_color_jpg",
+            f"{prefix}_RGB_PreFire.tif": "rgb_pre_fire_tif",
+            f"{prefix}_RGB_PreFire.jpg": "rgb_pre_fire_jpg",
+            f"{prefix}_RGB_PostFire.tif": "rgb_post_fire_tif",
+            f"{prefix}_RGB_PostFire.jpg": "rgb_post_fire_jpg",
+            f"{prefix}_poligono_geojson.geojson": "polygon",
+            f"{prefix}_severity_stats.csv": "severity_stats",
+        }
+        
+        mapped_urls = {}
+        for item in presigned_urls:
+            filename = item["key"].split('/')[-1]  # Get only the file name
+            if mapped_key := file_mapping.get(filename):
+                mapped_urls[mapped_key] = item["url"]
+                
+        return mapped_urls
 
     @extend_schema(
         methods=["POST"],
@@ -88,105 +131,43 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         Custom action to analyze an EcologicalReserve.
         The 'id' parameter is the id of the EcologicalReserve.
         """
+        # 1. Initialization and validation
         initialize_gee()
         instance = self.get_object()
 
-        # Generate unique execution ID
+        # 2. Request parameters
+        pre_fire_date = request.query_params.get("pre_fire_date")
+        post_fire_date = request.query_params.get("post_fire_date")
         execution_id = uuid.uuid4()
 
-        polygon_path = instance.polygon_path
-        pre_fire_date_to = request.query_params.get("pre_fire_date")
-        post_fire_date_from = request.query_params.get("post_fire_date")
+        # 3. Date calculation
+        date_ranges = self._calculate_date_ranges(pre_fire_date, post_fire_date)
+        pre_fire_range = self._format_date_range(date_ranges['pre_start'], date_ranges['pre_end'])
+        post_fire_range = self._format_date_range(date_ranges['post_start'], date_ranges['post_end'])
 
-        pre_fire_date_to_date = (
-            datetime.strptime(pre_fire_date_to, "%Y-%m-%d").date()
-            if pre_fire_date_to
-            else None
-        )
-        post_fire_date_from_date = (
-            datetime.strptime(post_fire_date_from, "%Y-%m-%d").date()
-            if post_fire_date_from
-            else None
-        )
-
-        pre_fire_date_before, _ = (
-            calculate_date_range(pre_fire_date_to_date)
-            if pre_fire_date_to_date
-            else (None, None)
-        )
-        _, post_fire_date_after = (
-            calculate_date_range(post_fire_date_from_date)
-            if post_fire_date_from_date
-            else (None, None)
-        )
-        polygon = load_polygon(polygon_path)
-
-        # Ajuste os ranges para strings formatadas, assumindo que WildfireAnalyzer espera tuplas de strings (start, end)
-        pre_fire_range = (
-            (
-                pre_fire_date_before.strftime("%Y-%m-%d"),
-                pre_fire_date_to_date.strftime("%Y-%m-%d"),
-            )
-            if pre_fire_date_before and pre_fire_date_to_date
-            else None
-        )
-        post_fire_range = (
-            (
-                post_fire_date_from_date.strftime("%Y-%m-%d"),
-                post_fire_date_after.strftime("%Y-%m-%d"),
-            )
-            if post_fire_date_from_date and post_fire_date_after
-            else None
-        )
-
-        # Descomente e ajuste se necessário
+        # 4. Load polygon and get best image dates
+        polygon = load_polygon(instance.polygon_path)
+        
+        # 5. Execute analysis
         analyzer = WildfireAnalyzer(
-            polygon, pre_fire_range, post_fire_range, instance.id, execution_id=str(execution_id)
-        )
-        # Obtenha as datas das melhores imagens
-        _, pre_fire_date = get_best_image(
-            get_sentinel_collection(polygon), *pre_fire_range, polygon
-        )
-        _, post_fire_date = get_best_image(
-            get_sentinel_collection(polygon), *post_fire_range, polygon
+            polygon=polygon,
+            pre_fire_dates=pre_fire_range,
+            post_fire_dates=post_fire_range, 
+            polygon_id=instance.id,
+            execution_id=execution_id
         )
 
         images = analyzer.calculate_severity()
-        _, total_area = analyzer.calculate_area_stats(images["severity"])
+        analyzer.calculate_area_stats(images["severity"])
         presigned_urls = analyzer.export_results(images, export_full_image=True)
+        prefix = f"{uuid.uuid4()}_{instance.id}"
 
-        prefix = str(execution_id) + "_" + str(instance.id)
+        # 6. Map URLs to response keys
+        file_urls = self._map_presigned_urls(presigned_urls, prefix)
 
-        presigned_data = {}
-        for item in presigned_urls:
-            s3_key = item["key"]
-            if s3_key.endswith(f"{prefix}_RBR_Pure.tif"):
-                presigned_data["rbr_pure_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RBR_Color.tif"):
-                presigned_data["rbr_color_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RBR_Color.jpg"):
-                presigned_data["rbr_color_jpg"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_Severity_RBR_Color.tif"):
-                presigned_data["severity_rbr_color_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_Severity_RBR_Color.jpg"):
-                presigned_data["severity_rbr_color_jpg"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RGB_PreFire.tif"):
-                presigned_data["rgb_pre_fire_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RGB_PreFire.jpg"):
-                presigned_data["rgb_pre_fire_jpg"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RGB_PostFire.tif"):
-                presigned_data["rgb_post_fire_tif"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_RGB_PostFire.jpg"):
-                presigned_data["rgb_post_fire_jpg"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_poligono_geojson.geojson"):
-                presigned_data["polygon"] = item["url"]
-            elif s3_key.endswith(f"{prefix}_severity_stats.csv"):
-                presigned_data["severity_stats"] = item["url"]
-
-        return Response(
-            {
-                **presigned_data,
-                "pre_fire_best_date": pre_fire_date,
-                "post_fire_best_date": post_fire_date,
-            }
-        )
+        # 7. Return response
+        return Response({
+            **file_urls,
+            "pre_fire_best_date": images["pre_fire_best_date"],
+            "post_fire_best_date": images["post_fire_best_date"],
+        })
