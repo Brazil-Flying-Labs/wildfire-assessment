@@ -40,7 +40,6 @@ django-cors-headers==4.7.0
 django-extensions==4.1
 djangorestframework==3.16.1
 drf-spectacular==0.28.0
-earthengine-api==0.1.357
 ee_extra==0.0.15
 eerepr==0.1.2
 executing==2.2.1
@@ -53,7 +52,6 @@ fqdn==1.5.1
 future==1.0.0
 gdown==5.2.0
 geeadd==0.5.6
-geemap==0.20.0
 geocoder==1.38.1
 geojson==3.2.0
 geopandas==1.1.1
@@ -153,7 +151,6 @@ pyshp==2.3.1
 PySocks==1.7.1
 python-box==7.3.2
 python-dateutil==2.9.0.post0
-python-dotenv==1.1.1
 python-json-logger==3.3.0
 python3-openid==3.2.0
 pytz==2025.2
@@ -212,3 +209,4 @@ whiteboxgui==2.3.0
 whitenoise==6.10.0
 widgetsnbextension==3.6.10
 xyzservices==2025.4.0
+wildfire_analyser==0.1.4

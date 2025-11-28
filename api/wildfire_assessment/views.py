@@ -2,7 +2,6 @@ import logging
 import uuid
 from datetime import datetime
 
-from django.db.models import Exists, OuterRef
 from django.http import JsonResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
@@ -11,13 +10,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import EcologicalReserveSerializer
-from wildfire_assessment.svc.src.analyzer import WildfireAnalyzer
-from wildfire_assessment.svc.src.auth import initialize_gee
-from wildfire_assessment.svc.src.image_processor import (
-    get_best_image,
-    get_sentinel_collection,
+from wildfire_assessment.svc.src.processor import (
+    deliverable_to_filename,
+    process_fire_assessment,
 )
-from wildfire_assessment.utils import calculate_date_range, load_polygon
 
 LOG = logging.getLogger(__name__)
 
@@ -53,6 +49,10 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
             self.queryset = self.queryset.none()
 
         return super().list(request, *args, **kwargs)
+    
+    def _parse_date(self, date_str):
+        """Converts string to date object."""
+        return datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else None
 
     @extend_schema(
         methods=["POST"],
@@ -87,109 +87,28 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         Custom action to analyze an EcologicalReserve.
         The 'id' parameter is the id of the EcologicalReserve.
         """
-        initialize_gee()
         instance = self.get_object()
-
-        # Generate unique execution ID
         execution_id = uuid.uuid4()
-
         polygon_path = instance.polygon_path
-        pre_fire_date_to = request.query_params.get("pre_fire_date")
-        post_fire_date_from = request.query_params.get("post_fire_date")
 
-        pre_fire_date_to_date = (
-            datetime.strptime(pre_fire_date_to, "%Y-%m-%d").date()
-            if pre_fire_date_to
-            else None
-        )
-        post_fire_date_from_date = (
-            datetime.strptime(post_fire_date_from, "%Y-%m-%d").date()
-            if post_fire_date_from
-            else None
-        )
+        polygon_path = f"../../polygons/{polygon_path}"
+        
+        pre_fire_date = request.query_params.get("pre_fire_date")
+        post_fire_date = request.query_params.get("post_fire_date")
 
-        pre_fire_date_before, _ = (
-            calculate_date_range(pre_fire_date_to_date)
-            if pre_fire_date_to_date
-            else (None, None)
-        )
-        _, post_fire_date_after = (
-            calculate_date_range(post_fire_date_from_date)
-            if post_fire_date_from_date
-            else (None, None)
-        )
-        polygon = load_polygon(polygon_path)
-
-        # Ajuste os ranges para strings formatadas, assumindo que WildfireAnalyzer espera tuplas de strings (start, end)
-        pre_fire_range = (
-            (
-                pre_fire_date_before.strftime("%Y-%m-%d"),
-                pre_fire_date_to_date.strftime("%Y-%m-%d"),
-            )
-            if pre_fire_date_before and pre_fire_date_to_date
-            else None
-        )
-        post_fire_range = (
-            (
-                post_fire_date_from_date.strftime("%Y-%m-%d"),
-                post_fire_date_after.strftime("%Y-%m-%d"),
-            )
-            if post_fire_date_from_date and post_fire_date_after
-            else None
+        assessment_result = process_fire_assessment(
+            fire_id=instance.id,
+            execution_id=execution_id,
+            pre_fire_date=pre_fire_date,
+            post_fire_date=post_fire_date,
+            polygon_path=polygon_path
         )
 
-        # Descomente e ajuste se necessário
-        analyzer = WildfireAnalyzer(
-            polygon,
-            pre_fire_range,
-            post_fire_range,
-            instance.id,
-            execution_id=str(execution_id),
-        )
-        # Obtenha as datas das melhores imagens
-        _, pre_fire_date = get_best_image(
-            get_sentinel_collection(polygon), *pre_fire_range, polygon
-        )
-        _, post_fire_date = get_best_image(
-            get_sentinel_collection(polygon), *post_fire_range, polygon
-        )
 
-        images = analyzer.calculate_severity()
-        _, total_area = analyzer.calculate_area_stats(images["severity"])
-        presigned_urls = analyzer.export_results(images, export_full_image=True)
-
-        prefix = str(execution_id) + "_" + str(instance.id)
-
-        presigned_data = {}
-        for item in presigned_urls:
-            s3_key = item["key"]
-            if s3_key.endswith("RBR_Pure.tif"):
-                presigned_data["rbr_pure_tif"] = item["url"]
-            elif s3_key.endswith("RBR_Color.tif"):
-                presigned_data["rbr_color_tif"] = item["url"]
-            elif s3_key.endswith("RBR_Color.jpg"):
-                presigned_data["rbr_color_jpg"] = item["url"]
-            elif s3_key.endswith("Severity_RBR_Color.tif"):
-                presigned_data["severity_rbr_color_tif"] = item["url"]
-            elif s3_key.endswith("Severity_RBR_Color.jpg"):
-                presigned_data["severity_rbr_color_jpg"] = item["url"]
-            elif s3_key.endswith("RGB_PreFire.tif"):
-                presigned_data["rgb_pre_fire_tif"] = item["url"]
-            elif s3_key.endswith("RGB_PreFire.jpg"):
-                presigned_data["rgb_pre_fire_jpg"] = item["url"]
-            elif s3_key.endswith("RGB_PostFire.tif"):
-                presigned_data["rgb_post_fire_tif"] = item["url"]
-            elif s3_key.endswith("RGB_PostFire.jpg"):
-                presigned_data["rgb_post_fire_jpg"] = item["url"]
-            elif s3_key.endswith("poligono_geojson.geojson"):
-                presigned_data["polygon"] = item["url"]
-            elif s3_key.endswith("severity_stats.csv"):
-                presigned_data["severity_stats"] = item["url"]
-
-        return Response(
-            {
-                **presigned_data,
-                "pre_fire_best_date": pre_fire_date,
-                "post_fire_best_date": post_fire_date,
-            }
-        )
+        presigned_urls = deliverable_to_filename(assessment_result)
+        
+        return Response({
+            "execution_id": str(execution_id),
+            **presigned_urls,
+            "area_by_severity": assessment_result["analysis_results"]["area_by_severity"]
+        })
