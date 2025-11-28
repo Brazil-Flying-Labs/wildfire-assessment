@@ -20,6 +20,7 @@ def process_fire_assessment(
 
     # Executa a análise
     runner = PostFireAssessment(
+        gee_user,
         polygon_path, 
         pre_fire_date, 
         post_fire_date, 
