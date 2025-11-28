@@ -1,8 +1,10 @@
-import os
+import logging
+import time
 
 import boto3
-from botocore.exceptions import ProfileNotFound
+from botocore.exceptions import ClientError, ProfileNotFound
 
+logger = logging.getLogger(__name__)
 
 def get_boto3_session() -> boto3.Session:
     """
@@ -24,35 +26,6 @@ def get_boto3_session() -> boto3.Session:
             "Please run 'aws configure' to set it up or use environment variables."
         )
 
-
-def generate_presigned_url(bucket_name: str, object_key: str, expiration=3600) -> str:
-    """
-    Generates a pre-signed URL for an S3 object.
-
-    Args:
-        bucket_name (str): The name of the S3 bucket.
-        object_key (str): The key (path) of the object in the bucket.
-        expiration (int): Time in seconds for the URL to remain valid (default: 3600 seconds = 1 hour).
-
-    Returns:
-        str: A pre-signed URL for the S3 object.
-
-    Raises:
-        ValueError: If credentials are invalid or the object does not exist.
-    """
-    try:
-        s3_session = get_boto3_session()
-        s3_client = s3_session.client("s3")
-        url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": bucket_name, "Key": object_key},
-            ExpiresIn=expiration,
-        )
-        return url
-    except Exception as e:
-        raise ValueError(f"Failed to generate pre-signed URL: {str(e)}")
-
-
 def get_aws_secret_manager_secret(secret_name: str) -> str:
     """
     Retrieves a secret value from AWS Secrets Manager.
@@ -73,3 +46,43 @@ def get_aws_secret_manager_secret(secret_name: str) -> str:
         return response["SecretString"]
     except Exception as e:
         raise ValueError(f"Failed to retrieve secret '{secret_name}': {str(e)}")
+
+def upload_to_s3(data: bytes, bucket_name: str, s3_key: str, content_type: str, expiration: int = 3600) -> tuple:
+    """
+    Faz upload de dados para o S3 e retorna tanto a URL do objeto quanto um pre-signed URL
+    expiration: tempo em segundos que o pre-signed URL será válido (padrão: 1 hora)
+    """
+    session = get_boto3_session()
+    s3 = session.client('s3')
+    
+    try:
+        # Faz o upload do objeto
+        s3.put_object(
+            Bucket=bucket_name,
+            Key=s3_key,
+            Body=data,
+            ContentType=content_type,
+            Metadata={
+                'generated_by': 'wildfire_analyser',
+                'timestamp': time.strftime('%Y-%m-%dT%H:%M:%SZ')
+            }
+        )
+        
+        # Gera o pre-signed URL
+        presigned_url = s3.generate_presigned_url(
+            'get_object',
+            Params={
+                'Bucket': bucket_name,
+                'Key': s3_key
+            },
+            ExpiresIn=expiration
+        )
+        
+        # URL padrão do S3
+        s3_object_url = f"s3://{bucket_name}/{s3_key}"
+        
+        return s3_object_url, presigned_url
+        
+    except ClientError as e:
+        logger.error(f"Erro no upload para S3: {e}")
+        raise
