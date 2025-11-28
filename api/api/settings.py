@@ -107,8 +107,8 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "api.wsgi.application"
+GEE_PRIVATE_KEY_JSON=secret["GEE_PRIVATE_KEY_JSON"]
 
-# Auth0 settings
 SOCIAL_AUTH_TRAILING_SLASH = secret[
     "SOCIAL_AUTH_TRAILING_SLASH"
 ]  # Remove trailing slash from routes
