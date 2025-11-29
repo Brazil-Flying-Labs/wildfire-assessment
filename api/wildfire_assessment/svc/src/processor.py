@@ -1,3 +1,4 @@
+import ast
 import csv
 import io
 import json
@@ -23,8 +24,13 @@ def process_fire_assessment(
     # Check the environment
     ENV = os.environ.get("ENV", "local")
 
-    secret = json.loads(get_aws_secret_manager_secret(ENV))
+    secret = json.loads(get_aws_secret_manager_secret("dev"))
     GEE_PRIVATE_KEY_JSON = secret["GEE_PRIVATE_KEY_JSON"]
+
+    if isinstance(GEE_PRIVATE_KEY_JSON, str):
+            if GEE_PRIVATE_KEY_JSON.startswith("'") and GEE_PRIVATE_KEY_JSON.endswith("'"):
+                GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON[1:-1]
+            GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON.replace('\\"', '"').replace('\\\\', '\\')
     # Executa a análise
     runner = PostFireAssessment(
         GEE_PRIVATE_KEY_JSON,
