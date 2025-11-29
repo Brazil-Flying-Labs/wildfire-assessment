@@ -2,13 +2,16 @@ import csv
 import io
 import json
 import logging
+import os
 import time
 import uuid
 
+from dotenv import load_dotenv
 from wildfire_analyser import Deliverable, FireSeverity, PostFireAssessment
-from wildfire_assessment.svc.src.aws import upload_to_s3
+from wildfire_assessment.svc.src.aws import get_aws_secret_manager_secret, upload_to_s3
 
 logger = logging.getLogger(__name__)
+load_dotenv()
 
 def process_fire_assessment(
         fire_id: int, execution_id: uuid.UUID, pre_fire_date: str, post_fire_date: str, polygon_path: str
@@ -17,10 +20,14 @@ def process_fire_assessment(
     Processa a avaliação de incêndio e salva os resultados diretamente no S3
     Retorna um dicionário com pre-signed URLs para acesso temporário
     """
+    # Check the environment
+    ENV = os.environ.get("ENV", "local")
 
+    secret = json.loads(get_aws_secret_manager_secret(ENV))
+    GEE_PRIVATE_KEY_JSON = secret["GEE_PRIVATE_KEY_JSON"]
     # Executa a análise
     runner = PostFireAssessment(
-        gee_user,
+        GEE_PRIVATE_KEY_JSON,
         polygon_path, 
         pre_fire_date, 
         post_fire_date, 
