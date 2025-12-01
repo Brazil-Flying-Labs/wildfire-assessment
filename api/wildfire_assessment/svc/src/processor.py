@@ -24,7 +24,7 @@ def process_fire_assessment(
     # Check the environment
     ENV = os.environ.get("ENV", "local")
 
-    secret = json.loads(get_aws_secret_manager_secret("dev"))
+    secret = json.loads(get_aws_secret_manager_secret(ENV))
     GEE_PRIVATE_KEY_JSON = secret["GEE_PRIVATE_KEY_JSON"]
 
     if isinstance(GEE_PRIVATE_KEY_JSON, str):
@@ -32,6 +32,7 @@ def process_fire_assessment(
                 GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON[1:-1]
             GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON.replace('\\"', '"').replace('\\\\', '\\')
     # Executa a análise
+
     runner = PostFireAssessment(
         GEE_PRIVATE_KEY_JSON,
         polygon_path, 
@@ -250,6 +251,6 @@ def deliverable_to_filename(assessment_result):
         elif s3_key.endswith("ndvi_post_fire.tif"):
             presigned_data["ndvi_post_fire_tif"] = file_info["presigned_url"]
         elif s3_key.endswith("area_by_severity.csv"):
-            presigned_data["area_by_severity_csv"] = file_info["presigned_url"]
+            presigned_data["severity_stats"] = file_info["presigned_url"]
 
     return presigned_data
