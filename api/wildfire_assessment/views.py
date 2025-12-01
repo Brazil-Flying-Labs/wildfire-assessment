@@ -109,6 +109,5 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         
         return Response({
             "execution_id": str(execution_id),
-            **presigned_urls,
-            "area_by_severity": assessment_result["analysis_results"]["area_by_severity"]
+            **presigned_urls
         })
