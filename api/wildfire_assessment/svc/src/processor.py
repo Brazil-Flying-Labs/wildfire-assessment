@@ -24,16 +24,16 @@ def process_fire_assessment(
     # Check the environment
     ENV = os.environ.get("ENV", "local")
 
-    # secret = json.loads(get_aws_secret_manager_secret(ENV))
-    # GEE_PRIVATE_KEY_JSON = secret["GEE_PRIVATE_KEY_JSON"]
+    secret = json.loads(get_aws_secret_manager_secret(ENV))
+    GEE_PRIVATE_KEY_JSON = secret["GEE_PRIVATE_KEY_JSON"]
 
-    # if isinstance(GEE_PRIVATE_KEY_JSON, str):
-    #         if GEE_PRIVATE_KEY_JSON.startswith("'") and GEE_PRIVATE_KEY_JSON.endswith("'"):
-    #             GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON[1:-1]
-    #         GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON.replace('\\"', '"').replace('\\\\', '\\')
+    if isinstance(GEE_PRIVATE_KEY_JSON, str):
+            if GEE_PRIVATE_KEY_JSON.startswith("'") and GEE_PRIVATE_KEY_JSON.endswith("'"):
+                GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON[1:-1]
+            GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON.replace('\\"', '"').replace('\\\\', '\\')
     # Executa a análise
 
-    GEE_PRIVATE_KEY_JSON = os.environ.get("GEE_PRIVATE_KEY_JSON", "")
+
     runner = PostFireAssessment(
         GEE_PRIVATE_KEY_JSON,
         polygon_path, 
