@@ -33,6 +33,7 @@ def process_fire_assessment(
             GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON.replace('\\"', '"').replace('\\\\', '\\')
     # Executa a análise
 
+
     runner = PostFireAssessment(
         GEE_PRIVATE_KEY_JSON,
         polygon_path, 
