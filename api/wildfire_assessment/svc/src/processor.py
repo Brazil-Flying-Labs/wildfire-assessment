@@ -1,4 +1,3 @@
-import ast
 import csv
 import io
 import json
@@ -40,11 +39,11 @@ def process_fire_assessment(
         pre_fire_date, 
         post_fire_date, 
         deliverables=[
-            Deliverable.RGB_PRE_FIRE,
-            Deliverable.RGB_POST_FIRE,
-            Deliverable.NDVI_PRE_FIRE,
-            Deliverable.NDVI_POST_FIRE,
-            Deliverable.RBR,
+            Deliverable.RGB_PRE_FIRE_VISUAL,
+            Deliverable.RGB_POST_FIRE_VISUAL,
+            Deliverable.DNDVI_VISUAL,
+            Deliverable.DNBR_VISUAL,
+            Deliverable.RBR_VISUAL,
         ])
     
     result = runner.run_analysis()
@@ -239,6 +238,10 @@ def deliverable_to_filename(assessment_result):
             presigned_data["severity_visual_jpg"] = file_info["presigned_url"]
         elif s3_key.endswith("rbr_visual.jpg"):
             presigned_data["rbr_visual_jpg"] = file_info["presigned_url"]
+        elif s3_key.endswith("dndvi_visual.jpg"):
+            presigned_data["dndvi_visual_jpg"] = file_info["presigned_url"]
+        elif s3_key.endswith("dnbr_visual.jpg"):
+            presigned_data["dnbr_visual_jpg"] = file_info["presigned_url"]
         elif s3_key.endswith("rgb_pre_fire.tif"):
             presigned_data["rgb_pre_fire_tif"] = file_info["presigned_url"]
         elif s3_key.endswith("rgb_post_fire.tif"):
