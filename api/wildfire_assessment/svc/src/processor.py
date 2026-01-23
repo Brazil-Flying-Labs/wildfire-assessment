@@ -1,4 +1,3 @@
-import ast
 import csv
 import io
 import json
@@ -8,7 +7,8 @@ import time
 import uuid
 
 from dotenv import load_dotenv
-from wildfire_analyser import Deliverable, FireSeverity, PostFireAssessment
+from wildfire_analyser.fire_assessment.deliverables import Deliverable
+from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAssessment
 from wildfire_assessment.svc.src.aws import get_aws_secret_manager_secret, upload_to_s3
 
 logger = logging.getLogger(__name__)
@@ -40,17 +40,25 @@ def process_fire_assessment(
         pre_fire_date, 
         post_fire_date, 
         deliverables=[
-            Deliverable.RGB_PRE_FIRE,
-            Deliverable.RGB_POST_FIRE,
-            Deliverable.NDVI_PRE_FIRE,
-            Deliverable.NDVI_POST_FIRE,
-            Deliverable.RBR,
+            Deliverable.RGB_PRE_FIRE_VISUAL,
+            Deliverable.RGB_POST_FIRE_VISUAL,
+            Deliverable.DNDVI_VISUAL,
+            Deliverable.DNBR_VISUAL,
+            Deliverable.RBR_VISUAL,
         ])
     
-    result = runner.run_analysis()
+    result = runner.run()
 
     # Processa os dados de severidade
-    area_by_severity_data = get_severity_data(result["area_by_severity"])
+    area_by_severity_raw = (
+        result.get("area_by_severity")
+        or result.get("analysis_results", {}).get("area_by_severity")
+        or []
+    )
+    if not area_by_severity_raw:
+        logger.warning("Resultado sem 'area_by_severity'.")
+
+    area_by_severity_data = get_severity_data(area_by_severity_raw)
     
     # Log das informações de severidade
     logger.info("Dados de severidade processados:")
@@ -63,93 +71,116 @@ def process_fire_assessment(
     bucket_name = 'wildfire-assessment-dev'
     s3_prefix = f"wildfire/{execution_id}/{fire_id}"
     
-    # Upload das imagens para o S3
+    # Usa URLs já fornecidas quando disponíveis; caso contrário faz upload para o S3
     s3_urls = {}
-    
-    for filename, file_info in result["images"].items():
-        s3_key = f"{s3_prefix}/{filename}"
-        
+    uses_visual_urls = bool(result.get("visual")) and isinstance(result.get("visual"), dict)
+
+    def _guess_content_type(filename: str) -> str:
+        lowered = filename.lower()
+        if lowered.endswith(".jpg") or lowered.endswith(".jpeg"):
+            return "image/jpeg"
+        if lowered.endswith(".tif") or lowered.endswith(".tiff"):
+            return "image/tiff"
+        return "application/octet-stream"
+
+    if uses_visual_urls:
+        for filename, item in result["visual"].items():
+            url = item.get("url") if isinstance(item, dict) else item
+            if not url:
+                continue
+            s3_urls[filename] = {
+                "s3_url": url,
+                "presigned_url": url,
+                "content_type": _guess_content_type(filename),
+                "s3_key": filename
+            }
+    elif "images" in result and isinstance(result.get("images"), dict):
+        for filename, file_info in result["images"].items():
+            s3_key = f"{s3_prefix}/{filename}"
+
+            try:
+                # Faz upload do arquivo para o S3
+                s3_object_url, presigned_url = upload_to_s3(
+                    data=file_info["data"],
+                    bucket_name=bucket_name,
+                    s3_key=s3_key,
+                    content_type=file_info["content_type"]
+                )
+
+                s3_urls[filename] = {
+                    "s3_url": s3_object_url,
+                    "presigned_url": presigned_url,
+                    "content_type": file_info["content_type"],
+                    "s3_key": s3_key
+                }
+
+            except Exception as e:
+                logger.error(f"Erro ao fazer upload de {filename} para S3: {e}")
+                continue
+
+    # Gera e salva o CSV com area_by_severity
+    if area_by_severity_data and not uses_visual_urls:
         try:
-            # Faz upload do arquivo para o S3
+            csv_data = generate_severity_csv(area_by_severity_data)
+            csv_key = f"{s3_prefix}/area_by_severity.csv"
+            
             s3_object_url, presigned_url = upload_to_s3(
-                data=file_info["data"],
+                data=csv_data,
                 bucket_name=bucket_name,
-                s3_key=s3_key,
-                content_type=file_info["content_type"]
+                s3_key=csv_key,
+                content_type="text/csv"
             )
             
-            s3_urls[filename] = {
+            s3_urls["area_by_severity.csv"] = {
                 "s3_url": s3_object_url,
                 "presigned_url": presigned_url,
-                "content_type": file_info["content_type"],
-                "s3_key": s3_key
+                "content_type": "text/csv",
+                "s3_key": csv_key
             }
             
         except Exception as e:
-            logger.error(f"Erro ao fazer upload de {filename} para S3: {e}")
-            continue
-
-    # Gera e salva o CSV com area_by_severity
-    try:
-        csv_data = generate_severity_csv(area_by_severity_data)
-        csv_key = f"{s3_prefix}/area_by_severity.csv"
-        
-        s3_object_url, presigned_url = upload_to_s3(
-            data=csv_data,
-            bucket_name=bucket_name,
-            s3_key=csv_key,
-            content_type="text/csv"
-        )
-        
-        s3_urls["area_by_severity.csv"] = {
-            "s3_url": s3_object_url,
-            "presigned_url": presigned_url,
-            "content_type": "text/csv",
-            "s3_key": csv_key
-        }
-        
-    except Exception as e:
-        logger.error(f"Erro ao gerar CSV de severidade: {e}")
+            logger.error(f"Erro ao gerar CSV de severidade: {e}")
 
     # Salva as métricas como JSON no S3
     metrics_data = {
         "area_by_severity": area_by_severity_data,
-        "timings": result["timings"],
+        "timings": result.get("timings", {}),
         "fire_id": fire_id,
         "execution_id": str(execution_id),
         "pre_fire_date": pre_fire_date,
         "post_fire_date": post_fire_date,
         "processed_at": time.strftime('%Y-%m-%dT%H:%M:%SZ')
     }
-    
-    try:
-        metrics_json = json.dumps(metrics_data, indent=2).encode('utf-8')
-        metrics_key = f"{s3_prefix}/metrics.json"
-        
-        s3_object_url, presigned_url = upload_to_s3(
-            data=metrics_json,
-            bucket_name=bucket_name,
-            s3_key=metrics_key,
-            content_type="application/json"
-        )
-        
-        s3_urls["metrics.json"] = {
-            "s3_url": s3_object_url,
-            "presigned_url": presigned_url,
-            "content_type": "application/json",
-            "s3_key": metrics_key
-        }
-        
-    except Exception as e:
-        logger.error(f"Erro ao salvar métricas no S3: {e}")
+
+    if not uses_visual_urls:
+        try:
+            metrics_json = json.dumps(metrics_data, indent=2).encode('utf-8')
+            metrics_key = f"{s3_prefix}/metrics.json"
+            
+            s3_object_url, presigned_url = upload_to_s3(
+                data=metrics_json,
+                bucket_name=bucket_name,
+                s3_key=metrics_key,
+                content_type="application/json"
+            )
+            
+            s3_urls["metrics.json"] = {
+                "s3_url": s3_object_url,
+                "presigned_url": presigned_url,
+                "content_type": "application/json",
+                "s3_key": metrics_key
+            }
+            
+        except Exception as e:
+            logger.error(f"Erro ao salvar métricas no S3: {e}")
 
     return {
         "s3_urls": s3_urls,
         "analysis_results": {
             "area_by_severity": area_by_severity_data,
-            "timings": result["timings"]
+            "timings": result.get("timings", {})
         },
-        "s3_base_path": f"s3://{bucket_name}/{s3_prefix}"
+        "s3_base_path": None if uses_visual_urls else f"s3://{bucket_name}/{s3_prefix}"
     }
 
 def get_severity_data(area_by_severity):
@@ -166,6 +197,14 @@ def get_severity_data(area_by_severity):
         2: "#FFA500",  # Moderate - laranja
         3: "#FF0000",  # High - vermelho
         4: "#8B4513"   # Very High - marrom
+    }
+
+    severity_label_map = {
+        0: "Unburned",
+        1: "Low",
+        2: "Moderate",
+        3: "High",
+        4: "Very High",
     }
     
     # Se for uma lista (novo formato)
@@ -186,15 +225,15 @@ def get_severity_data(area_by_severity):
         total_area = sum(area_by_severity.values())
         
         for severity, area in area_by_severity.items():
-            severity_enum = FireSeverity(int(severity))
+            severity_value = int(severity)
             percent = (area / total_area * 100) if total_area > 0 else 0
             
             severity_data.append({
-                'severity': int(severity),
-                'severity_name': severity_enum.label,
+                'severity': severity_value,
+                'severity_name': severity_label_map.get(severity_value, "Unknown"),
                 'ha': float(area),
                 'percent': float(percent),
-                'color': color_map.get(int(severity), "#000000")
+                'color': color_map.get(severity_value, "#000000")
             })
     
     # Ordena por severidade
@@ -229,16 +268,34 @@ def deliverable_to_filename(assessment_result):
     Mapeia um Deliverable para um nome de arquivo padrão
     """
     presigned_data = {}
+
+    deliverable_name_map = {
+        "rgb_pre_fire_visual": "rgb_pre_fire_visual_jpg",
+        "rgb_post_fire_visual": "rgb_post_fire_visual_jpg",
+        "dndvi_visual": "dndvi_visual_jpg",
+        "dnbr_visual": "dnbr_visual_jpg",
+        "rbr_visual": "rbr_visual_jpg",
+        "severity_visual": "severity_visual_jpg",
+    }
     
     for _, file_info in assessment_result["s3_urls"].items():
         s3_key = file_info.get("s3_key", "")
         
-        if s3_key.endswith("rbr.tif"):
+        normalized_key = s3_key.split("/")[-1]
+        normalized_key_no_ext = normalized_key.rsplit(".", 1)[0].lower()
+
+        if normalized_key_no_ext in deliverable_name_map:
+            presigned_data[deliverable_name_map[normalized_key_no_ext]] = file_info["presigned_url"]
+        elif s3_key.endswith("rbr.tif"):
             presigned_data["rbr_pure_tif"] = file_info["presigned_url"]
         elif s3_key.endswith("severity_visual.jpg"):
             presigned_data["severity_visual_jpg"] = file_info["presigned_url"]
         elif s3_key.endswith("rbr_visual.jpg"):
             presigned_data["rbr_visual_jpg"] = file_info["presigned_url"]
+        elif s3_key.endswith("dndvi_visual.jpg"):
+            presigned_data["dndvi_visual_jpg"] = file_info["presigned_url"]
+        elif s3_key.endswith("dnbr_visual.jpg"):
+            presigned_data["dnbr_visual_jpg"] = file_info["presigned_url"]
         elif s3_key.endswith("rgb_pre_fire.tif"):
             presigned_data["rgb_pre_fire_tif"] = file_info["presigned_url"]
         elif s3_key.endswith("rgb_post_fire.tif"):
