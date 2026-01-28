@@ -86,24 +86,6 @@ function App() {
     [setBackendAuthorizationError]
   );
 
-  const apiOrigin = useMemo(() => {
-    if (!baseUrl) return null;
-    const originBase =
-      typeof window !== "undefined" && window.location
-        ? window.location.origin
-        : undefined;
-
-    try {
-      const resolved = originBase
-        ? new URL(baseUrl, originBase)
-        : new URL(baseUrl);
-      return resolved.origin;
-    } catch (error) {
-      console.warn("Invalid base URL for origin comparison:", error);
-      return null;
-    }
-  }, [baseUrl]);
-
   const loadReserves = useCallback(() => {
     if (!baseUrl) {
       setFetchState({
