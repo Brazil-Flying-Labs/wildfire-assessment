@@ -26,6 +26,8 @@ function App() {
     loading: false,
     error: null,
   });
+  const [deliverableStatus, setDeliverableStatus] = useState({});
+  const [deliverableAlert, setDeliverableAlert] = useState(null);
   const [backendAuthorizationError, setBackendAuthorizationError] = useState(false);
   const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo.png`, []);
   const baseUrl = useMemo(() => {
@@ -317,22 +319,6 @@ function App() {
     return entry || null;
   }, [analysisResult]);
 
-  const [severityStats, setSeverityStats] = useState({
-    loading: false,
-    error: null,
-    headers: [],
-    rows: [],
-  });
-
-  const severityHeaderDefinitions = useMemo(
-    () =>
-      severityStats.headers.map((header) => ({
-        key: header,
-        label: header === "Area_ha" ? "ha" : header,
-      })),
-    [severityStats.headers]
-  );
-
   const parseLocaleNumber = useCallback((rawValue) => {
     if (rawValue === null || rawValue === undefined) return Number.NaN;
     if (typeof rawValue === "number") return rawValue;
@@ -405,95 +391,6 @@ function App() {
     [parseLocaleNumber]
   );
 
-  const formatSeverityCell = useCallback(
-    (headerKey, value) => {
-      if (headerKey === "Area_ha" || headerKey === "ha") {
-        return formatAreaValue(value);
-      }
-
-      if (headerKey === "Percent") {
-        return formatPercentValue(value);
-      }
-
-      if (value === null || value === undefined) {
-        return "";
-      }
-
-      return value;
-    },
-    [formatAreaValue, formatPercentValue]
-  );
-
-  useEffect(() => {
-    function loadSeverityStats(url) {
-      const controller = new AbortController();
-      setSeverityStats({ loading: true, error: null, headers: [], rows: [] });
-
-      (async () => {
-        try {
-          const fromApi = isApiUrl(url);
-          const fetchFn = fromApi ? authorizedFetch : fetch;
-          const response = await fetchFn(url, { signal: controller.signal });
-
-          if (fromApi) {
-            ensureAuthorizedResponse(response);
-          }
-
-          if (!response.ok) {
-            throw new Error(`Error loading statistics (${response.status})`);
-          }
-
-          const text = await response.text();
-          const [headerLine, ...lines] = text.trim().split(/\r?\n/);
-          const headers = headerLine.split(",").map((item) => item.trim());
-          const parsedRows = lines.map((line) => {
-            const values = line.split(",").map((item) => item.trim());
-            return headers.reduce((accumulator, header, index) => {
-              // eslint-disable-next-line no-param-reassign
-              accumulator[header] = values[index] ?? "";
-              return accumulator;
-            }, {});
-          });
-
-          setSeverityStats({
-            loading: false,
-            error: null,
-            headers,
-            rows: parsedRows,
-          });
-        } catch (error) {
-          if (error.name === "AbortError") {
-            return;
-          }
-          console.error("Failed to read statistics CSV:", error);
-          setSeverityStats({
-            loading: false,
-            error: error.message,
-            headers: [],
-            rows: [],
-          });
-        }
-      })();
-
-      return () => controller.abort();
-    }
-
-    if (csvEntry) {
-      if (isApiUrl(csvEntry[1]) && !authReady) {
-        return undefined;
-      }
-
-      const abort = loadSeverityStats(csvEntry[1]);
-      return () => {
-        if (typeof abort === "function") {
-          abort();
-        }
-      };
-    }
-
-    setSeverityStats({ loading: false, error: null, headers: [], rows: [] });
-    return undefined;
-  }, [authorizedFetch, csvEntry, ensureAuthorizedResponse, isApiUrl, authReady]);
 
   const bestDates = useMemo(() => {
     if (!analysisResult) return null;
@@ -504,6 +401,153 @@ function App() {
     if (!formattedPre && !formattedPost) return null;
     return { preBest: formattedPre, postBest: formattedPost };
   }, [analysisResult, normalizeDateValue]);
+
+  const severityEntries = useMemo(() => {
+    const mapData = analysisResult?.severity_map;
+    if (!mapData) return [];
+
+    try {
+      const parsed =
+        typeof mapData === "string" ? JSON.parse(mapData) : mapData || {};
+      const entries = Object.entries(parsed).map(([name, metrics]) => ({
+        name,
+        area: metrics?.area_ha ?? metrics?.area ?? null,
+        percent: metrics?.ratio_percent ?? metrics?.percent ?? null,
+      }));
+
+      const severityOrder = [
+        "Unburned",
+        "Low Severity",
+        "Moderate Severity",
+        "High Severity",
+        "Very High Severity",
+        "Total Burned Area",
+        "Total Area",
+      ];
+
+      entries.sort((a, b) => {
+        const orderA = severityOrder.indexOf(a.name);
+        const orderB = severityOrder.indexOf(b.name);
+        if (orderA === -1 && orderB === -1) {
+          return a.name.localeCompare(b.name);
+        }
+        if (orderA === -1) return 1;
+        if (orderB === -1) return -1;
+        return orderA - orderB;
+      });
+
+      return entries;
+    } catch (error) {
+      console.error("Failed to parse severity map:", error);
+      return [];
+    }
+  }, [analysisResult]);
+
+  const scientificDeliverables = useMemo(
+    () => [
+      { label: "RGB pre-fire", value: "RGB_PRE_FIRE" },
+      { label: "RGB post-fire", value: "RGB_POST_FIRE" },
+      { label: "dNBR", value: "DNBR" },
+      { label: "RBR", value: "RBR" },
+      { label: "dNDVI", value: "DNDVI" },
+    ],
+    []
+  );
+
+  const scientificDeliverableLabels = useMemo(
+    () =>
+      scientificDeliverables.reduce((accumulator, item) => {
+        // eslint-disable-next-line no-param-reassign
+        accumulator[item.value] = item.label;
+        return accumulator;
+      }, {}),
+    [scientificDeliverables]
+  );
+
+  const isScientificDeliverableDisabled =
+    fetchState.loading || hasError || !selectedReserve || !preFireDate || !postFireDate;
+
+  const updateDeliverableStatus = useCallback((deliverableName, nextState) => {
+    setDeliverableStatus((previous) => ({
+      ...previous,
+      [deliverableName]: {
+        ...(previous[deliverableName] || {}),
+        ...nextState,
+      },
+    }));
+  }, []);
+
+  const handleScientificDeliverable = useCallback(
+    async (deliverableName) => {
+      if (isScientificDeliverableDisabled) {
+        return;
+      }
+
+      setDeliverableAlert(null);
+      updateDeliverableStatus(deliverableName, {
+        loading: true,
+        error: null,
+        taskId: null,
+      });
+
+      try {
+        if (!baseUrl) {
+          throw new Error("API endpoint is not configured.");
+        }
+
+        const queryParams = new URLSearchParams({
+          pre_fire_date: preFireDate,
+          post_fire_date: postFireDate,
+          deliverable: deliverableName,
+        });
+
+        const url = `${baseUrl}/ecological_reserve/${selectedReserve}/scientific_deliverable/?${queryParams.toString()}`;
+
+        const response = await authorizedFetch(url, { method: "POST" });
+        ensureAuthorizedResponse(response);
+
+        if (!response.ok) {
+          throw new Error(`Error requesting deliverable (${response.status})`);
+        }
+
+        const data = await response.json();
+        const readableLabel =
+          scientificDeliverableLabels[deliverableName] || deliverableName;
+        updateDeliverableStatus(deliverableName, {
+          loading: false,
+          taskId: data.task_id || null,
+        });
+        setDeliverableAlert({
+          type: "success",
+          message: `You will receive an email with the ${readableLabel} download link as soon as it is ready.`,
+        });
+      } catch (error) {
+        console.error("Failed to request scientific deliverable:", error);
+        updateDeliverableStatus(deliverableName, {
+          loading: false,
+          error: error.message || "Unknown error",
+          taskId: null,
+        });
+        const readableLabel =
+          scientificDeliverableLabels[deliverableName] || deliverableName;
+        setDeliverableAlert({
+          type: "danger",
+          message: `Failed to request ${readableLabel}: ${error.message || "Unknown error"}`,
+        });
+      }
+    },
+    [
+      authorizedFetch,
+      baseUrl,
+      ensureAuthorizedResponse,
+      isScientificDeliverableDisabled,
+      preFireDate,
+      postFireDate,
+      selectedReserve,
+      scientificDeliverableLabels,
+      updateDeliverableStatus,
+    ]
+  );
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -762,6 +806,7 @@ function App() {
               >
                 {analysisState.loading ? "Analyzing..." : "Run analysis"}
               </button>
+
             </form>
           </aside>
         ) : null}
@@ -842,44 +887,30 @@ function App() {
                   </section>
                 ) : null}
 
-                {severityStats.headers.length && severityStats.rows.length ? (
+                {severityEntries.length ? (
                   <section>
                     <h3 className="h5 mb-3">Severity distribution</h3>
                     <div className="table-responsive">
                       <table className="table table-sm table-striped align-middle">
                         <thead className="table-light">
                           <tr>
-                            {severityHeaderDefinitions.map(({ key, label }) => (
-                              <th key={key} scope="col">
-                                {label}
-                              </th>
-                            ))}
+                            <th scope="col">Severity</th>
+                            <th scope="col">Area (ha)</th>
+                            <th scope="col">Percent</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {severityStats.rows.map((row, rowIndex) => (
-                            <tr key={`${rowIndex.toString()}-${rowIndex}`}>
-                              {severityHeaderDefinitions.map(({ key }) => (
-                                <td key={key}>{formatSeverityCell(key, row[key])}</td>
-                              ))}
+                          {severityEntries.map(({ name, area, percent }) => (
+                            <tr key={name}>
+                              <td>{name}</td>
+                              <td>{formatAreaValue(area)}</td>
+                              <td>{formatPercentValue(percent)}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </div>
                   </section>
-                ) : null}
-
-                {severityStats.loading ? (
-                  <div className="alert alert-info" role="status">
-                    Loading severity statistics...
-                  </div>
-                ) : null}
-
-                {!severityStats.loading && severityStats.error ? (
-                  <div className="alert alert-warning" role="alert">
-                    {severityStats.error}
-                  </div>
                 ) : null}
 
                 {tiffEntries.length || csvEntry ? (
@@ -920,6 +951,57 @@ function App() {
                       {JSON.stringify(analysisResult, null, 2)}
                     </pre>
                   </details>
+                </section>
+
+                <section className="mt-4">
+                  <h3 className="h5 mb-2">Request scientific deliverables</h3>
+                  <p className="small text-muted mb-3">
+                    Use the links below to queue a background export. You will
+                    receive an email once the deliverable is processed.
+                  </p>
+                  <div className="d-flex flex-wrap gap-3">
+                    {scientificDeliverables.map(({ label, value }) => {
+                      const status = deliverableStatus[value] || {};
+                      return (
+                        <div
+                          key={value}
+                          className="d-flex flex-column align-items-start"
+                        >
+                          <button
+                            type="button"
+                            className="btn btn-link p-0"
+                            disabled={
+                              isScientificDeliverableDisabled || status.loading
+                            }
+                            onClick={() => handleScientificDeliverable(value)}
+                            title={`Request a scientifical ${label}`}
+                          >
+                            {status.loading
+                              ? `Requesting ${label}...`
+                              : label}
+                          </button>
+                          {status.taskId ? (
+                            <span className="small text-success">
+                              Task ID: {status.taskId}
+                            </span>
+                          ) : null}
+                          {!status.loading && status.error ? (
+                            <span className="small text-danger">
+                              {status.error}
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {deliverableAlert ? (
+                    <div
+                      className={`alert alert-${deliverableAlert.type} mt-3`}
+                      role="alert"
+                    >
+                      {deliverableAlert.message}
+                    </div>
+                  ) : null}
                 </section>
               </div>
             ) : null}

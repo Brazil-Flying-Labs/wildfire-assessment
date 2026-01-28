@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 import uuid
 from datetime import datetime
 
@@ -8,11 +10,13 @@ from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_sche
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import EcologicalReserveSerializer
 from wildfire_assessment.svc.src.processor import (
     deliverable_to_filename,
     process_fire_assessment,
+    process_scientific_deliverable,
 )
 
 LOG = logging.getLogger(__name__)
@@ -49,7 +53,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
             self.queryset = self.queryset.none()
 
         return super().list(request, *args, **kwargs)
-    
+
     def _parse_date(self, date_str):
         """Converts string to date object."""
         return datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else None
@@ -92,7 +96,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         polygon_path = instance.polygon_path
 
         polygon_path = f"../../polygons/{polygon_path}"
-        
+
         pre_fire_date = request.query_params.get("pre_fire_date")
         post_fire_date = request.query_params.get("post_fire_date")
 
@@ -101,13 +105,88 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
             execution_id=execution_id,
             pre_fire_date=pre_fire_date,
             post_fire_date=post_fire_date,
-            polygon_path=polygon_path
+            polygon_path=polygon_path,
         )
 
-
         presigned_urls = deliverable_to_filename(assessment_result)
-        
-        return Response({
-            "execution_id": str(execution_id),
-            **presigned_urls
-        })
+
+        return Response(
+            {
+                "execution_id": str(execution_id),
+                "severity_map": assessment_result.get("area_statistics"),
+                **presigned_urls,
+            }
+        )
+
+    @extend_schema(
+        methods=["POST"],
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                response={
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                },
+                description="A dict with a message string",
+            )
+        },
+        parameters=[
+            OpenApiParameter(
+                name="pre_fire_date",
+                description="Pre-fire date (YYYY-MM-DD)",
+                type=OpenApiTypes.DATE,
+                required=True,
+            ),
+            OpenApiParameter(
+                name="post_fire_date",
+                description="Post-fire date (YYYY-MM-DD)",
+                type=OpenApiTypes.DATE,
+                required=True,
+            ),
+            OpenApiParameter(
+                name="deliverable",
+                description="Type of scientific deliverable to generate",
+                type=OpenApiTypes.STR,
+                required=True,
+                enum=[
+                    "RGB_PRE_FIRE",
+                    "RGB_POST_FIRE",
+                    "DNBR",
+                    "RBR",
+                    "DNDVI",
+                ],
+            ),
+        ],
+    )
+    @action(detail=True, methods=["post"], url_path="scientific_deliverable")
+    def scientific_deliverable(self, request, pk=None):
+        """
+        Custom action to analyze an EcologicalReserve.
+        The 'id' parameter is the id of the EcologicalReserve.
+        """
+
+        deliverable = request.query_params.get("deliverable")
+        if deliverable == "RGB_PRE_FIRE":
+            deliverable_enum = Deliverable.RGB_PRE_FIRE
+        elif deliverable == "RGB_POST_FIRE":
+            deliverable_enum = Deliverable.RGB_POST_FIRE
+        elif deliverable == "DNBR":
+            deliverable_enum = Deliverable.DNBR
+        elif deliverable == "RBR":
+            deliverable_enum = Deliverable.RBR
+        elif deliverable == "DNDVI":
+            deliverable_enum = Deliverable.DNDVI
+        else:
+            return Response({"error": "Invalid deliverable type"}, status=400)
+
+        instance = self.get_object()
+        task = process_scientific_deliverable.delay(
+            pre_fire_date=request.query_params.get("pre_fire_date"),
+            post_fire_date=request.query_params.get("post_fire_date"),
+            polygon_path=instance.polygon_path,
+            deliverable_name=deliverable_enum.name,
+            email=request.user.email,
+            reserve_name=instance.name,
+        )
+
+        return Response({"task_id": task.id})

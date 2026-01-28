@@ -209,4 +209,6 @@ whiteboxgui==2.3.0
 whitenoise==6.10.0
 widgetsnbextension==3.6.10
 xyzservices==2025.4.0
-wildfire_analyser==0.2.8
+wildfire_analyser==0.2.12
+celery==5.6.2
+redis==5.0.4

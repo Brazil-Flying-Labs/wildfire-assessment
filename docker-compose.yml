@@ -55,3 +55,49 @@ services:
       timeout: 5s
       retries: 20
       start_period: 30s
+  celery:
+    container_name: wildfire-celery
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    command: >
+      sh -c "celery -A wildfire_assessment worker --loglevel=info"
+    volumes:
+      - ./api:/api
+      - ./svc:/svc
+      - ./polygons:/polygons
+    env_file:
+      - .env
+    restart: on-failure
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_started
+  celery-beat:
+    container_name: wildfire-celery-beat
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: root
+    command: >
+      sh -c "celery -A wildfire_assessment beat --loglevel=info"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  redis:
+    container_name: wildfire-redis
+    image: "redis:alpine"
+    ports:
+      - "6380:6379"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
