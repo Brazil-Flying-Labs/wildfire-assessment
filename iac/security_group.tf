@@ -48,3 +48,33 @@ resource "aws_security_group" "ecs_api" {
     Service     = "api"
   }
 }
+
+resource "aws_security_group" "redis" {
+  name        = "wildfire-assessment-redis-${var.environment}"
+  description = "Allow Redis access from ECS services"
+  vpc_id      = aws_vpc.main.id
+
+  egress {
+    description = "Allow all outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Environment = var.environment
+    Service     = "redis"
+  }
+}
+
+resource "aws_security_group_rule" "redis_from_ecs" {
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.redis.id
+  source_security_group_id = aws_security_group.ecs_api.id
+
+  description = "Allow Redis traffic from ECS services"
+}

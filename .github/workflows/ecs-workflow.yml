@@ -60,3 +60,13 @@ jobs:
             --service wildfire-assessment-api-${{ env.BRANCH }} \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
+          aws ecs update-service \
+            --cluster wildfire-assessment-${{ env.BRANCH }} \
+            --service wildfire-assessment-celery-worker-${{ env.BRANCH }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+          aws ecs update-service \
+            --cluster wildfire-assessment-${{ env.BRANCH }} \
+            --service wildfire-assessment-celery-beat-${{ env.BRANCH }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
