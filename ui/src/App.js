@@ -104,19 +104,6 @@ function App() {
     }
   }, [baseUrl]);
 
-  const isApiUrl = useCallback(
-    (url) => {
-      if (!apiOrigin) return false;
-      try {
-        const target = new URL(url, apiOrigin);
-        return target.origin === apiOrigin;
-      } catch (error) {
-        return false;
-      }
-    },
-    [apiOrigin]
-  );
-
   const loadReserves = useCallback(() => {
     if (!baseUrl) {
       setFetchState({
