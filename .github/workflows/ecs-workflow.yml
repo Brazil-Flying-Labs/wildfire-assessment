@@ -7,6 +7,7 @@ on:
     paths:
       - "api/**"
       - ".github/workflows/ecs-workflow.yml"
+      - "polygons/**"
 
 env:
   AWS_ACCOUNT_ID: "055213706289"
