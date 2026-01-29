@@ -659,7 +659,7 @@ function App() {
                 logout({ logoutParams: { returnTo: window.location.origin } })
               }
             >
-              Sair
+              Logout
             </button>
             <button
               type="button"
@@ -845,6 +845,10 @@ function App() {
                 {BACKEND_UNAUTHORIZED_MESSAGE}
               </div>
             ) : null}
+
+            <div className="alert alert-info d-lg-none" role="alert">
+              Use the menu to select the time period and area of interest for your assessment.
+            </div>
 
             {analysisState.loading ? (
               <div className="placeholder-card border border-dashed rounded-3 p-5 text-center">
@@ -1042,6 +1046,11 @@ function App() {
           </section>
         </main>
       </div>
+      <footer className="app-footer mt-auto py-3 text-center small">
+        <div className="container-fluid">
+          UI version 1.0.0 · Wildfire Analyser 0.2.12
+        </div>
+      </footer>
     </div>
   );
 }

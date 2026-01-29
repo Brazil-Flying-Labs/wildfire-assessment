@@ -89,6 +89,16 @@
   background-color: transparent;
 }
 
+.app-footer {
+  background-color: #1a2740;
+  color: #ffffff;
+}
+
+.app-footer a {
+  color: #fff;
+  text-decoration: underline;
+}
+
 .date-input-wrapper {
   display: flex;
   gap: 0.5rem;
