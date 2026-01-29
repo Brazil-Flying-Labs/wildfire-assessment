@@ -430,8 +430,8 @@ def process_scientific_deliverable(
 
     if result_wait == "COMPLETED":
         send_gmail_email(
-            username="no-reply@brazilflyinglabs.org.br",
-            password=r"88J6h\Wr{R|J/zeei)n^j",
+            username="Brazil@flyinglabs.org",
+            password=secret["GMAIL_PWD"],
             to_address=email,
             subject="Wildfire Analyser - Scientific Deliverable Ready",
             body=(
