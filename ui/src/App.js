@@ -824,46 +824,6 @@ function App() {
                 {analysisState.loading ? "Analyzing..." : "Run analysis"}
               </button>
 
-              <div className="mt-4">
-                <h2 className="h6 mb-2">Scientific deliverables</h2>
-                <p className="small text-muted mb-3">
-                  Each link schedules a background task using the selected
-                  reserve and date range. You will receive an email when the
-                  deliverable is ready.
-                </p>
-                <ul className="list-unstyled mb-0">
-                  {scientificDeliverables.map(({ label, value }) => {
-                    const status = deliverableStatus[value] || {};
-                    return (
-                      <li key={value} className="mb-3">
-                        <button
-                          type="button"
-                          className="btn btn-link p-0 align-baseline"
-                          disabled={
-                            isScientificDeliverableDisabled || status.loading
-                          }
-                          onClick={() => handleScientificDeliverable(value)}
-                        >
-                          {status.loading
-                            ? `Requesting ${label}...`
-                            : label}
-                        </button>
-                        {status.taskId ? (
-                          <div className="small text-success mt-1">
-                            Task ID: {status.taskId}
-                          </div>
-                        ) : null}
-                        {!status.loading && status.error ? (
-                          <div className="small text-danger mt-1">
-                            {status.error}
-                          </div>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-
               <div className="mt-4 d-lg-none">
                 <button
                   type="button"
