@@ -785,7 +785,7 @@ function App() {
 
               <div className="mb-3">
                 <label htmlFor="reserve" className="form-label">
-                  Select an ecological reserve
+                  Select the area of interest
                 </label>
                 <select
                   className="form-select"
