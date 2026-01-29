@@ -406,6 +406,7 @@ def process_scientific_deliverable(
         post_fire_date,
         deliverables=[deliverable],
         gcs_bucket="wildfire-analyser-outputs",
+        verbose=False,
     )
 
     result = runner.run()

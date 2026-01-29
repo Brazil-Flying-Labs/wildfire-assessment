@@ -26,8 +26,18 @@ function App() {
     loading: false,
     error: null,
   });
+  const [hasResults, setHasResults] = useState(false);
   const [deliverableStatus, setDeliverableStatus] = useState({});
   const [deliverableAlert, setDeliverableAlert] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarOpen((previous) => !previous);
+  }, []);
+
+  const closeSidebar = useCallback(() => {
+    setIsSidebarOpen(false);
+  }, []);
   const [backendAuthorizationError, setBackendAuthorizationError] = useState(false);
   const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo.png`, []);
   const baseUrl = useMemo(() => {
@@ -542,6 +552,10 @@ function App() {
 
     setAnalysisState({ loading: true, error: null });
     setAnalysisResult(null);
+    setHasResults(false);
+    setDeliverableStatus({});
+    setDeliverableAlert(null);
+    closeSidebar();
 
     try {
       const queryParams = new URLSearchParams({
@@ -563,6 +577,7 @@ function App() {
 
       const data = await response.json();
       setAnalysisResult(data);
+      setHasResults(true);
       setAnalysisState({ loading: false, error: null });
     } catch (error) {
       if (error.name === "AbortError") {
@@ -618,22 +633,22 @@ function App() {
   return (
     <div className="app-root d-flex flex-column min-vh-100">
       <header className="app-header text-white">
-        <div className="container-fluid d-flex align-items-center justify-content-between py-3">
-          <div className="d-flex align-items-center gap-3">
+        <div className="container-fluid d-flex align-items-center justify-content-between py-3 gap-3">
+          <div className="d-flex align-items-center gap-3 flex-shrink-0">
             <img
               src={logoSrc}
               alt="Wildfire Assessment"
               className="brand-logo"
             />
-            <div>
+            <div className="d-none d-md-block">
               <h1 className="h4 mb-1">Wildfire assessment</h1>
               <p className="mb-0 small opacity-75">
                 Monitoring areas affected before and after fire events
               </p>
             </div>
           </div>
-          <div className="d-flex align-items-center gap-3">
-            <div className="text-end">
+          <div className="d-flex align-items-center gap-2 header-actions">
+            <div className="text-end d-none d-md-block">
               <p className="mb-0 small opacity-75">Signed in as</p>
               <strong className="small">{displayName}</strong>
             </div>
@@ -646,15 +661,48 @@ function App() {
             >
               Sair
             </button>
+            <button
+              type="button"
+              className="btn btn-outline-light btn-sm mobile-sidebar-toggle d-lg-none"
+              onClick={toggleSidebar}
+              aria-label="Open filters"
+            >
+              <span className="mobile-sidebar-icon" aria-hidden="true"></span>
+            </button>
           </div>
         </div>
       </header>
 
       <div className="app-body d-flex flex-grow-1">
         {!backendAuthorizationError ? (
-          <aside className="sidebar bg-light border-end p-4">
-            <h1 className="h5 mb-4">Analysis parameters</h1>
-            <form onSubmit={handleSubmit}>
+          <>
+            {isSidebarOpen ? (
+              <button
+                type="button"
+                className="sidebar-backdrop d-lg-none"
+                onClick={closeSidebar}
+                aria-label="Close filters"
+              >
+                <span className="visually-hidden">Close filters</span>
+              </button>
+            ) : null}
+            <aside
+              className={`sidebar bg-light border-end p-4 ${
+                isSidebarOpen ? "is-open" : ""
+              }`}
+            >
+              <div className="d-flex justify-content-between align-items-center d-lg-none mb-3">
+                <h1 className="h5 mb-0">Analysis parameters</h1>
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm"
+                  onClick={closeSidebar}
+                >
+                  Close
+                </button>
+              </div>
+              <h1 className="h5 mb-4 d-none d-lg-block">Analysis parameters</h1>
+              <form onSubmit={handleSubmit}>
               <div className="mb-3">
                 <label htmlFor="preFireDate" className="form-label">
                   Pre-fire date
@@ -776,8 +824,58 @@ function App() {
                 {analysisState.loading ? "Analyzing..." : "Run analysis"}
               </button>
 
+              <div className="mt-4">
+                <h2 className="h6 mb-2">Scientific deliverables</h2>
+                <p className="small text-muted mb-3">
+                  Each link schedules a background task using the selected
+                  reserve and date range. You will receive an email when the
+                  deliverable is ready.
+                </p>
+                <ul className="list-unstyled mb-0">
+                  {scientificDeliverables.map(({ label, value }) => {
+                    const status = deliverableStatus[value] || {};
+                    return (
+                      <li key={value} className="mb-3">
+                        <button
+                          type="button"
+                          className="btn btn-link p-0 align-baseline"
+                          disabled={
+                            isScientificDeliverableDisabled || status.loading
+                          }
+                          onClick={() => handleScientificDeliverable(value)}
+                        >
+                          {status.loading
+                            ? `Requesting ${label}...`
+                            : label}
+                        </button>
+                        {status.taskId ? (
+                          <div className="small text-success mt-1">
+                            Task ID: {status.taskId}
+                          </div>
+                        ) : null}
+                        {!status.loading && status.error ? (
+                          <div className="small text-danger mt-1">
+                            {status.error}
+                          </div>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
+              <div className="mt-4 d-lg-none">
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary w-100"
+                  onClick={closeSidebar}
+                >
+                  Hide menu
+                </button>
+              </div>
             </form>
-          </aside>
+            </aside>
+          </>
         ) : null}
 
         <main className="app-main flex-grow-1 d-flex flex-column">
@@ -805,6 +903,7 @@ function App() {
 
             {!analysisState.loading &&
             !analysisState.error &&
+            hasResults &&
             analysisResult ? (
               <div className="analysis-results d-flex flex-column gap-4">
                 {bestDates ? (
@@ -858,7 +957,7 @@ function App() {
 
                 {severityEntries.length ? (
                   <section>
-                    <h3 className="h5 mb-3">Severity distribution</h3>
+                    <h3 className="h5 mb-3">DNBR Severity Distribution</h3>
                     <div className="table-responsive">
                       <table className="table table-sm table-striped align-middle">
                         <thead className="table-light">
