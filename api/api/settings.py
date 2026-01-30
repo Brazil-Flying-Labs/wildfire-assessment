@@ -15,7 +15,7 @@ import logging
 import os
 from pathlib import Path
 
-from wildfire_assessment.svc.src.aws import get_aws_secret_manager_secret
+from wildfire_assessment.svc.aws import get_aws_secret_manager_secret
 
 logging.basicConfig(level=logging.INFO)
 
@@ -127,6 +127,8 @@ AUTH0_MANAGEMENT_CLIENT_SECRET = secret.get("AUTH0_MANAGEMENT_CLIENT_SECRET")
 AUTH0_MANAGEMENT_AUDIENCE = f"https://{AUTH0_DOMAIN}/api/v2/"
 AUTH0_MANAGEMENT_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
 
+S3_BUCKET_NAME = secret["S3_BUCKET_NAME"]
+
 if not AUTH0_AUDIENCE:
     LOG.warning(
         "AUTH0_API_AUDIENCE is not configured. API requests that require Auth0 tokens will fail."
@@ -211,7 +213,7 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_IMPORTS = ("wildfire_assessment.svc.src.processor",)
+CELERY_IMPORTS = ("wildfire_assessment.svc.processor",)
 
 
 if ENV in ["local", "dev"]:

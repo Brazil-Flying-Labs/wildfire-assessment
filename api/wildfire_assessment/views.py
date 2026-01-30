@@ -13,8 +13,7 @@ from rest_framework.response import Response
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import EcologicalReserveSerializer
-from wildfire_assessment.svc.src.processor import (
-    deliverable_to_filename,
+from wildfire_assessment.svc.processor import (
     process_fire_assessment,
     process_scientific_deliverable,
 )
@@ -53,10 +52,6 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
             self.queryset = self.queryset.none()
 
         return super().list(request, *args, **kwargs)
-
-    def _parse_date(self, date_str):
-        """Converts string to date object."""
-        return datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else None
 
     @extend_schema(
         methods=["POST"],
@@ -101,20 +96,15 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         post_fire_date = request.query_params.get("post_fire_date")
 
         assessment_result = process_fire_assessment(
-            fire_id=instance.id,
-            execution_id=execution_id,
             pre_fire_date=pre_fire_date,
             post_fire_date=post_fire_date,
             polygon_path=polygon_path,
         )
 
-        presigned_urls = deliverable_to_filename(assessment_result)
-
         return Response(
             {
                 "execution_id": str(execution_id),
-                "severity_map": assessment_result.get("area_statistics"),
-                **presigned_urls,
+                **assessment_result,
             }
         )
 

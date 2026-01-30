@@ -41,22 +41,6 @@ def _decode_jwt(token: str) -> dict:
     )
 
 
-def _get_email_from_payload(payload: dict) -> str:
-    """Return the best email value embedded in the JWT payload."""
-
-    email = payload.get("email")
-    if email:
-        return email
-
-    custom_claim = getattr(settings, "AUTH0_EMAIL_CLAIM", None)
-    if custom_claim:
-        claim_value = payload.get(custom_claim)
-        if isinstance(claim_value, str):
-            return claim_value
-
-    return ""
-
-
 def _fetch_email_from_auth0(subject: str) -> str:
     """Fetch the user's email from the Auth0 Management API using the subject."""
 

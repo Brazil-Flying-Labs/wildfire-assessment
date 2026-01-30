@@ -65,9 +65,24 @@ function App() {
 
   const authorizedFetch = useCallback(
     async (url, options = {}) => {
-      const token = await getAccessTokenSilently({
-        authorizationParams: { audience: authAudience },
-      });
+      let token;
+      try {
+        token = await getAccessTokenSilently({
+          authorizationParams: { audience: authAudience },
+        });
+      } catch (error) {
+        const message =
+          error?.error_description || error?.message || "Unknown auth error";
+        console.error("Failed to retrieve access token:", message);
+        if (
+          error?.error === "login_required" ||
+          error?.error === "invalid_grant" ||
+          /missing refresh token/i.test(message)
+        ) {
+          logout({ logoutParams: { returnTo: window.location.origin } });
+        }
+        throw error;
+      }
 
       const headers = {
         ...(options.headers || {}),
@@ -82,7 +97,7 @@ function App() {
         headers,
       });
     },
-    [authAudience, getAccessTokenSilently]
+    [authAudience, getAccessTokenSilently, logout]
   );
 
   const ensureAuthorizedResponse = useCallback(

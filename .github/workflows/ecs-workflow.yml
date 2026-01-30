@@ -18,8 +18,33 @@ env:
   TASKDEF: .github/ecs/taskdef-${{ github.ref_name }}.json
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run backend tests
+        run: |
+          source venv/bin/activate
+          cd api
+          coverage run --source=wildfire_assessment manage.py test
+          coverage report
+
   deploy:
     runs-on: ubuntu-latest
+    needs: test
     permissions: { id-token: write, contents: read }
 
     steps:

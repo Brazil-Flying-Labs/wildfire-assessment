@@ -22,7 +22,7 @@ else
 endif
 
 # Commands
-.PHONY: help configure_devel up reset
+.PHONY: help configure_devel up reset test
 
 help: ## Show this help message
 	@echo "\n\n${BLUE}############################################### Wildfire Makefile Help ###################################################################${RESET}"
@@ -51,6 +51,9 @@ reset: ## Reconfigure local environment then run the project
 	$(MAKE) do_clean_wildfire_docker
 	$(MAKE) configure_devel
 	$(MAKE) up
+
+test: ## Run backend and frontend tests inside running containers
+	docker compose exec api bash -lc "cd /api && coverage run --source=wildfire_assessment manage.py test && coverage report"
 
 do_clean_wildfire_docker:
 	echo "${ORANGE} Forcely stoping all wildfire containers...${RESET}";
