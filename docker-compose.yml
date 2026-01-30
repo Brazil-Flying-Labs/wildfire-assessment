@@ -17,6 +17,8 @@ services:
       - ./svc:/svc
     env_file:
       - .env
+    environment:
+      SKIP_AWS_SECRETS: ${SKIP_AWS_SECRETS:-0}
     restart: on-failure
     depends_on:
       db:
@@ -35,6 +37,8 @@ services:
       - ./ui:/ui
     env_file:
       - .env
+    environment:
+      SKIP_AWS_SECRETS: ${SKIP_AWS_SECRETS:-0}
     restart: on-failure
     depends_on:
       db:
@@ -67,6 +71,8 @@ services:
       sh -c "celery -A wildfire_assessment worker --loglevel=info"
     env_file:
       - .env
+    environment:
+      SKIP_AWS_SECRETS: ${SKIP_AWS_SECRETS:-0}
     volumes:
       - ./api:/api
       - ./svc:/svc
@@ -85,6 +91,8 @@ services:
     user: root
     env_file:
       - .env
+    environment:
+      SKIP_AWS_SECRETS: ${SKIP_AWS_SECRETS:-0}
     command: >
       sh -c "celery -A wildfire_assessment beat --loglevel=info"
     depends_on:
