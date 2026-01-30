@@ -27,14 +27,17 @@ jobs:
 
       - name: Prepare env file
         run: cp .env.template .env
+
       - name: Set up Docker Compose services
         run: |
           docker compose up -d api db
-      - name: Get docker logs
-        run: docker compose logs api
+
       - name: Wait for services
         run: |
           sleep 10
+
+      - name: Get docker logs
+        run: docker compose logs api
 
       - name: Run backend tests inside container
         run: |
