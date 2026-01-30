@@ -16,6 +16,8 @@ env:
   IMAGE_TAG: ${{ github.sha }}
   BRANCH: ${{ github.ref_name }}
   TASKDEF: .github/ecs/taskdef-${{ github.ref_name }}.json
+  ENV: local
+  SKIP_AWS_SECRETS: "1"
 
 jobs:
   test:

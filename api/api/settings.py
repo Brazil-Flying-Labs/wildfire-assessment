@@ -24,7 +24,10 @@ LOG = logging.getLogger(__name__)
 # Check the environment
 ENV = os.environ.get("ENV", "local")
 
-secret = json.loads(get_aws_secret_manager_secret(ENV))
+if os.environ.get("SKIP_AWS_SECRETS") == "1":
+    secret = {}
+else:
+    secret = json.loads(get_aws_secret_manager_secret(ENV))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
