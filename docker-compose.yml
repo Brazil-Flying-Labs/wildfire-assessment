@@ -33,6 +33,8 @@ services:
       npm start
     volumes:
       - ./ui:/ui
+    env_file:
+      - .env
     restart: on-failure
     depends_on:
       db:
@@ -63,12 +65,12 @@ services:
     user: root
     command: >
       sh -c "celery -A wildfire_assessment worker --loglevel=info"
+    env_file:
+      - .env
     volumes:
       - ./api:/api
       - ./svc:/svc
       - ./polygons:/polygons
-    env_file:
-      - .env
     restart: on-failure
     depends_on:
       db:
@@ -81,10 +83,10 @@ services:
       context: .
       dockerfile: Dockerfile
     user: root
-    command: >
-      sh -c "celery -A wildfire_assessment beat --loglevel=info"
     env_file:
       - .env
+    command: >
+      sh -c "celery -A wildfire_assessment beat --loglevel=info"
     depends_on:
       db:
         condition: service_healthy

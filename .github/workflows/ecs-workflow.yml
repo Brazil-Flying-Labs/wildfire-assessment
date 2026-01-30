@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Prepare env file
+        run: cp .env.template .env
       - name: Set up Docker Compose services
         run: |
           docker compose up -d api db

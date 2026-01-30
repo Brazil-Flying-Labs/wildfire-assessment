@@ -23,8 +23,9 @@ LOG = logging.getLogger(__name__)
 
 # Check the environment
 ENV = os.environ.get("ENV", "local")
+USE_LOCAL_SECRET = os.environ.get("SKIP_AWS_SECRETS") == "1"
 
-if "1" == "1":
+if USE_LOCAL_SECRET:
     secret = {
         "SOCIAL_AUTH_AUTH0_DOMAIN": "your-domain.auth0.com",
         "SOCIAL_AUTH_AUTH0_KEY": "your-client-id",
