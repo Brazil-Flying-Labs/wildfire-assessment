@@ -54,3 +54,4 @@ api/static
 
 # React
 node_modules/
+.coverage

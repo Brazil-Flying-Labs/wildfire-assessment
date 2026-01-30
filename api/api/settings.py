@@ -25,7 +25,29 @@ LOG = logging.getLogger(__name__)
 ENV = os.environ.get("ENV", "local")
 
 if os.environ.get("SKIP_AWS_SECRETS") == "1":
-    secret = {}
+    secret = {
+        "SOCIAL_AUTH_AUTH0_DOMAIN": "your-domain.auth0.com",
+        "SOCIAL_AUTH_AUTH0_KEY": "your-client-id",
+        "SOCIAL_AUTH_AUTH0_SECRET": "your-client-secret",
+        "SOCIAL_AUTH_AUTH0_SCOPE": "openid,email,profile",
+        "S3_BUCKET_NAME": "your-s3-bucket-name",
+        "DJANGO_ALLOWED_HOSTS": "localhost",
+        "DJANGO_SECRET_KEY": "your-secret-key",
+        "DJANGO_DEBUG": "True",
+        "DJANGO_CSRF_TRUSTED_ORIGINS": "http://localhost",
+        "DB_USERNAME": "your-db-username",
+        "DB_PASSWORD": "your-db-password",
+        "DB_NAME": "your-db-name",
+        "DB_HOST": "your-db-host",
+        "AUTH0_API_AUDIENCE": "your-auth0-api-audience",
+        "AUTH0_EMAIL_CLAIM": "email",
+        "AUTH0_HTTP_TIMEOUT": "5",
+        "AUTH0_MANAGEMENT_CLIENT_ID": "your-auth0-management-client-id",
+        "AUTH0_MANAGEMENT_CLIENT_SECRET": "your-auth0-management-client-secret",
+        "AUTH0_MANAGEMENT_AUDIENCE": "https://your-domain.auth0.com/api/v2/",
+        "AUTH0_MANAGEMENT_TOKEN_URL": "https://your-domain.auth0.com/oauth/token",
+        "S3_BUCKET_NAME": "your-s3-bucket-name",
+    }
 else:
     secret = json.loads(get_aws_secret_manager_secret(ENV))
 
