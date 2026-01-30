@@ -30,7 +30,8 @@ jobs:
       - name: Set up Docker Compose services
         run: |
           docker compose up -d api db
-
+      - name: Get docker logs
+        run: docker compose logs api
       - name: Wait for services
         run: |
           sleep 10
