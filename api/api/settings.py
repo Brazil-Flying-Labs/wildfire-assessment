@@ -48,7 +48,7 @@ if USE_LOCAL_SECRET:
         "AUTH0_MANAGEMENT_AUDIENCE": "https://your-domain.auth0.com/api/v2/",
         "AUTH0_MANAGEMENT_TOKEN_URL": "https://your-domain.auth0.com/oauth/token",
         "S3_BUCKET_NAME": "your-s3-bucket-name",
-        "SOCIAL_AUTH_TRAILING_SLASH": False,
+        "SOCIAL_AUTH_TRAILING_SLASH": True,
     }
 else:
     secret = json.loads(get_aws_secret_manager_secret(ENV))
