@@ -7,7 +7,7 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "api.settings")
-    if os.environ.get("ENV").lower() == "local":
+    if os.environ.get("ENV", "local").lower() == "local":
         import debugpy
 
         try:
