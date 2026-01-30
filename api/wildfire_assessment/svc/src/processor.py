@@ -435,9 +435,8 @@ def process_scientific_deliverable(
             to_address=email,
             subject="Wildfire Analyser - Scientific Deliverable Ready",
             body=(
-                "The scientific deliverable for Ecological Reserve "
-                f"'{reserve_name}' is ready for download on this link: "
-                f"{result['scientific'][deliverable_key]['url']}"
+                f"The scientific deliverable '{reserve_name}' is ready for download on"
+                f" this link: {result['scientific'][deliverable_key]['url']}"
             ),
         )
     return result_wait
