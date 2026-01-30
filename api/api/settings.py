@@ -24,7 +24,7 @@ LOG = logging.getLogger(__name__)
 # Check the environment
 ENV = os.environ.get("ENV", "local")
 
-if os.environ.get("SKIP_AWS_SECRETS") == "1":
+if "1" == "1":
     secret = {
         "SOCIAL_AUTH_AUTH0_DOMAIN": "your-domain.auth0.com",
         "SOCIAL_AUTH_AUTH0_KEY": "your-client-id",
@@ -35,10 +35,10 @@ if os.environ.get("SKIP_AWS_SECRETS") == "1":
         "DJANGO_SECRET_KEY": "your-secret-key",
         "DJANGO_DEBUG": "True",
         "DJANGO_CSRF_TRUSTED_ORIGINS": "http://localhost",
-        "DB_USERNAME": "your-db-username",
-        "DB_PASSWORD": "your-db-password",
-        "DB_NAME": "your-db-name",
-        "DB_HOST": "your-db-host",
+        "DB_USERNAME": "postgres",
+        "DB_PASSWORD": "supersecretpassword",
+        "DB_NAME": "app",
+        "DB_HOST": "db",
         "AUTH0_API_AUDIENCE": "your-auth0-api-audience",
         "AUTH0_EMAIL_CLAIM": "email",
         "AUTH0_HTTP_TIMEOUT": "5",
@@ -47,6 +47,7 @@ if os.environ.get("SKIP_AWS_SECRETS") == "1":
         "AUTH0_MANAGEMENT_AUDIENCE": "https://your-domain.auth0.com/api/v2/",
         "AUTH0_MANAGEMENT_TOKEN_URL": "https://your-domain.auth0.com/oauth/token",
         "S3_BUCKET_NAME": "your-s3-bucket-name",
+        "SOCIAL_AUTH_TRAILING_SLASH": False,
     }
 else:
     secret = json.loads(get_aws_secret_manager_secret(ENV))
