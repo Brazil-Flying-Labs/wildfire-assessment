@@ -17,10 +17,6 @@ resource "aws_cloudfront_distribution" "ui_website" {
     domain_name              = aws_s3_bucket.ui_website.bucket_regional_domain_name
     origin_id                = local.ui_bucket_origin_id
     origin_access_control_id = aws_cloudfront_origin_access_control.ui_website.id
-
-    s3_origin_config {
-      origin_access_identity = ""
-    }
   }
 
   default_cache_behavior {
