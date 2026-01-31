@@ -1,8 +1,10 @@
 from unittest.mock import MagicMock, patch
 
+import requests
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from jwt import InvalidTokenError
 from rest_framework import exceptions
 from wildfire_assessment.authentication import (
     Auth0JWTAuthentication,
@@ -66,6 +68,14 @@ class Auth0AuthenticationTests(TestCase):
         mock_token.return_value = None
         self.assertEqual(_fetch_email_from_auth0("auth0|123"), "")
 
+    @override_settings(AUTH0_DOMAIN="example.auth0.com")
+    @patch("wildfire_assessment.authentication.requests.get")
+    @patch("wildfire_assessment.authentication._get_auth0_management_token")
+    def test_fetch_email_from_auth0_request_exception(self, mock_token, mock_get):
+        mock_token.return_value = "token"
+        mock_get.side_effect = requests.RequestException("boom")
+        self.assertEqual(_fetch_email_from_auth0("auth0|123"), "")
+
     @override_settings(
         AUTH0_MANAGEMENT_CLIENT_ID="client",
         AUTH0_MANAGEMENT_CLIENT_SECRET="secret",
@@ -79,6 +89,18 @@ class Auth0AuthenticationTests(TestCase):
         mock_response.json.return_value = {"access_token": "token"}
         mock_post.return_value = mock_response
         self.assertEqual(_get_auth0_management_token(), "token")
+
+    @override_settings(
+        AUTH0_MANAGEMENT_CLIENT_ID="client",
+        AUTH0_MANAGEMENT_CLIENT_SECRET="secret",
+        AUTH0_MANAGEMENT_AUDIENCE="aud",
+        AUTH0_MANAGEMENT_TOKEN_URL="https://auth0/token",
+        AUTH0_HTTP_TIMEOUT=1,
+    )
+    @patch("wildfire_assessment.authentication.requests.post")
+    def test_get_auth0_management_token_failure(self, mock_post):
+        mock_post.side_effect = requests.RequestException("boom")
+        self.assertIsNone(_get_auth0_management_token())
 
     @override_settings(
         AUTH0_MANAGEMENT_CLIENT_ID=None,
@@ -114,6 +136,22 @@ class Auth0AuthenticationTests(TestCase):
         self.assertEqual(user.first_name, "First")
         self.assertEqual(user.last_name, "Last")
 
+    def test_sync_user_missing_subject(self):
+        with self.assertRaises(exceptions.AuthenticationFailed):
+            _sync_user_from_payload({})
+
+    @patch("wildfire_assessment.authentication._fetch_email_from_auth0")
+    def test_sync_user_inactive_user(self, mock_email):
+        mock_email.return_value = "inactive@example.com"
+        User.objects.create_user(
+            username="inactive@example.com",
+            email="inactive@example.com",
+            is_active=False,
+        )
+        payload = {"sub": "auth0|3"}
+        with self.assertRaises(exceptions.AuthenticationFailed):
+            _sync_user_from_payload(payload)
+
     def test_authenticate_missing_header(self):
         request = MagicMock()
         request.META = {}
@@ -124,6 +162,18 @@ class Auth0AuthenticationTests(TestCase):
         request.META = {"HTTP_AUTHORIZATION": b"Basic abc"}
         self.assertIsNone(self.auth.authenticate(request))
 
+    def test_authenticate_missing_credentials(self):
+        request = MagicMock()
+        request.META = {"HTTP_AUTHORIZATION": b"Bearer"}
+        with self.assertRaises(exceptions.AuthenticationFailed):
+            self.auth.authenticate(request)
+
+    def test_authenticate_credentials_with_spaces(self):
+        request = MagicMock()
+        request.META = {"HTTP_AUTHORIZATION": b"Bearer token extra"}
+        with self.assertRaises(exceptions.AuthenticationFailed):
+            self.auth.authenticate(request)
+
     @patch("wildfire_assessment.authentication._decode_jwt")
     @patch("wildfire_assessment.authentication._sync_user_from_payload")
     def test_authenticate_success(self, mock_sync, mock_decode):
@@ -133,3 +183,11 @@ class Auth0AuthenticationTests(TestCase):
         mock_sync.return_value = User(username="test")
         user, payload = self.auth.authenticate(request)
         self.assertEqual(payload["sub"], "auth0|123")
+
+    @patch("wildfire_assessment.authentication._decode_jwt")
+    def test_authenticate_invalid_token(self, mock_decode):
+        request = MagicMock()
+        request.META = {"HTTP_AUTHORIZATION": b"Bearer token"}
+        mock_decode.side_effect = InvalidTokenError("expired")
+        with self.assertRaises(exceptions.AuthenticationFailed):
+            self.auth.authenticate(request)

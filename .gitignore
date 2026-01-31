@@ -55,3 +55,9 @@ api/static
 # React
 node_modules/
 .coverage
+
+
+
+api/htmlcov
+
+api/.coverage

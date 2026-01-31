@@ -97,6 +97,164 @@ class ProcessorTests(TestCase):
         self.assertEqual(called_kwargs["to_address"], self.email)
         self.assertIn(self.reserve_name, called_kwargs["body"])
 
+    @patch("wildfire_assessment.svc.processor.Deliverable")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_invalid_deliverable(
+        self, mock_secret, mock_enum
+    ):
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_enum.__getitem__.side_effect = KeyError
+
+        with self.assertRaises(ValueError):
+            processor.process_scientific_deliverable(
+                pre_fire_date=self.pre_fire_date,
+                post_fire_date=self.post_fire_date,
+                polygon_path=self.polygon_path,
+                deliverable_name="UNKNOWN",
+                email=self.email,
+                reserve_name=self.reserve_name,
+            )
+
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.Deliverable")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_unmapped_deliverable(
+        self,
+        mock_secret,
+        mock_deliverable,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        _mock_send,
+    ):
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        sentinel = object()
+        mock_deliverable.__getitem__.return_value = sentinel
+        mock_deliverable.RGB_PRE_FIRE = object()
+        mock_deliverable.RGB_POST_FIRE = object()
+        mock_deliverable.DNBR = object()
+        mock_deliverable.RBR = object()
+        mock_deliverable.DNDVI = object()
+
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [[{"state": "COMPLETED"}]]
+
+        with self.assertRaises(ValueError):
+            processor.process_scientific_deliverable(
+                pre_fire_date=self.pre_fire_date,
+                post_fire_date=self.post_fire_date,
+                polygon_path=self.polygon_path,
+                deliverable_name="RGB_PRE_FIRE",
+                email=self.email,
+                reserve_name=self.reserve_name,
+            )
+
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_missing_statuses(
+        self, mock_secret, mock_assessment, mock_ee, _mock_sleep
+    ):
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = []
+
+        with self.assertRaises(RuntimeError):
+            processor.process_scientific_deliverable(
+                pre_fire_date=self.pre_fire_date,
+                post_fire_date=self.post_fire_date,
+                polygon_path=self.polygon_path,
+                deliverable_name=Deliverable.DNBR.name,
+                email=self.email,
+                reserve_name=self.reserve_name,
+            )
+
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_failed_status(
+        self, mock_secret, mock_assessment, mock_ee, _mock_sleep
+    ):
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [
+            {"state": "FAILED", "error_message": "boom"}
+        ]
+
+        with self.assertRaises(RuntimeError):
+            processor.process_scientific_deliverable(
+                pre_fire_date=self.pre_fire_date,
+                post_fire_date=self.post_fire_date,
+                polygon_path=self.polygon_path,
+                deliverable_name=Deliverable.DNBR.name,
+                email=self.email,
+                reserve_name=self.reserve_name,
+            )
+
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_deliverable_keys(
+        self, mock_secret, mock_assessment, mock_ee, _mock_sleep, mock_send
+    ):
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        for deliverable in [
+            Deliverable.RGB_PRE_FIRE,
+            Deliverable.RGB_POST_FIRE,
+            Deliverable.DNBR,
+            Deliverable.RBR,
+            Deliverable.DNDVI,
+        ]:
+            assessment_instance = MagicMock()
+            assessment_instance.run.return_value = {
+                "scientific": {
+                    deliverable.name: {
+                        "gee_task_id": "task-1",
+                        "url": "http://files/test",
+                    }
+                }
+            }
+            mock_assessment.return_value = assessment_instance
+            mock_ee.data.getTaskStatus.side_effect = [[{"state": "COMPLETED"}]]
+
+            status = processor.process_scientific_deliverable(
+                pre_fire_date=self.pre_fire_date,
+                post_fire_date=self.post_fire_date,
+                polygon_path=self.polygon_path,
+                deliverable_name=deliverable.name,
+                email=self.email,
+                reserve_name=self.reserve_name,
+            )
+            self.assertEqual(status, "COMPLETED")
+            mock_send.assert_called()
+
 
 class AwsUtilsTests(TestCase):
     @patch("wildfire_assessment.svc.aws.boto3.Session")
@@ -129,3 +287,12 @@ class AwsUtilsTests(TestCase):
         mock_session.return_value.client.return_value = client
         with self.assertRaises(ValueError):
             aws.get_aws_secret_manager_secret("missing")
+
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_get_gee_private_key_json_stripping(self, mock_secret):
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "'{\\\"key\\\":123}'"}
+        )
+        key = processor.get_gee_private_key_json()
+        self.assertFalse(key.startswith("'"))
+        self.assertEqual(json.loads(key)["key"], 123)

@@ -7,6 +7,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 from wildfire_assessment.models import Country, EcologicalReserve
+from wildfire_assessment.views import health_status
 
 
 class WildfireAssessmentTests(APITestCase):
@@ -165,3 +166,8 @@ class WildfireAssessmentTests(APITestCase):
             )
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_health_status(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
