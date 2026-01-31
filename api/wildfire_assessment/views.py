@@ -170,6 +170,7 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({"error": "Invalid deliverable type"}, status=400)
 
         instance = self.get_object()
+
         task = process_scientific_deliverable.delay(
             pre_fire_date=request.query_params.get("pre_fire_date"),
             post_fire_date=request.query_params.get("post_fire_date"),
