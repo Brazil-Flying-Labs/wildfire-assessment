@@ -236,8 +236,8 @@ resource "aws_ecs_task_definition" "celery_worker" {
   family                   = "wildfire-assessment-celery-worker-${var.environment}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "1024"
-  memory                   = "2048"
+  cpu                      = "2048"
+  memory                   = "4096"
 
   execution_role_arn = aws_iam_role.task_execution.arn
   task_role_arn      = aws_iam_role.task_role.arn
@@ -247,7 +247,7 @@ resource "aws_ecs_task_definition" "celery_worker" {
       name      = "celery-worker"
       image     = "${aws_ecr_repository.wildfire_assessment.repository_url}:latest"
       essential = true
-      command   = ["sh", "-c", "celery -A wildfire_assessment worker --loglevel=info"]
+      command   = ["sh", "-c", "celery -A wildfire_assessment worker --loglevel=info --concurrency=10"]
 
       environment = [
         { name = "ENV", value = var.environment },
