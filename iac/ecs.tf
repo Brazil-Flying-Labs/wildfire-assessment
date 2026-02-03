@@ -45,11 +45,11 @@ resource "aws_service_discovery_private_dns_namespace" "ecs" {
 }
 
 resource "aws_service_discovery_service" "redis" {
-  name        = "redis"
+  name         = "redis"
   namespace_id = aws_service_discovery_private_dns_namespace.ecs.id
 
   dns_config {
-    namespace_id  = aws_service_discovery_private_dns_namespace.ecs.id
+    namespace_id   = aws_service_discovery_private_dns_namespace.ecs.id
     routing_policy = "MULTIVALUE"
 
     dns_records {
@@ -236,8 +236,8 @@ resource "aws_ecs_task_definition" "celery_worker" {
   family                   = "wildfire-assessment-celery-worker-${var.environment}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "2048"
-  memory                   = "4096"
+  cpu                      = "1024"
+  memory                   = "2048"
 
   execution_role_arn = aws_iam_role.task_execution.arn
   task_role_arn      = aws_iam_role.task_role.arn
