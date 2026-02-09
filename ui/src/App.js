@@ -1063,7 +1063,7 @@ function App() {
       </div>
       <footer className="app-footer mt-auto py-3 text-center small">
         <div className="container-fluid">
-          UI version 1.0.0 · Wildfire Analyser 0.2.12
+          UI version 1.0.0 · Wildfire Analyser 0.2.17
         </div>
       </footer>
     </div>
