@@ -437,6 +437,22 @@ function App() {
     }
   }, [analysisResult]);
 
+  const severityColorMap = useMemo(
+    () => ({
+      "Unburned": "green",
+      "Low Severity": "yellow",
+      "Moderate Severity": "orange",
+      "High Severity": "red",
+      "Very High Severity": "purple"
+    }),
+    []
+  );
+
+  const getSeverityColor = useCallback(
+    (name) => severityColorMap[name] || "",
+    [severityColorMap]
+  );
+
   const scientificDeliverables = useMemo(
     () => [
       { label: "RGB pre-fire", value: "RGB_PRE_FIRE" },
@@ -658,7 +674,7 @@ function App() {
             <div className="d-none d-md-block">
               <h1 className="h4 mb-1">Wildfire assessment</h1>
               <p className="mb-0 small opacity-75">
-                Monitoring areas affected before and after fire events
+                Evaluate fire damage and severity
               </p>
             </div>
           </div>
@@ -944,6 +960,7 @@ function App() {
                             <th scope="col">Severity</th>
                             <th scope="col">Area (ha)</th>
                             <th scope="col">Percent</th>
+                            <th scope="col">Color</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -952,6 +969,7 @@ function App() {
                               <td>{name}</td>
                               <td>{formatAreaValue(area)}</td>
                               <td>{formatPercentValue(percent)}</td>
+                              <td>{getSeverityColor(name)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1063,7 +1081,7 @@ function App() {
       </div>
       <footer className="app-footer mt-auto py-3 text-center small">
         <div className="container-fluid">
-          UI version 1.0.0 · Wildfire Analyser 0.2.17
+          UI version 1.0.1 · Wildfire Analyser 0.2.18
         </div>
       </footer>
     </div>
