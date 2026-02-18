@@ -77,7 +77,7 @@
   "app.deliverableFailed": "Failed to request {label}: {error}",
   "app.deliverableTooltip": "Request a scientific {label}",
   "app.taskId": "Task ID: {taskId}",
-  "app.footer": "UI version 1.2.0 · Wildfire Analyser 0.2.18",
+  "app.footer": "UI version {version} · Wildfire Analyser 0.2.18",
   "app.envNotConfigured": "Environment variable REACT_APP_WILDLIFE_API_URL is not configured.",
   "app.errorLoadingReserves": "Error loading reserves ({status})",
   "app.apiNotConfigured": "API endpoint is not configured.",

@@ -5,6 +5,8 @@ import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
 
+const UI_VERSION = "1.2.0";
+
 function App() {
   const { t, language } = useLanguage();
   const languageLoadedRef = useRef(false);
@@ -1171,7 +1173,7 @@ function App() {
       </div>
       <footer className="app-footer mt-auto py-3 text-center small">
         <div className="container-fluid">
-          {t("app.footer")}
+          {t("app.footer", { version: UI_VERSION })}
         </div>
       </footer>
     </div>
