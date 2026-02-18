@@ -1,9 +1,13 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
+from wildfire_assessment.models import UserProfile
 from wildfire_assessment.svc import aws, processor
+
+User = get_user_model()
 
 
 class ProcessorTests(TestCase):
@@ -96,6 +100,111 @@ class ProcessorTests(TestCase):
         called_kwargs = mock_send_email.call_args.kwargs
         self.assertEqual(called_kwargs["to_address"], self.email)
         self.assertIn(self.reserve_name, called_kwargs["body"])
+
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_uses_user_language_preference(
+        self,
+        mock_secret,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+    ):
+        """Test that email is sent in user's preferred language."""
+        # Create a user with Portuguese language preference
+        user = User.objects.create_user(
+            username="testuser",
+            email=self.email,
+            password="testpass",
+        )
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.default_language = "pt-BR"
+        profile.save()
+
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        status = processor.process_scientific_deliverable(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+            deliverable_name=Deliverable.DNBR.name,
+            email=self.email,
+            reserve_name=self.reserve_name,
+        )
+
+        self.assertEqual(status, "COMPLETED")
+        mock_send_email.assert_called_once()
+        called_kwargs = mock_send_email.call_args.kwargs
+        # Should use Portuguese subject
+        self.assertEqual(
+            called_kwargs["subject"],
+            "Wildfire Analyser - Produto Científico Pronto",
+        )
+        # Body should be in Portuguese
+        self.assertIn("está pronto para download", called_kwargs["body"])
+
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch("wildfire_assessment.svc.processor.User")
+    def test_process_scientific_deliverable_falls_back_on_user_lookup_error(
+        self,
+        mock_user,
+        mock_secret,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+    ):
+        """Test that email falls back to English when user lookup fails."""
+        # Make User.objects.filter raise an exception
+        mock_user.objects.filter.side_effect = Exception("Database error")
+
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        status = processor.process_scientific_deliverable(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+            deliverable_name=Deliverable.DNBR.name,
+            email=self.email,
+            reserve_name=self.reserve_name,
+        )
+
+        self.assertEqual(status, "COMPLETED")
+        mock_send_email.assert_called_once()
+        called_kwargs = mock_send_email.call_args.kwargs
+        # Should fall back to English subject
+        self.assertEqual(
+            called_kwargs["subject"],
+            "Wildfire Analyser - Scientific Deliverable Ready",
+        )
 
     @patch("wildfire_assessment.svc.processor.Deliverable")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
