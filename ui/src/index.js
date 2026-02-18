@@ -5,18 +5,20 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { authConfig, hasValidAuthConfig } from './authConfig';
+import { LanguageProvider, useLanguage } from './LanguageContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 function MissingAuthConfiguration() {
+  const { t } = useLanguage();
   return (
     <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
       <div className="alert alert-danger m-4" role="alert">
-        Auth0 environment variables are not configured. Set{' '}
+        {t("auth.missingConfig")}{' '}
         <code className="mx-1">REACT_APP_AUTH0_DOMAIN</code>,{' '}
-        <code className="mx-1">REACT_APP_AUTH0_CLIENT_ID</code>, and{' '}
-        <code className="mx-1">REACT_APP_AUTH0_AUDIENCE</code> before starting
-        the application.
+        <code className="mx-1">REACT_APP_AUTH0_CLIENT_ID</code>,{' '}
+        <code className="mx-1">REACT_APP_AUTH0_AUDIENCE</code>{' '}
+        {t("auth.missingConfigEnd")}
       </div>
     </div>
   );
@@ -45,7 +47,9 @@ function AppWithProviders() {
 
 root.render(
   <React.StrictMode>
-    <AppWithProviders />
+    <LanguageProvider>
+      <AppWithProviders />
+    </LanguageProvider>
   </React.StrictMode>
 );
 

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import "./App.css";
-
-const BACKEND_UNAUTHORIZED_MESSAGE =
-  "Your account is already authenticated, but it has not been authorized on our backend servers yet. Contact an administrator.";
+import LandingPage from "./LandingPage";
+import { useLanguage } from "./LanguageContext";
+import LanguageSelector from "./LanguageSelector";
 
 function App() {
+  const { t, language, setLanguage } = useLanguage();
+  const languageLoadedRef = useRef(false);
   const authAudience = process.env.REACT_APP_AUTH0_AUDIENCE || "";
   const {
     isAuthenticated,
@@ -30,6 +32,17 @@ function App() {
   const [deliverableStatus, setDeliverableStatus] = useState({});
   const [deliverableAlert, setDeliverableAlert] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showLandingPage, setShowLandingPageState] = useState(
+    () => sessionStorage.getItem("showLandingPage") === "true"
+  );
+  const setShowLandingPage = useCallback((value) => {
+    setShowLandingPageState(value);
+    if (value) {
+      sessionStorage.setItem("showLandingPage", "true");
+    } else {
+      sessionStorage.removeItem("showLandingPage");
+    }
+  }, []);
 
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen((previous) => !previous);
@@ -53,15 +66,12 @@ function App() {
   const preFirePickerRef = useRef(null);
   const postFirePickerRef = useRef(null);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      loginWithRedirect().catch((error) => {
-        console.error("Failed to redirect to Auth0:", error);
-      });
-    }
-  }, [authLoading, isAuthenticated, loginWithRedirect]);
-
   const authReady = !authLoading && isAuthenticated;
+
+  const login = useCallback(
+    () => loginWithRedirect({ authorizationParams: { ui_locales: language } }),
+    [loginWithRedirect, language]
+  );
 
   const authorizedFetch = useCallback(
     async (url, options = {}) => {
@@ -104,19 +114,64 @@ function App() {
     (response) => {
       if (response?.status === 403) {
         setBackendAuthorizationError(true);
-        throw new Error(BACKEND_UNAUTHORIZED_MESSAGE);
+        throw new Error(t("app.backendUnauthorized"));
       }
       return response;
     },
-    [setBackendAuthorizationError]
+    [setBackendAuthorizationError, t]
   );
+
+  // Sync language with backend on login.
+  // If the user already picked a language locally (e.g. on the landing page),
+  // push that choice to the backend. Otherwise adopt the backend preference.
+  useEffect(() => {
+    if (!authReady || !baseUrl) return;
+
+    (async () => {
+      try {
+        const response = await authorizedFetch(`${baseUrl}/me/`);
+        if (response.ok) {
+          const data = await response.json();
+          const backendLang = data.default_language;
+          if (backendLang && backendLang !== language) {
+            // Local language differs from backend — push local choice to backend
+            authorizedFetch(`${baseUrl}/me/`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ default_language: language }),
+            }).catch((err) =>
+              console.error("Failed to sync language to backend:", err)
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch user profile:", error);
+      } finally {
+        languageLoadedRef.current = true;
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authReady, baseUrl]);
+
+  // Persist language changes to backend (after initial sync)
+  useEffect(() => {
+    if (!authReady || !baseUrl || !languageLoadedRef.current) return;
+
+    authorizedFetch(`${baseUrl}/me/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ default_language: language }),
+    }).catch((error) => {
+      console.error("Failed to update language preference:", error);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   const loadReserves = useCallback(() => {
     if (!baseUrl) {
       setFetchState({
         loading: false,
-        error:
-          "Environment variable REACT_APP_WILDLIFE_API_URL is not configured.",
+        error: t("app.envNotConfigured"),
       });
       return undefined;
     }
@@ -137,7 +192,7 @@ function App() {
         ensureAuthorizedResponse(response);
 
         if (!response.ok) {
-          throw new Error(`Error loading reserves (${response.status})`);
+          throw new Error(t("app.errorLoadingReserves", { status: response.status }));
         }
 
         const data = await response.json();
@@ -152,7 +207,7 @@ function App() {
     })();
 
     return () => controller.abort();
-  }, [authorizedFetch, baseUrl, ensureAuthorizedResponse]);
+  }, [authorizedFetch, baseUrl, ensureAuthorizedResponse, t]);
 
   useEffect(() => {
     if (!authReady) {
@@ -239,7 +294,7 @@ function App() {
     if (fetchState.loading) {
       return (
         <option value="" disabled>
-          Loading reserves...
+          {t("app.loadingReserves")}
         </option>
       );
     }
@@ -255,14 +310,14 @@ function App() {
     if (!ecologicalReserves.length) {
       return (
         <option value="" disabled>
-          No reserves found.
+          {t("app.noReserves")}
         </option>
       );
     }
 
     return [
       <option key="placeholder" value="" disabled>
-        Choose an option
+        {t("app.chooseOption")}
       </option>,
       ...ecologicalReserves.map((reserve) => (
         <option key={reserve.id} value={reserve.id}>
@@ -502,7 +557,7 @@ function App() {
 
       try {
         if (!baseUrl) {
-          throw new Error("API endpoint is not configured.");
+          throw new Error(t("app.apiNotConfigured"));
         }
 
         const queryParams = new URLSearchParams({
@@ -517,7 +572,7 @@ function App() {
         ensureAuthorizedResponse(response);
 
         if (!response.ok) {
-          throw new Error(`Error requesting deliverable (${response.status})`);
+          throw new Error(t("app.errorDeliverable", { status: response.status }));
         }
 
         const data = await response.json();
@@ -529,7 +584,7 @@ function App() {
         });
         setDeliverableAlert({
           type: "success",
-          message: `You will receive an email with the ${readableLabel} download link as soon as it is ready.`,
+          message: t("app.deliverableSuccess", { label: readableLabel }),
         });
       } catch (error) {
         console.error("Failed to request scientific deliverable:", error);
@@ -542,7 +597,7 @@ function App() {
           scientificDeliverableLabels[deliverableName] || deliverableName;
         setDeliverableAlert({
           type: "danger",
-          message: `Failed to request ${readableLabel}: ${error.message || "Unknown error"}`,
+          message: t("app.deliverableFailed", { label: readableLabel, error: error.message || "Unknown error" }),
         });
       }
     },
@@ -556,6 +611,7 @@ function App() {
       selectedReserve,
       scientificDeliverableLabels,
       updateDeliverableStatus,
+      t,
     ]
   );
 
@@ -569,7 +625,7 @@ function App() {
     if (!baseUrl) {
       setAnalysisState({
         loading: false,
-        error: "API endpoint is not configured.",
+        error: t("app.apiNotConfigured"),
       });
       return;
     }
@@ -603,7 +659,7 @@ function App() {
       ensureAuthorizedResponse(response);
 
       if (!response.ok) {
-        throw new Error(`Error running analysis (${response.status})`);
+        throw new Error(t("app.errorAnalysis", { status: response.status }));
       }
 
       const data = await response.json();
@@ -631,14 +687,14 @@ function App() {
     return (
       <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
         <div className="alert alert-danger m-4" role="alert">
-          {authError.message || "Authentication failed."}
+          {authError.message || t("app.authFailed")}
           <div className="mt-3">
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => loginWithRedirect()}
+              onClick={login}
             >
-              Try again
+              {t("common.tryAgain")}
             </button>
           </div>
         </div>
@@ -646,16 +702,28 @@ function App() {
     );
   }
 
-  if (!authReady) {
+  if (authLoading) {
     return (
       <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
         <div className="text-center">
           <div className="spinner-border text-primary mb-3" role="status">
-            <span className="visually-hidden">Authenticating...</span>
+            <span className="visually-hidden">{t("common.loading")}</span>
           </div>
-          <p className="mb-0">Redirecting to the login page...</p>
         </div>
       </div>
+    );
+  }
+
+  if (!authReady) {
+    return <LandingPage onLogin={login} />;
+  }
+
+  if (showLandingPage) {
+    return (
+      <LandingPage
+        isAuthenticated
+        onLogin={() => setShowLandingPage(false)}
+      />
     );
   }
 
@@ -666,21 +734,29 @@ function App() {
       <header className="app-header text-white">
         <div className="container-fluid d-flex align-items-center justify-content-between py-3 gap-3">
           <div className="d-flex align-items-center gap-3 flex-shrink-0">
-            <img
-              src={logoSrc}
-              alt="Wildfire Assessment"
-              className="brand-logo"
-            />
+            <button
+              type="button"
+              className="btn p-0 border-0 bg-transparent"
+              onClick={() => setShowLandingPage(true)}
+              aria-label={t("landing.title")}
+            >
+              <img
+                src={logoSrc}
+                alt={t("landing.title")}
+                className="brand-logo"
+              />
+            </button>
             <div className="d-none d-md-block">
-              <h1 className="h4 mb-1">Wildfire assessment</h1>
+              <h1 className="h4 mb-1">{t("app.title")}</h1>
               <p className="mb-0 small opacity-75">
-                Evaluate fire damage and severity
+                {t("app.subtitle")}
               </p>
             </div>
           </div>
           <div className="d-flex align-items-center gap-2 header-actions">
+            <LanguageSelector className="form-select form-select-sm bg-transparent text-white border-light" />
             <div className="text-end d-none d-md-block">
-              <p className="mb-0 small opacity-75">Signed in as</p>
+              <p className="mb-0 small opacity-75">{t("app.signedInAs")}</p>
               <strong className="small">{displayName}</strong>
             </div>
             <button
@@ -690,13 +766,13 @@ function App() {
                 logout({ logoutParams: { returnTo: window.location.origin } })
               }
             >
-              Logout
+              {t("common.logout")}
             </button>
             <button
               type="button"
               className="btn btn-outline-light btn-sm mobile-sidebar-toggle d-lg-none"
               onClick={toggleSidebar}
-              aria-label="Open filters"
+              aria-label={t("app.analysisParams")}
             >
               <span className="mobile-sidebar-icon" aria-hidden="true"></span>
             </button>
@@ -712,9 +788,9 @@ function App() {
                 type="button"
                 className="sidebar-backdrop d-lg-none"
                 onClick={closeSidebar}
-                aria-label="Close filters"
+                aria-label={t("common.close")}
               >
-                <span className="visually-hidden">Close filters</span>
+                <span className="visually-hidden">{t("common.close")}</span>
               </button>
             ) : null}
             <aside
@@ -723,20 +799,20 @@ function App() {
               }`}
             >
               <div className="d-flex justify-content-between align-items-center d-lg-none mb-3">
-                <h1 className="h5 mb-0">Analysis parameters</h1>
+                <h1 className="h5 mb-0">{t("app.analysisParams")}</h1>
                 <button
                   type="button"
                   className="btn btn-outline-secondary btn-sm"
                   onClick={closeSidebar}
                 >
-                  Close
+                  {t("common.close")}
                 </button>
               </div>
-              <h1 className="h5 mb-4 d-none d-lg-block">Analysis parameters</h1>
+              <h1 className="h5 mb-4 d-none d-lg-block">{t("app.analysisParams")}</h1>
               <form onSubmit={handleSubmit}>
               <div className="mb-3">
                 <label htmlFor="preFireDate" className="form-label">
-                  Pre-fire date
+                  {t("app.preFireDate")}
                 </label>
                 <div className="date-input-wrapper">
                   <input
@@ -753,13 +829,13 @@ function App() {
                   <button
                     type="button"
                     className="btn btn-outline-secondary date-picker-button"
-                    aria-label="Open calendar for pre-fire date"
+                    aria-label={t("app.preFireDate")}
                     onClick={() =>
                       preFirePickerRef.current?.showPicker?.() ||
                       preFirePickerRef.current?.focus()
                     }
                   >
-                    Pick
+                    {t("common.pick")}
                   </button>
                   <input
                     ref={preFirePickerRef}
@@ -776,7 +852,7 @@ function App() {
 
               <div className="mb-3">
                 <label htmlFor="postFireDate" className="form-label">
-                  Post-fire date
+                  {t("app.postFireDate")}
                 </label>
                 <div className="date-input-wrapper">
                   <input
@@ -793,13 +869,13 @@ function App() {
                   <button
                     type="button"
                     className="btn btn-outline-secondary date-picker-button"
-                    aria-label="Open calendar for post-fire date"
+                    aria-label={t("app.postFireDate")}
                     onClick={() =>
                       postFirePickerRef.current?.showPicker?.() ||
                       postFirePickerRef.current?.focus()
                     }
                   >
-                    Pick
+                    {t("common.pick")}
                   </button>
                   <input
                     ref={postFirePickerRef}
@@ -816,7 +892,7 @@ function App() {
 
               <div className="mb-3">
                 <label htmlFor="reserve" className="form-label">
-                  Select the area of interest
+                  {t("app.selectArea")}
                 </label>
                 <select
                   className="form-select"
@@ -831,17 +907,14 @@ function App() {
                 {hasError ? (
                   <div className="mt-2">
                     <p className="small text-danger mb-2">
-                      Make sure the API is reachable and that the certificate
-                      is trusted. In development environments with self-signed
-                      HTTPS, open the endpoint directly in the browser to
-                      accept the certificate before using the application.
+                      {t("app.apiHint")}
                     </p>
                     <button
                       type="button"
                       className="btn btn-outline-danger btn-sm"
                       onClick={loadReserves}
                     >
-                      Try again
+                      {t("common.tryAgain")}
                     </button>
                   </div>
                 ) : null}
@@ -852,7 +925,7 @@ function App() {
                 className="btn btn-primary w-100"
                 disabled={isAnalyzeDisabled}
               >
-                {analysisState.loading ? "Analyzing..." : "Run analysis"}
+                {analysisState.loading ? t("app.analyzing") : t("app.runAnalysis")}
               </button>
 
               <div className="mt-4 d-lg-none">
@@ -861,7 +934,7 @@ function App() {
                   className="btn btn-outline-secondary w-100"
                   onClick={closeSidebar}
                 >
-                  Hide menu
+                  {t("app.hideMenu")}
                 </button>
               </div>
             </form>
@@ -873,20 +946,20 @@ function App() {
           <section className="app-main-content p-5 flex-grow-1">
             {backendAuthorizationError ? (
               <div className="alert alert-warning" role="alert">
-                {BACKEND_UNAUTHORIZED_MESSAGE}
+                {t("app.backendUnauthorized")}
               </div>
             ) : null}
 
             <div className="alert alert-info d-lg-none" role="alert">
-              Use the menu to select the time period and area of interest for your assessment.
+              {t("app.mobileMenuHint")}
             </div>
 
             {analysisState.loading ? (
               <div className="placeholder-card border border-dashed rounded-3 p-5 text-center">
                 <div className="spinner-border text-primary mb-3" role="status">
-                  <span className="visually-hidden">Loading...</span>
+                  <span className="visually-hidden">{t("common.loading")}</span>
                 </div>
-                <p className="mb-0">Processing analysis. This may take a few moments...</p>
+                <p className="mb-0">{t("app.processing")}</p>
               </div>
             ) : null}
 
@@ -905,18 +978,18 @@ function App() {
                   <div className="card border-0 shadow-sm">
                     <div className="card-body">
                       <h3 className="card-title h5 mb-3">
-                        Best dates identified
+                        {t("app.bestDates")}
                       </h3>
                       <dl className="row mb-0">
                         {bestDates.preBest ? (
                           <>
-                            <dt className="col-sm-4">Pre-fire</dt>
+                            <dt className="col-sm-4">{t("app.preFire")}</dt>
                             <dd className="col-sm-8">{bestDates.preBest}</dd>
                           </>
                         ) : null}
                         {bestDates.postBest ? (
                           <>
-                            <dt className="col-sm-4">Post-fire</dt>
+                            <dt className="col-sm-4">{t("app.postFire")}</dt>
                             <dd className="col-sm-8">{bestDates.postBest}</dd>
                           </>
                         ) : null}
@@ -927,7 +1000,7 @@ function App() {
 
                 {imageEntries.length ? (
                   <section>
-                    <h3 className="h5 mb-3">Generated visualizations</h3>
+                    <h3 className="h5 mb-3">{t("app.visualizations")}</h3>
                     <div className="analysis-images row g-4">
                       {imageEntries.map(([key, url]) => (
                         <div className="col-12 col-md-6 col-lg-4" key={key}>
@@ -952,15 +1025,15 @@ function App() {
 
                 {severityEntries.length ? (
                   <section>
-                    <h3 className="h5 mb-3">DNBR Severity Distribution</h3>
+                    <h3 className="h5 mb-3">{t("app.severityTitle")}</h3>
                     <div className="table-responsive">
                       <table className="table table-sm table-striped align-middle">
                         <thead className="table-light">
                           <tr>
-                            <th scope="col">Severity</th>
-                            <th scope="col">Area (ha)</th>
-                            <th scope="col">Percent</th>
-                            <th scope="col">Color</th>
+                            <th scope="col">{t("app.severity")}</th>
+                            <th scope="col">{t("app.areaHa")}</th>
+                            <th scope="col">{t("app.percent")}</th>
+                            <th scope="col">{t("app.color")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -980,7 +1053,7 @@ function App() {
 
                 {tiffEntries.length || csvEntry ? (
                   <section>
-                    <h3 className="h5 mb-3">Downloads</h3>
+                    <h3 className="h5 mb-3">{t("app.downloads")}</h3>
                     <div className="analysis-downloads d-flex flex-wrap gap-2">
                       {tiffEntries.map(([key, url]) => (
                         <a
@@ -1010,7 +1083,7 @@ function App() {
                 <section>
                   <details className="analysis-raw border rounded-3 p-3 bg-white shadow-sm">
                     <summary className="fw-medium mb-2">
-                      View full response (JSON)
+                      {t("app.viewJson")}
                     </summary>
                     <pre className="mb-0 bg-light p-3 rounded overflow-auto">
                       {JSON.stringify(analysisResult, null, 2)}
@@ -1019,10 +1092,9 @@ function App() {
                 </section>
 
                 <section className="mt-4">
-                  <h3 className="h5 mb-2">Request scientific deliverables</h3>
+                  <h3 className="h5 mb-2">{t("app.deliverableTitle")}</h3>
                   <p className="small text-muted mb-3">
-                    Use the links below to queue a background export. You will
-                    receive an email once the deliverable is processed.
+                    {t("app.deliverableHint")}
                   </p>
                   <div className="d-flex flex-wrap gap-3">
                     {scientificDeliverables.map(({ label, value }) => {
@@ -1039,15 +1111,15 @@ function App() {
                               isScientificDeliverableDisabled || status.loading
                             }
                             onClick={() => handleScientificDeliverable(value)}
-                            title={`Request a scientifical ${label}`}
+                            title={t("app.deliverableTooltip", { label })}
                           >
                             {status.loading
-                              ? `Requesting ${label}...`
+                              ? t("app.deliverableRequesting", { label })
                               : label}
                           </button>
                           {status.taskId ? (
                             <span className="small text-success">
-                              Task ID: {status.taskId}
+                              {t("app.taskId", { taskId: status.taskId })}
                             </span>
                           ) : null}
                           {!status.loading && status.error ? (
@@ -1081,7 +1153,7 @@ function App() {
       </div>
       <footer className="app-footer mt-auto py-3 text-center small">
         <div className="container-fluid">
-          UI version 1.0.1 · Wildfire Analyser 0.2.18
+          {t("app.footer")}
         </div>
       </footer>
     </div>

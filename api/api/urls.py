@@ -25,13 +25,18 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 from rest_framework import routers
-from wildfire_assessment.views import EcologicalReserveViewSet, health_status
+from wildfire_assessment.views import (
+    EcologicalReserveViewSet,
+    UserMeView,
+    health_status,
+)
 
 router = routers.DefaultRouter()
 router.register(r"ecological_reserve", EcologicalReserveViewSet)
 
 urlpatterns = [
     path("", health_status, name="health-status"),
+    path("me/", UserMeView.as_view(), name="user-me"),
     path("", include(router.urls)),
     path(
         "admin/login/",

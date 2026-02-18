@@ -12,5 +12,5 @@ environment  = "dev"
 vpc_cidr = "10.0.0.0/16"
 az_count = 2 
 
-ui_domain_aliases  = ["wildfire-dev.droneai.com.br"]
-ui_certificate_arn = "arn:aws:acm:us-east-1:055213706289:certificate/7895e08e-00c7-474e-9e04-10b7784bf753"
+ui_domain_aliases  = ["wildfire-dev.droneai.com.br", "wildfire.droneai.com.br"]
+ui_certificate_arn = "arn:aws:acm:us-east-1:055213706289:certificate/9e1e42ad-114d-4dd4-b317-7aed7735a37c"

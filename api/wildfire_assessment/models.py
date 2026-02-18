@@ -54,3 +54,26 @@ class UserCountry(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.country.code}"
+
+
+LANGUAGE_CHOICES = [
+    ("en", "English"),
+    ("pt-BR", "Português (Brasil)"),
+    ("fr", "Français"),
+]
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="profile",
+    )
+    default_language = models.CharField(
+        max_length=5,
+        choices=LANGUAGE_CHOICES,
+        default="en",
+    )
+
+    def __str__(self):
+        return f"{self.user} - {self.default_language}"

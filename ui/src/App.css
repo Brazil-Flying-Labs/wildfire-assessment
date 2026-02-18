@@ -115,7 +115,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 3rem;
+  white-space: nowrap;
 }
 
 .date-picker-button:focus {

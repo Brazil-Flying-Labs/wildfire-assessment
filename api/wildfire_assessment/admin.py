@@ -1,7 +1,12 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from wildfire_assessment.models import Country, EcologicalReserve, UserCountry
+from wildfire_assessment.models import (
+    Country,
+    EcologicalReserve,
+    UserCountry,
+    UserProfile,
+)
 
 # Register your models here.
 
@@ -33,9 +38,16 @@ class UserCountryInline(admin.TabularInline):
 User = get_user_model()
 
 
+class UserProfileInline(admin.StackedInline):
+    model = UserProfile
+    can_delete = False
+    verbose_name = "Language preference"
+    verbose_name_plural = "Language preference"
+
+
 class UserAdmin(BaseUserAdmin):
     base_inlines = getattr(BaseUserAdmin, "inlines", None) or []
-    inlines = [*base_inlines, UserCountryInline]
+    inlines = [*base_inlines, UserCountryInline, UserProfileInline]
 
 
 try:

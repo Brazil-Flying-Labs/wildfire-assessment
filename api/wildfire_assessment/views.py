@@ -7,12 +7,15 @@ from datetime import datetime
 from django.http import JsonResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import permissions, viewsets
+from rest_framework import generics, permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_assessment.models import EcologicalReserve
-from wildfire_assessment.serializers import EcologicalReserveSerializer
+from wildfire_assessment.serializers import (
+    EcologicalReserveSerializer,
+    UserMeSerializer,
+)
 from wildfire_assessment.svc.processor import (
     process_fire_assessment,
     process_scientific_deliverable,
@@ -180,3 +183,14 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
         return Response({"task_id": task.id})
+
+
+class UserMeView(generics.RetrieveUpdateAPIView):
+    """Return or update the authenticated user's profile."""
+
+    serializer_class = UserMeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "patch"]
+
+    def get_object(self):
+        return self.request.user
