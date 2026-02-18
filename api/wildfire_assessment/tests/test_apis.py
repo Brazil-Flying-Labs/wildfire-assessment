@@ -171,3 +171,43 @@ class WildfireAssessmentTests(APITestCase):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+
+class UserMeViewTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="tester",
+            email="tester@example.com",
+            password="password",
+            first_name="Test",
+            last_name="User",
+        )
+        self.url = reverse("user-me")
+
+    def test_me_requires_authentication(self):
+        response = self.client.get(self.url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_me_returns_user_profile(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["email"], "tester@example.com")
+        self.assertEqual(data["first_name"], "Test")
+        self.assertEqual(data["last_name"], "User")
+        self.assertEqual(data["default_language"], "en")
+
+    def test_me_patch_updates_language(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            self.url,
+            {"default_language": "pt-BR"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.default_language, "pt-BR")

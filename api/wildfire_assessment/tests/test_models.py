@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from wildfire_assessment.models import Country, UserCountry
+from wildfire_assessment.models import Country, UserCountry, UserProfile
 
 
 class CountryModelTests(TestCase):
@@ -13,3 +13,33 @@ class CountryModelTests(TestCase):
         country = Country.objects.create(name="Peru", code="PE")
         user_country = UserCountry.objects.create(user=user, country=country)
         self.assertEqual(str(user_country), "tester - PE")
+
+
+class UserProfileModelTests(TestCase):
+    def test_str_representation(self):
+        user = get_user_model().objects.create(username="profileuser")
+        profile = user.profile
+        self.assertEqual(str(profile), "profileuser - en")
+
+    def test_default_language_is_english(self):
+        user = get_user_model().objects.create(username="languser")
+        profile = user.profile
+        self.assertEqual(profile.default_language, "en")
+
+    def test_profile_auto_created_on_user_creation(self):
+        user = get_user_model().objects.create(username="newuser")
+        self.assertTrue(UserProfile.objects.filter(user=user).exists())
+
+    def test_profile_not_duplicated_on_user_save(self):
+        user = get_user_model().objects.create(username="dupecheck")
+        user.first_name = "Updated"
+        user.save()
+        self.assertEqual(UserProfile.objects.filter(user=user).count(), 1)
+
+    def test_update_language(self):
+        user = get_user_model().objects.create(username="updatelang")
+        profile = user.profile
+        profile.default_language = "pt-BR"
+        profile.save()
+        profile.refresh_from_db()
+        self.assertEqual(profile.default_language, "pt-BR")
