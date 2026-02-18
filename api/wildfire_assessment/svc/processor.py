@@ -5,11 +5,15 @@ import time
 
 import ee
 from celery import shared_task
+from django.contrib.auth import get_user_model
 from dotenv import load_dotenv
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAssessment
 from wildfire_assessment.svc.aws import get_aws_secret_manager_secret
+from wildfire_assessment.translations import get_email_translation
 from wildfire_assessment.utils import send_gmail_email
+
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -142,15 +146,27 @@ def process_scientific_deliverable(
     result_wait = wait_for_task(result["scientific"][deliverable_key]["gee_task_id"])
 
     if result_wait == "COMPLETED":
+        # Get user's language preference, default to English
+        language = "en"
+        try:
+            user = User.objects.filter(email=email).first()
+            if user and hasattr(user, "profile"):
+                language = user.profile.default_language or "en"
+        except Exception:
+            pass  # Fall back to English on any error
+
+        subject = get_email_translation(language, "email.subject")
+        body = get_email_translation(language, "email.body").format(
+            reserve_name=reserve_name,
+            url=result["scientific"][deliverable_key]["url"],
+        )
+
         send_gmail_email(
             username="Brazil@flyinglabs.org",
             password=json.loads(get_aws_secret_manager_secret(ENV))["GMAIL_PWD"],
             to_address=email,
-            subject="Wildfire Analyser - Scientific Deliverable Ready",
-            body=(
-                f"The scientific deliverable '{reserve_name}' is ready for download on"
-                f" this link: {result['scientific'][deliverable_key]['url']}"
-            ),
+            subject=subject,
+            body=body,
         )
 
     return result_wait
