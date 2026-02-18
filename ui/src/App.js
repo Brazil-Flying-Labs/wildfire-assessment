@@ -755,19 +755,37 @@ function App() {
           </div>
           <div className="d-flex align-items-center gap-2 header-actions">
             <LanguageSelector className="form-select form-select-sm bg-transparent text-white border-light" />
-            <div className="text-end d-none d-md-block">
-              <p className="mb-0 small opacity-75">{t("app.signedInAs")}</p>
-              <strong className="small">{displayName}</strong>
+            <div className="avatar-menu">
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={displayName}
+                  title={displayName}
+                  className="rounded-circle avatar-trigger"
+                  width="32"
+                  height="32"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="avatar-fallback rounded-circle avatar-trigger">
+                  {displayName.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <div className="avatar-dropdown">
+                <div className="avatar-dropdown-inner">
+                  <p className="avatar-dropdown-name">{displayName}</p>
+                  <button
+                    type="button"
+                    className="btn btn-outline-light btn-sm w-100"
+                    onClick={() =>
+                      logout({ logoutParams: { returnTo: window.location.origin } })
+                    }
+                  >
+                    {t("common.logout")}
+                  </button>
+                </div>
+              </div>
             </div>
-            <button
-              type="button"
-              className="btn btn-outline-light btn-sm"
-              onClick={() =>
-                logout({ logoutParams: { returnTo: window.location.origin } })
-              }
-            >
-              {t("common.logout")}
-            </button>
             <button
               type="button"
               className="btn btn-outline-light btn-sm mobile-sidebar-toggle d-lg-none"

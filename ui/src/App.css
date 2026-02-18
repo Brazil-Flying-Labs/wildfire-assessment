@@ -134,6 +134,57 @@
   overflow: hidden;
 }
 
+.avatar-menu {
+  position: relative;
+}
+
+.avatar-trigger {
+  cursor: pointer;
+}
+
+.avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.avatar-dropdown {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  padding-top: 0.5rem;
+  min-width: 160px;
+  z-index: 1100;
+}
+
+.avatar-dropdown-inner {
+  background-color: #1a2740;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-menu:hover .avatar-dropdown {
+  display: block;
+}
+
+.avatar-dropdown-name {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (max-width: 991.98px) {
   .app-body {
     position: relative;
