@@ -9,11 +9,10 @@ from django.contrib.auth import get_user_model
 from dotenv import load_dotenv
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAssessment
+from wildfire_assessment.models import UserProfile
 from wildfire_assessment.svc.aws import get_aws_secret_manager_secret
 from wildfire_assessment.translations import get_email_translation
 from wildfire_assessment.utils import send_gmail_email
-
-User = get_user_model()
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -149,9 +148,9 @@ def process_scientific_deliverable(
         # Get user's language preference, default to English
         language = "en"
         try:
-            user = User.objects.filter(email=email).first()
-            if user and hasattr(user, "profile"):
-                language = user.profile.default_language or "en"
+            profile = UserProfile.objects.filter(user__email=email).first()
+            if profile and profile.default_language:
+                language = profile.default_language
         except Exception:
             pass  # Fall back to English on any error
 

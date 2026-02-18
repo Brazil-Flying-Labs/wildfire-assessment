@@ -162,10 +162,10 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
-    @patch("wildfire_assessment.svc.processor.User")
+    @patch("wildfire_assessment.svc.processor.UserProfile")
     def test_process_scientific_deliverable_falls_back_on_user_lookup_error(
         self,
-        mock_user,
+        mock_profile_model,
         mock_secret,
         mock_assessment,
         mock_ee,
@@ -173,8 +173,8 @@ class ProcessorTests(TestCase):
         mock_send_email,
     ):
         """Test that email falls back to English when user lookup fails."""
-        # Make User.objects.filter raise an exception
-        mock_user.objects.filter.side_effect = Exception("Database error")
+        # Make UserProfile.objects.filter raise an exception
+        mock_profile_model.objects.filter.side_effect = Exception("Database error")
 
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
