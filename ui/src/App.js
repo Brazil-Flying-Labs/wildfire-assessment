@@ -6,7 +6,7 @@ import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
 
 function App() {
-  const { t, language, setLanguage } = useLanguage();
+  const { t, language } = useLanguage();
   const languageLoadedRef = useRef(false);
   const authAudience = process.env.REACT_APP_AUTH0_AUDIENCE || "";
   const {
