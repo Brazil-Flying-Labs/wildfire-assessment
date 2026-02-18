@@ -8,7 +8,6 @@
   "common.close": "Fechar",
   "common.loading": "Carregando...",
   "common.pick": "Escolher",
-
   "landing.title": "Avaliação de Danos por Incêndios Florestais",
   "landing.subtitle": "Transforme Dados de Satélite em Inteligência Acionável sobre Incêndios",
   "landing.intro1": "Todos os anos, incêndios florestais destroem milhares de hectares de floresta no Brasil e em todo o mundo. Seu impacto vai muito além da vegetação queimada — afetando a segurança hídrica, a saúde pública, a biodiversidade, a infraestrutura e as economias locais.",
@@ -42,7 +41,6 @@
   "landing.ctaAction": "Vamos passar da reação tardia para a ação estratégica.",
   "landing.partnerWithUs": "Seja Nosso Parceiro",
   "landing.pilotPlatform": "Pilote a Plataforma em Sua Região",
-
   "app.title": "Avaliação de incêndios",
   "app.subtitle": "Avalie danos e severidade do fogo",
   "app.signedInAs": "Conectado como",
@@ -79,14 +77,12 @@
   "app.deliverableFailed": "Falha ao solicitar {label}: {error}",
   "app.deliverableTooltip": "Solicitar produto científico {label}",
   "app.taskId": "ID da Tarefa: {taskId}",
-  "app.footer": "UI versão 1.0.1 · Wildfire Analyser 0.2.18",
-
+  "app.footer": "UI versão 1.2.0 · Wildfire Analyser 0.2.18",
   "app.envNotConfigured": "A variável de ambiente REACT_APP_WILDLIFE_API_URL não está configurada.",
   "app.errorLoadingReserves": "Erro ao carregar reservas ({status})",
   "app.apiNotConfigured": "O endpoint da API não está configurado.",
   "app.errorAnalysis": "Erro ao executar análise ({status})",
   "app.errorDeliverable": "Erro ao solicitar produto ({status})",
-
   "auth.missingConfig": "As variáveis de ambiente do Auth0 não estão configuradas. Defina",
   "auth.missingConfigEnd": "antes de iniciar a aplicação."
 }

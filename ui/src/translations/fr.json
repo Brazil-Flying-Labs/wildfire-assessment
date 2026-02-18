@@ -8,7 +8,6 @@
   "common.close": "Fermer",
   "common.loading": "Chargement...",
   "common.pick": "Choisir",
-
   "landing.title": "Évaluation des Dommages par Feux de Forêt",
   "landing.subtitle": "Transformez les Données Satellites en Intelligence Opérationnelle sur les Incendies",
   "landing.intro1": "Chaque année, les feux de forêt détruisent des milliers d'hectares de forêt au Brésil et dans le monde entier. Leur impact va bien au-delà de la végétation brûlée — affectant la sécurité hydrique, la santé publique, la biodiversité, les infrastructures et les économies locales.",
@@ -42,7 +41,6 @@
   "landing.ctaAction": "Passons de la réaction tardive à l'action stratégique.",
   "landing.partnerWithUs": "Devenez Partenaire",
   "landing.pilotPlatform": "Pilotez la Plateforme dans Votre Région",
-
   "app.title": "Évaluation des incendies",
   "app.subtitle": "Évaluez les dommages et la sévérité du feu",
   "app.signedInAs": "Connecté en tant que",
@@ -79,14 +77,12 @@
   "app.deliverableFailed": "Échec de la demande de {label} : {error}",
   "app.deliverableTooltip": "Demander un livrable scientifique {label}",
   "app.taskId": "ID de tâche : {taskId}",
-  "app.footer": "UI version 1.0.1 · Wildfire Analyser 0.2.18",
-
+  "app.footer": "UI version 1.2.0 · Wildfire Analyser 0.2.18",
   "app.envNotConfigured": "La variable d'environnement REACT_APP_WILDLIFE_API_URL n'est pas configurée.",
   "app.errorLoadingReserves": "Erreur lors du chargement des réserves ({status})",
   "app.apiNotConfigured": "Le point de terminaison de l'API n'est pas configuré.",
   "app.errorAnalysis": "Erreur lors de l'exécution de l'analyse ({status})",
   "app.errorDeliverable": "Erreur lors de la demande du livrable ({status})",
-
   "auth.missingConfig": "Les variables d'environnement Auth0 ne sont pas configurées. Définissez",
   "auth.missingConfigEnd": "avant de démarrer l'application."
 }

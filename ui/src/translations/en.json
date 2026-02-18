@@ -8,7 +8,6 @@
   "common.close": "Close",
   "common.loading": "Loading...",
   "common.pick": "Pick",
-
   "landing.title": "Wildfire Damage Assessment",
   "landing.subtitle": "Turn Satellite Data into Actionable Wildfire Intelligence",
   "landing.intro1": "Every year, wildfires destroy thousands of hectares of forest in Brazil and across the globe. Their impact goes far beyond burned vegetation — affecting water security, public health, biodiversity, infrastructure, and local economies.",
@@ -42,7 +41,6 @@
   "landing.ctaAction": "Let\u2019s move from delayed reaction to strategic action.",
   "landing.partnerWithUs": "Partner With Us",
   "landing.pilotPlatform": "Pilot the Platform in Your Region",
-
   "app.title": "Wildfire assessment",
   "app.subtitle": "Evaluate fire damage and severity",
   "app.signedInAs": "Signed in as",
@@ -79,14 +77,12 @@
   "app.deliverableFailed": "Failed to request {label}: {error}",
   "app.deliverableTooltip": "Request a scientific {label}",
   "app.taskId": "Task ID: {taskId}",
-  "app.footer": "UI version 1.0.1 · Wildfire Analyser 0.2.18",
-
+  "app.footer": "UI version 1.2.0 · Wildfire Analyser 0.2.18",
   "app.envNotConfigured": "Environment variable REACT_APP_WILDLIFE_API_URL is not configured.",
   "app.errorLoadingReserves": "Error loading reserves ({status})",
   "app.apiNotConfigured": "API endpoint is not configured.",
   "app.errorAnalysis": "Error running analysis ({status})",
   "app.errorDeliverable": "Error requesting deliverable ({status})",
-
   "auth.missingConfig": "Auth0 environment variables are not configured. Set",
   "auth.missingConfigEnd": "before starting the application."
 }
