@@ -1020,11 +1020,9 @@ function App() {
               </div>
             </form>
             </aside>
-          </>
-        ) : null}
 
-        <main className="app-main flex-grow-1 d-flex flex-column">
-          <section className="app-main-content p-5 flex-grow-1">
+            <main className="app-main flex-grow-1 d-flex flex-column">
+              <section className="app-main-content p-5 flex-grow-1">
             {backendAuthorizationError ? (
               <div className="alert alert-warning" role="alert">
                 {t("app.backendUnauthorized")}
@@ -1229,8 +1227,10 @@ function App() {
             !analysisResult ? (
               <div className="placeholder-card border border-dashed rounded-3 p-5 text-center text-muted"></div>
             ) : null}
-          </section>
-        </main>
+              </section>
+            </main>
+          </>
+        ) : null}
       </div>
 
       {/* AI Analysis floating button and modal - only on analysis page */}

@@ -508,7 +508,7 @@
   background-color: rgba(255, 255, 255, 0.15);
 }
 
-/* Reserves Management page */
+/* Areas of Interest Management page */
 .areas-management {
   max-width: 1200px;
   margin: 0 auto;
@@ -522,4 +522,41 @@
 .areas-management .card-header {
   background-color: #f8f9fa;
   border-bottom: 1px solid #e9ecef;
+}
+
+/* Mobile styles for Areas Management */
+@media (max-width: 767.98px) {
+  .areas-management {
+    padding: 1rem !important;
+  }
+  
+  .areas-management .card-body {
+    padding: 1rem;
+  }
+  
+  .areas-management .card-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .areas-management .form-buttons {
+    flex-direction: column;
+  }
+  
+  .areas-management .form-buttons .btn {
+    width: 100%;
+  }
+  
+  .areas-management .table {
+    font-size: 0.875rem;
+  }
+  
+  .areas-management .table th,
+  .areas-management .table td {
+    padding: 0.5rem;
+  }
+  
+  .areas-management .btn-group-sm .btn {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.4rem;
+  }
 }

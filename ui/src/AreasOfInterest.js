@@ -349,7 +349,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
               </div>
             </div>
 
-            <div className="mt-3 d-flex gap-2">
+            <div className="mt-3 d-flex gap-2 form-buttons">
               <button
                 type="submit"
                 className="btn btn-primary"
