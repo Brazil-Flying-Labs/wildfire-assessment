@@ -230,7 +230,11 @@ class WildfireAssessmentTests(APITestCase):
         payload = {
             "name": "New Area",
             "country": self.other_country.id,  # User doesn't have access
-            "geojson": {"type": "Feature", "geometry": {}, "properties": {}},
+            "geojson": {
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
+                "properties": {},
+            },
         }
         response = self.client.post(url, payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

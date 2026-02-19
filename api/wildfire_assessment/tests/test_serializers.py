@@ -107,6 +107,16 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         )
         UserCountry.objects.create(user=self.user, country=self.country)
         self.factory = APIRequestFactory()
+        # Valid polygon geometry for tests
+        self.valid_polygon = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]
+        }
+        self.valid_feature = {
+            "type": "Feature",
+            "geometry": self.valid_polygon,
+            "properties": {}
+        }
 
     def test_validate_country_authorized(self):
         request = self.factory.post("/")
@@ -115,11 +125,11 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             data={
                 "name": "Test Area",
                 "country": self.country.id,
-                "geojson": {"type": "Feature", "geometry": {}, "properties": {}},
+                "geojson": self.valid_feature,
             },
             context={"request": request},
         )
-        self.assertTrue(serializer.is_valid())
+        self.assertTrue(serializer.is_valid(), serializer.errors)
 
     def test_validate_country_unauthorized(self):
         request = self.factory.post("/")
@@ -128,7 +138,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             data={
                 "name": "Test Area",
                 "country": self.other_country.id,
-                "geojson": {"type": "Feature", "geometry": {}, "properties": {}},
+                "geojson": self.valid_feature,
             },
             context={"request": request},
         )
@@ -163,20 +173,159 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("geojson", serializer.errors)
 
-    def test_validate_geojson_valid_types(self):
+    def test_validate_geojson_missing_type(self):
         request = self.factory.post("/")
         request.user = self.user
-        valid_types = ["Feature", "FeatureCollection", "Polygon", "MultiPolygon"]
-        for geojson_type in valid_types:
-            serializer = AreaOfInterestCreateSerializer(
-                data={
-                    "name": f"Test Area {geojson_type}",
-                    "country": self.country.id,
-                    "geojson": {"type": geojson_type},
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {"coordinates": [[0, 0]]},
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_feature_missing_geometry(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {"type": "Feature", "properties": {}},
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_feature_collection_empty(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {"type": "FeatureCollection", "features": []},
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_valid_feature(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": self.valid_feature,
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_validate_geojson_valid_polygon(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": self.valid_polygon,
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_validate_geojson_valid_multipolygon(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "MultiPolygon",
+                    "coordinates": [[[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]]
                 },
-                context={"request": request},
-            )
-            self.assertTrue(serializer.is_valid(), f"Failed for type {geojson_type}: {serializer.errors}")
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_validate_geojson_valid_feature_collection(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "FeatureCollection",
+                    "features": [self.valid_feature]
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_validate_geojson_invalid_longitude(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [[[200, 0], [201, 0], [201, 1], [200, 1], [200, 0]]]
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        self.assertIn("Longitude", str(serializer.errors["geojson"]))
+
+    def test_validate_geojson_invalid_latitude(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 100], [1, 100], [1, 101], [0, 101], [0, 100]]]
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        self.assertIn("Latitude", str(serializer.errors["geojson"]))
+
+    def test_validate_geojson_self_intersecting_polygon(self):
+        request = self.factory.post("/")
+        request.user = self.user
+        # Bowtie/self-intersecting polygon
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]]
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
 
     @patch("os.makedirs")
     @patch("builtins.open", create=True)
@@ -190,11 +339,11 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             data={
                 "name": "New Area",
                 "country": self.country.id,
-                "geojson": {"type": "Feature", "geometry": {}, "properties": {}},
+                "geojson": self.valid_feature,
             },
             context={"request": request},
         )
-        self.assertTrue(serializer.is_valid())
+        self.assertTrue(serializer.is_valid(), serializer.errors)
         instance = serializer.save()
 
         self.assertEqual(instance.name, "New Area")
@@ -209,9 +358,207 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             data={
                 "name": "Test Area",
                 "country": self.country.id,
-                "geojson": {"type": "Feature", "geometry": {}, "properties": {}},
+                "geojson": self.valid_feature,
             },
             context={},  # No request
         )
         # Should still be valid - validation skipped without request
-        self.assertTrue(serializer.is_valid())
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_validate_geojson_feature_collection_invalid_feature(self):
+        """Test FeatureCollection with non-dict feature."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "FeatureCollection",
+                    "features": ["not a dict"]
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_geometry_not_dict(self):
+        """Test Feature with non-dict geometry."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": "not a dict",
+                    "properties": {}
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_geometry_missing_type(self):
+        """Test geometry without type field."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": {"coordinates": [[0, 0]]},
+                    "properties": {}
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_geometry_missing_coordinates(self):
+        """Test geometry without coordinates field."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": {"type": "Polygon"},
+                    "properties": {}
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_invalid_geometry_structure(self):
+        """Test geometry that shapely can't parse."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": {"type": "Polygon", "coordinates": "invalid"},
+                    "properties": {}
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_empty_geometry(self):
+        """Test empty geometry."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": {"type": "Polygon", "coordinates": []},
+                    "properties": {}
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_valid_point(self):
+        """Test valid Point geometry."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Point",
+                    "coordinates": [10, 20]
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_validate_geojson_valid_linestring(self):
+        """Test valid LineString geometry."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "LineString",
+                    "coordinates": [[0, 0], [1, 1], [2, 2]]
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_validate_coordinates_depth_limit(self):
+        """Test that deeply nested coordinates don't cause infinite recursion."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": self.valid_polygon,
+            },
+            context={"request": request},
+        )
+        # Directly test the _validate_coordinates method at depth limit
+        # Should return early without error
+        serializer._validate_coordinates([[0, 0]], "test", depth=11)
+
+    def test_validate_coordinates_single_number(self):
+        """Test that single numbers in coordinates are handled."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": self.valid_polygon,
+            },
+            context={"request": request},
+        )
+        # Directly test with a single number - should return without error
+        serializer._validate_coordinates(42.5, "test")
+
+    def test_validate_geojson_empty_polygon_geometry(self):
+        """Test polygon with empty ring creates empty geometry."""
+        request = self.factory.post("/")
+        request.user = self.user
+        # [[]] is truthy so passes the coords check but creates empty geometry
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [[]]
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        self.assertIn("empty", str(serializer.errors["geojson"]).lower())

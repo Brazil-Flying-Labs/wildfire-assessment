@@ -59,22 +59,133 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_geojson(self, value):
-        """Validate that the GeoJSON has the expected structure."""
+        """
+        Validate GeoJSON structure and geometry for Google Earth Engine compatibility.
+        
+        Validates:
+        - Valid GeoJSON structure (type, geometry)
+        - Valid geometry using shapely
+        - Coordinate ranges (lon: -180 to 180, lat: -90 to 90)
+        - Polygon validity (closed rings, no self-intersection)
+        """
+        from shapely.geometry import shape
+        from shapely.validation import explain_validity
+
         if not isinstance(value, dict):
             raise serializers.ValidationError("GeoJSON must be an object.")
 
         geojson_type = value.get("type")
-        if geojson_type not in [
-            "Feature",
-            "FeatureCollection",
-            "Polygon",
-            "MultiPolygon",
-        ]:
+        if not geojson_type:
+            raise serializers.ValidationError("GeoJSON must have a 'type' field.")
+
+        # Extract geometry based on GeoJSON type
+        geometry = None
+        if geojson_type == "Feature":
+            geometry = value.get("geometry")
+            if not geometry:
+                raise serializers.ValidationError(
+                    "Feature must have a 'geometry' field."
+                )
+        elif geojson_type == "FeatureCollection":
+            features = value.get("features", [])
+            if not features:
+                raise serializers.ValidationError(
+                    "FeatureCollection must have at least one feature."
+                )
+            # Validate each feature's geometry
+            for i, feature in enumerate(features):
+                if not isinstance(feature, dict):
+                    raise serializers.ValidationError(
+                        f"Feature at index {i} must be an object."
+                    )
+                feat_geom = feature.get("geometry")
+                if feat_geom:
+                    self._validate_geometry(feat_geom, f"Feature[{i}]")
+            return value
+        elif geojson_type in ["Polygon", "MultiPolygon", "Point", "LineString", "MultiPoint", "MultiLineString"]:
+            geometry = value
+        else:
             raise serializers.ValidationError(
-                "GeoJSON must be a Feature, FeatureCollection, Polygon, or MultiPolygon."
+                f"Unsupported GeoJSON type: '{geojson_type}'. "
+                "Must be Feature, FeatureCollection, or a geometry type."
             )
 
+        if geometry:
+            self._validate_geometry(geometry, "geometry")
+
         return value
+
+    def _validate_geometry(self, geometry, context="geometry"):
+        """Validate a GeoJSON geometry object."""
+        from shapely.geometry import shape
+        from shapely.validation import explain_validity
+
+        if not isinstance(geometry, dict):
+            raise serializers.ValidationError(
+                f"{context}: Geometry must be an object."
+            )
+
+        geom_type = geometry.get("type")
+        if not geom_type:
+            raise serializers.ValidationError(
+                f"{context}: Geometry must have a 'type' field."
+            )
+
+        coords = geometry.get("coordinates")
+        if geom_type not in ["GeometryCollection"] and not coords:
+            raise serializers.ValidationError(
+                f"{context}: Geometry must have 'coordinates' field."
+            )
+
+        # Validate coordinate ranges
+        if coords:
+            self._validate_coordinates(coords, context)
+
+        # Use shapely to validate geometry structure
+        try:
+            geom = shape(geometry)
+        except Exception as e:
+            raise serializers.ValidationError(
+                f"{context}: Invalid geometry structure - {str(e)}"
+            )
+
+        # Check if geometry is valid
+        if not geom.is_valid:
+            reason = explain_validity(geom)
+            raise serializers.ValidationError(
+                f"{context}: Invalid geometry - {reason}"
+            )
+
+        # Check if geometry is empty
+        if geom.is_empty:
+            raise serializers.ValidationError(
+                f"{context}: Geometry cannot be empty."
+            )
+
+    def _validate_coordinates(self, coords, context, depth=0):
+        """Recursively validate coordinate ranges."""
+        if depth > 10:  # Prevent infinite recursion
+            return
+
+        if isinstance(coords, (int, float)):
+            return
+
+        if isinstance(coords, list):
+            if len(coords) >= 2 and all(isinstance(c, (int, float)) for c in coords[:2]):
+                # This is a coordinate pair [lon, lat] or [lon, lat, alt]
+                lon, lat = coords[0], coords[1]
+                if not (-180 <= lon <= 180):
+                    raise serializers.ValidationError(
+                        f"{context}: Longitude {lon} is out of range [-180, 180]."
+                    )
+                if not (-90 <= lat <= 90):
+                    raise serializers.ValidationError(
+                        f"{context}: Latitude {lat} is out of range [-90, 90]."
+                    )
+            else:
+                # Nested array - recurse
+                for item in coords:
+                    self._validate_coordinates(item, context, depth + 1)
 
     def create(self, validated_data):
         import json
