@@ -48,8 +48,8 @@ function App() {
     }
   }, []);
 
-  // Page navigation state: "analysis" or "areas"
-  const [currentPage, setCurrentPage] = useState("analysis");
+  // Page navigation state: "home", "analysis", or "areas"
+  const [currentPage, setCurrentPage] = useState("home");
 
   const toggleNav = useCallback(() => {
     setIsNavOpen((previous) => !previous);
@@ -890,7 +890,19 @@ function App() {
 
         {/* Main Content */}
         <main className="app-main flex-grow-1 d-flex flex-column">
-          {currentPage === "areas" ? (
+          {currentPage === "home" ? (
+            <section className="app-main-content p-4 flex-grow-1 d-flex align-items-center justify-content-center">
+              <div className="text-center">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#6c757d" strokeWidth="1.5" className="mb-4">
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+                <h2 className="h4 text-muted mb-3">{t("app.welcomeTitle")}</h2>
+                <p className="text-muted mb-0">{t("app.welcomeMessage")}</p>
+              </div>
+            </section>
+          ) : currentPage === "areas" ? (
             <AreasOfInterest
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
