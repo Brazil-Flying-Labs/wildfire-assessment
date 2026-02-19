@@ -26,6 +26,7 @@ from drf_spectacular.views import (
 )
 from rest_framework import routers
 from wildfire_assessment.views import (
+    AIAnalysisView,
     EcologicalReserveViewSet,
     UserMeView,
     health_status,
@@ -37,6 +38,7 @@ router.register(r"ecological_reserve", EcologicalReserveViewSet)
 urlpatterns = [
     path("", health_status, name="health-status"),
     path("me/", UserMeView.as_view(), name="user-me"),
+    path("analysis/", AIAnalysisView.as_view(), name="ai-analysis"),
     path("", include(router.urls)),
     path(
         "admin/login/",

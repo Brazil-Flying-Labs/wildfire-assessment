@@ -4,18 +4,21 @@ import os
 import uuid
 from datetime import datetime
 
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import generics, permissions, viewsets
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import (
+    AnalysisRequestSerializer,
     EcologicalReserveSerializer,
     UserMeSerializer,
 )
+from wildfire_assessment.svc.openai_analysis import generate_analysis_stream
 from wildfire_assessment.svc.processor import (
     process_fire_assessment,
     process_scientific_deliverable,
@@ -194,3 +197,63 @@ class UserMeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class AIAnalysisView(APIView):
+    """
+    Generate AI-powered analysis of wildfire data using OpenAI.
+
+    Returns a streaming response with the analysis text.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        request=AnalysisRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="Streaming text response with the AI analysis"
+            ),
+            400: OpenApiResponse(description="Invalid request data"),
+            500: OpenApiResponse(description="OpenAI API error"),
+        },
+    )
+    def post(self, request):
+        """
+        Generate a streaming AI analysis of wildfire severity data.
+
+        Request body should contain:
+        - pre_fire_date: Pre-fire date (YYYY-MM-DD)
+        - post_fire_date: Post-fire date (YYYY-MM-DD)
+        - area_of_interest: Name of the area/reserve
+        - severity_distribution: Dict with severity levels and their areas/percentages
+        """
+        serializer = AnalysisRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+
+        try:
+            response = StreamingHttpResponse(
+                generate_analysis_stream(
+                    pre_fire_date=str(data["pre_fire_date"]),
+                    post_fire_date=str(data["post_fire_date"]),
+                    area_of_interest=data["area_of_interest"],
+                    severity_distribution=data["severity_distribution"],
+                ),
+                content_type="text/plain; charset=utf-8",
+            )
+            response["Cache-Control"] = "no-cache"
+            response["X-Accel-Buffering"] = "no"
+            return response
+        except ValueError as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        except Exception as e:
+            LOG.exception("Error generating AI analysis")
+            return Response(
+                {"error": f"Failed to generate analysis: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

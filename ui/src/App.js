@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import "./App.css";
+import AIAnalysisModal from "./AIAnalysisModal";
 import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
+
+// Test user for AI Analysis feature
+const AI_ANALYSIS_TEST_USER = "diogo.hudson@gmail.com";
 
 const UI_VERSION = "1.2.0";
 
@@ -685,6 +689,24 @@ function App() {
     }
   };
 
+  // AI Analysis feature - memoized values for the API call
+  const selectedReserveName = useMemo(() => {
+    if (!selectedReserve || !ecologicalReserves.length) return "";
+    const reserve = ecologicalReserves.find((r) => String(r.id) === String(selectedReserve));
+    return reserve?.name || "";
+  }, [selectedReserve, ecologicalReserves]);
+
+  const severityDistributionForAPI = useMemo(() => {
+    if (!severityEntries.length) return {};
+    return severityEntries.reduce((acc, { name, area, percent }) => {
+      acc[name] = {
+        area_ha: typeof area === "number" ? area : parseFloat(area) || 0,
+        percent: typeof percent === "number" ? percent : parseFloat(percent) || 0,
+      };
+      return acc;
+    }, {});
+  }, [severityEntries]);
+
   if (authError) {
     return (
       <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
@@ -730,6 +752,9 @@ function App() {
   }
 
   const displayName = user?.name || user?.email || "User";
+
+  // AI Analysis feature (test user only) - these are simple values, not hooks
+  const isAIAnalysisUser = user?.email?.toLowerCase() === AI_ANALYSIS_TEST_USER.toLowerCase();
 
   return (
     <div className="app-root d-flex flex-column min-vh-100">
@@ -1171,6 +1196,18 @@ function App() {
           </section>
         </main>
       </div>
+
+      {/* AI Analysis floating button and modal (test user only) */}
+      <AIAnalysisModal
+        isVisible={isAIAnalysisUser && hasResults && severityEntries.length > 0}
+        preFireDate={preFireDate}
+        postFireDate={postFireDate}
+        areaOfInterest={selectedReserveName}
+        severityDistribution={severityDistributionForAPI}
+        authorizedFetch={authorizedFetch}
+        baseUrl={baseUrl}
+      />
+
       <footer className="app-footer mt-auto py-3 text-center small">
         <div className="container-fluid">
           {t("app.footer", { version: UI_VERSION })}

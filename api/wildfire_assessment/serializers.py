@@ -26,3 +26,21 @@ class UserMeSerializer(serializers.ModelSerializer):
             profile.default_language = profile_data["default_language"]
             profile.save(update_fields=["default_language"])
         return instance
+
+
+class AnalysisRequestSerializer(serializers.Serializer):
+    """Serializer for the AI analysis request."""
+
+    pre_fire_date = serializers.DateField(
+        help_text="Pre-fire date in YYYY-MM-DD format"
+    )
+    post_fire_date = serializers.DateField(
+        help_text="Post-fire date in YYYY-MM-DD format"
+    )
+    area_of_interest = serializers.CharField(
+        max_length=255, help_text="Name of the ecological reserve or area"
+    )
+    severity_distribution = serializers.DictField(
+        child=serializers.DictField(),
+        help_text="DNBR severity distribution data",
+    )

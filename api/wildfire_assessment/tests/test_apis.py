@@ -211,3 +211,82 @@ class UserMeViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.default_language, "pt-BR")
+
+
+class AIAnalysisViewTests(APITestCase):
+    """Tests for the AI analysis streaming endpoint."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="tester",
+            email="tester@example.com",
+            password="password",
+        )
+        self.url = reverse("ai-analysis")
+        self.valid_payload = {
+            "pre_fire_date": "2024-01-01",
+            "post_fire_date": "2024-01-15",
+            "area_of_interest": "Test Reserve",
+            "severity_distribution": {
+                "Unburned": {"area_ha": 100.0, "percent": 50.0},
+                "Low": {"area_ha": 50.0, "percent": 25.0},
+                "High": {"area_ha": 50.0, "percent": 25.0},
+            },
+        }
+
+    def test_analysis_requires_authentication(self):
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_analysis_returns_400_for_invalid_payload(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_analysis_returns_400_for_missing_fields(self):
+        self.client.force_authenticate(user=self.user)
+        incomplete_payload = {
+            "pre_fire_date": "2024-01-01",
+            # Missing other fields
+        }
+        response = self.client.post(self.url, incomplete_payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_returns_streaming_response(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = iter(["Hello ", "World"])
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        content = b"".join(response.streaming_content).decode("utf-8")
+        self.assertEqual(content, "Hello World")
+
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_passes_correct_parameters(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = iter([])
+
+        self.client.post(self.url, self.valid_payload, format="json")
+
+        mock_generate.assert_called_once()
+        call_kwargs = mock_generate.call_args.kwargs
+        self.assertEqual(call_kwargs["pre_fire_date"], "2024-01-01")
+        self.assertEqual(call_kwargs["post_fire_date"], "2024-01-15")
+        self.assertEqual(call_kwargs["area_of_interest"], "Test Reserve")
+        self.assertIn("Unburned", call_kwargs["severity_distribution"])
+
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_returns_500_on_value_error(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.side_effect = ValueError("API key not set")
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn("error", response.json())
