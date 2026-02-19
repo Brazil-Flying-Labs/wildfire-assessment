@@ -97,6 +97,8 @@
   "nav.areas": "Áreas de Interesse",
   "areas.title": "Gestão de Áreas de Interesse",
   "areas.createNew": "Criar Nova Área",
+  "areas.addNew": "Adicionar Área",
+  "areas.addNewArea": "Adicionar Nova Área de Interesse",
   "areas.name": "Nome",
   "areas.namePlaceholder": "Digite o nome da área",
   "areas.country": "País",

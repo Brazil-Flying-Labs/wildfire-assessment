@@ -97,6 +97,8 @@
   "nav.areas": "Zones d'Intérêt",
   "areas.title": "Gestion des Zones d'Intérêt",
   "areas.createNew": "Créer une Nouvelle Zone",
+  "areas.addNew": "Ajouter une Zone",
+  "areas.addNewArea": "Ajouter une Nouvelle Zone d'Intérêt",
   "areas.name": "Nom",
   "areas.namePlaceholder": "Entrez le nom de la zone",
   "areas.country": "Pays",

@@ -7,17 +7,17 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
   const [authorizedCountries, setAuthorizedCountries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    country: "",
-  });
-  const [geojsonFile, setGeojsonFile] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const fileInputRef = useRef(null);
+
+  // Create modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createFormData, setCreateFormData] = useState({ name: "", country: "" });
+  const [createGeojsonFile, setCreateGeojsonFile] = useState(null);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const createFileInputRef = useRef(null);
 
   // Edit modal state
   const [editingArea, setEditingArea] = useState(null);
@@ -110,27 +110,6 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     return Math.ceil(totalCount / pageSize);
   }, [totalCount, pageSize]);
 
-  const handleInputChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  }, []);
-
-  const handleFileChange = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setGeojsonFile(file);
-    }
-  }, []);
-
-  const resetForm = useCallback(() => {
-    setFormData({ name: "", country: "" });
-    setGeojsonFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    setSubmitError(null);
-  }, []);
-
   // Format error messages from API response
   const formatApiErrors = useCallback((errorData) => {
     let errorMessage = errorData.detail || errorData.error;
@@ -147,64 +126,6 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     
     return errorMessage;
   }, [t]);
-
-  const handleSubmit = useCallback(
-    async (e) => {
-      e.preventDefault();
-
-      if (!formData.name || !formData.country || !geojsonFile) {
-        setSubmitError(t("areas.fillAllFields"));
-        return;
-      }
-
-      setSubmitting(true);
-      setSubmitError(null);
-      setSubmitSuccess(null);
-
-      try {
-        const fileContent = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.onerror = () => reject(new Error(t("areas.errorReadingFile")));
-          reader.readAsText(geojsonFile);
-        });
-
-        let geojsonData;
-        try {
-          geojsonData = JSON.parse(fileContent);
-        } catch (parseError) {
-          throw new Error(t("areas.invalidGeojson"));
-        }
-
-        const payload = {
-          name: formData.name,
-          country: parseInt(formData.country, 10),
-          geojson: geojsonData,
-        };
-
-        const response = await authorizedFetch(`${baseUrl}/area_of_interest/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(formatApiErrors(errorData) || t("areas.errorCreating"));
-        }
-
-        setSubmitSuccess(t("areas.createSuccess"));
-        resetForm();
-        loadAreas(1, searchTerm);
-      } catch (err) {
-        console.error("Error creating area:", err);
-        setSubmitError(err.message);
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [authorizedFetch, baseUrl, formData, formatApiErrors, geojsonFile, loadAreas, resetForm, searchTerm, t]
-  );
 
   const handleDelete = useCallback(
     async (areaId) => {
@@ -243,7 +164,94 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     setOpenMenuId(null);
   }, []);
 
-  // Edit handlers
+  // Create modal handlers
+  const openCreateModal = useCallback(() => {
+    setShowCreateModal(true);
+    setCreateFormData({ name: "", country: "" });
+    setCreateGeojsonFile(null);
+    setSubmitError(null);
+  }, []);
+
+  const closeCreateModal = useCallback(() => {
+    setShowCreateModal(false);
+    setCreateFormData({ name: "", country: "" });
+    setCreateGeojsonFile(null);
+    if (createFileInputRef.current) {
+      createFileInputRef.current.value = "";
+    }
+  }, []);
+
+  const handleCreateInputChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setCreateFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
+  const handleCreateFileChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCreateGeojsonFile(file);
+    }
+  }, []);
+
+  const handleCreateSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+
+      if (!createFormData.name || !createFormData.country || !createGeojsonFile) {
+        setSubmitError(t("areas.fillAllFields"));
+        return;
+      }
+
+      setCreateSubmitting(true);
+      setSubmitError(null);
+      setSubmitSuccess(null);
+
+      try {
+        const fileContent = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = () => reject(new Error(t("areas.errorReadingFile")));
+          reader.readAsText(createGeojsonFile);
+        });
+
+        let geojsonData;
+        try {
+          geojsonData = JSON.parse(fileContent);
+        } catch (parseError) {
+          throw new Error(t("areas.invalidGeojson"));
+        }
+
+        const payload = {
+          name: createFormData.name,
+          country: parseInt(createFormData.country, 10),
+          geojson: geojsonData,
+        };
+
+        const response = await authorizedFetch(`${baseUrl}/area_of_interest/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(formatApiErrors(errorData) || t("areas.errorCreating"));
+        }
+
+        setSubmitSuccess(t("areas.createSuccess"));
+        closeCreateModal();
+        loadAreas(1, searchTerm);
+      } catch (err) {
+        console.error("Error creating area:", err);
+        setSubmitError(err.message);
+      } finally {
+        setCreateSubmitting(false);
+      }
+    },
+    [authorizedFetch, baseUrl, closeCreateModal, createFormData, createGeojsonFile, formatApiErrors, loadAreas, searchTerm, t]
+  );
+
+  // Edit modal handlers
   const openEditModal = useCallback((area) => {
     setEditingArea(area);
     setEditFormData({
@@ -293,12 +301,10 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
           name: editFormData.name,
         };
 
-        // Only include country if changed
         if (editFormData.country) {
           payload.country = parseInt(editFormData.country, 10);
         }
 
-        // Only include geojson if a new file was uploaded
         if (editGeojsonFile) {
           const fileContent = await new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -343,9 +349,9 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     [authorizedFetch, baseUrl, closeEditModal, currentPage, editFormData, editGeojsonFile, editingArea, formatApiErrors, loadAreas, searchTerm, t]
   );
 
-  const isFormValid = useMemo(() => {
-    return formData.name && formData.country && geojsonFile;
-  }, [formData.name, formData.country, geojsonFile]);
+  const isCreateFormValid = useMemo(() => {
+    return createFormData.name && createFormData.country && createGeojsonFile;
+  }, [createFormData.name, createFormData.country, createGeojsonFile]);
 
   const isEditFormValid = useMemo(() => {
     return editFormData.name;
@@ -378,7 +384,20 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
 
   return (
     <div className="areas-management p-4">
-      <h2 className="h4 mb-4">{t("areas.title")}</h2>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="h4 mb-0">{t("areas.title")}</h2>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={openCreateModal}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          {t("areas.addNew")}
+        </button>
+      </div>
 
       {/* Success/Error Messages */}
       {submitSuccess && (
@@ -392,7 +411,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
           ></button>
         </div>
       )}
-      {submitError && (
+      {submitError && !showCreateModal && !editingArea && (
         <div className="alert alert-danger alert-dismissible fade show" role="alert">
           <div style={{ whiteSpace: "pre-wrap" }}>{submitError}</div>
           <button
@@ -403,101 +422,6 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
           ></button>
         </div>
       )}
-
-      {/* Create Form */}
-      <div className="card shadow-sm mb-4">
-        <div className="card-header">
-          <h3 className="h5 mb-0">{t("areas.createNew")}</h3>
-        </div>
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
-            <div className="row g-3">
-              <div className="col-md-4">
-                <label htmlFor="areaName" className="form-label">
-                  {t("areas.name")} *
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="areaName"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder={t("areas.namePlaceholder")}
-                  required
-                />
-              </div>
-
-              <div className="col-md-4">
-                <label htmlFor="areaCountry" className="form-label">
-                  {t("areas.country")} *
-                </label>
-                <select
-                  className="form-select"
-                  id="areaCountry"
-                  name="country"
-                  value={formData.country}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="">{t("areas.selectCountry")}</option>
-                  {authorizedCountries.map((country) => (
-                    <option key={country.id} value={country.id}>
-                      {country.name} ({country.code})
-                    </option>
-                  ))}
-                </select>
-                {authorizedCountries.length === 0 && (
-                  <div className="form-text text-warning">
-                    {t("areas.noCountries")}
-                  </div>
-                )}
-              </div>
-
-              <div className="col-md-4">
-                <label htmlFor="areaGeojson" className="form-label">
-                  {t("areas.geojsonFile")} *
-                </label>
-                <input
-                  type="file"
-                  className="form-control"
-                  id="areaGeojson"
-                  ref={fileInputRef}
-                  accept=".geojson,.json"
-                  onChange={handleFileChange}
-                  required
-                />
-                <div className="form-text">{t("areas.geojsonHint")}</div>
-              </div>
-            </div>
-
-            <div className="mt-3 d-flex gap-2 form-buttons">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={submitting || !isFormValid}
-              >
-                {submitting ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                    {t("areas.creating")}
-                  </>
-                ) : (
-                  t("areas.create")
-                )}
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={resetForm}
-                disabled={submitting}
-              >
-                {t("areas.reset")}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
 
       {/* Areas Table */}
       <div className="card shadow-sm">
@@ -554,7 +478,6 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
                     <tr key={area.id}>
                       <td>
                         <strong>{area.name}</strong>
-                        {/* Mobile subtitle with country */}
                         <div className="d-md-none text-muted small">
                           {area.country_name || "-"}
                         </div>
@@ -711,6 +634,118 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
         )}
       </div>
 
+      {/* Create Modal */}
+      {showCreateModal && (
+        <>
+          <div className="modal-backdrop fade show" onClick={closeCreateModal}></div>
+          <div className="modal fade show d-block" tabIndex="-1" role="dialog">
+            <div className="modal-dialog modal-dialog-centered" role="document">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">{t("areas.addNewArea")}</h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={closeCreateModal}
+                    aria-label={t("common.close")}
+                  ></button>
+                </div>
+                <form onSubmit={handleCreateSubmit}>
+                  <div className="modal-body">
+                    {submitError && (
+                      <div className="alert alert-danger" role="alert">
+                        <div style={{ whiteSpace: "pre-wrap" }}>{submitError}</div>
+                      </div>
+                    )}
+                    <div className="mb-3">
+                      <label htmlFor="createAreaName" className="form-label">
+                        {t("areas.name")} *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        id="createAreaName"
+                        name="name"
+                        value={createFormData.name}
+                        onChange={handleCreateInputChange}
+                        placeholder={t("areas.namePlaceholder")}
+                        required
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="createAreaCountry" className="form-label">
+                        {t("areas.country")} *
+                      </label>
+                      <select
+                        className="form-select"
+                        id="createAreaCountry"
+                        name="country"
+                        value={createFormData.country}
+                        onChange={handleCreateInputChange}
+                        required
+                      >
+                        <option value="">{t("areas.selectCountry")}</option>
+                        {authorizedCountries.map((country) => (
+                          <option key={country.id} value={country.id}>
+                            {country.name} ({country.code})
+                          </option>
+                        ))}
+                      </select>
+                      {authorizedCountries.length === 0 && (
+                        <div className="form-text text-warning">
+                          {t("areas.noCountries")}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="createAreaGeojson" className="form-label">
+                        {t("areas.geojsonFile")} *
+                      </label>
+                      <input
+                        type="file"
+                        className="form-control"
+                        id="createAreaGeojson"
+                        ref={createFileInputRef}
+                        accept=".geojson,.json"
+                        onChange={handleCreateFileChange}
+                        required
+                      />
+                      <div className="form-text">{t("areas.geojsonHint")}</div>
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={closeCreateModal}
+                      disabled={createSubmitting}
+                    >
+                      {t("areas.cancel")}
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={createSubmitting || !isCreateFormValid}
+                    >
+                      {createSubmitting ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          {t("areas.creating")}
+                        </>
+                      ) : (
+                        t("areas.create")
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Edit Modal */}
       {editingArea && (
         <>
@@ -729,6 +764,11 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
                 </div>
                 <form onSubmit={handleEditSubmit}>
                   <div className="modal-body">
+                    {submitError && (
+                      <div className="alert alert-danger" role="alert">
+                        <div style={{ whiteSpace: "pre-wrap" }}>{submitError}</div>
+                      </div>
+                    )}
                     <div className="mb-3">
                       <label htmlFor="editAreaName" className="form-label">
                         {t("areas.name")} *

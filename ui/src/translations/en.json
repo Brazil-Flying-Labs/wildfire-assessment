@@ -97,6 +97,8 @@
   "nav.areas": "Areas of Interest",
   "areas.title": "Areas of Interest Management",
   "areas.createNew": "Create New Area",
+  "areas.addNew": "Add Area",
+  "areas.addNewArea": "Add New Area of Interest",
   "areas.name": "Name",
   "areas.namePlaceholder": "Enter area name",
   "areas.country": "Country",
