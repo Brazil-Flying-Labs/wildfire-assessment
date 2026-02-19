@@ -90,6 +90,6 @@
   "ai.generating": "Generating AI analysis...",
   "ai.followUpPlaceholder": "Ask a follow-up question...",
   "ai.send": "Send",
-  "ai.poweredBy": "Powered by OpenAI GPT-4o-mini",
+  "ai.poweredBy": "Powered by Google Gemini",
   "ai.openAnalysis": "Open AI Analysis"
 }

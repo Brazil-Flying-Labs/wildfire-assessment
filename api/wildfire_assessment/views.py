@@ -19,7 +19,7 @@ from wildfire_assessment.serializers import (
     EcologicalReserveSerializer,
     UserMeSerializer,
 )
-from wildfire_assessment.svc.openai_analysis import (
+from wildfire_assessment.svc.ai_analysis import (
     generate_analysis_stream,
     generate_followup_stream,
 )

@@ -1,3 +1,4 @@
+import logging
 from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import urlencode
@@ -306,7 +307,9 @@ class AIAnalysisViewTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         mock_generate.side_effect = RuntimeError("connection failed")
 
+        logging.disable(logging.CRITICAL)
         response = self.client.post(self.url, self.valid_payload, format="json")
+        logging.disable(logging.NOTSET)
 
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertIn("connection failed", response.json()["error"])
@@ -405,7 +408,9 @@ class AIAnalysisFollowUpViewTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         mock_generate.side_effect = RuntimeError("connection failed")
 
+        logging.disable(logging.CRITICAL)
         response = self.client.post(self.url, self.valid_payload, format="json")
+        logging.disable(logging.NOTSET)
 
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertIn("connection failed", response.json()["error"])

@@ -56,7 +56,7 @@ class AnalysisFollowUpSerializer(serializers.Serializer):
     """Serializer for AI analysis follow-up questions."""
 
     previous_response_id = serializers.CharField(
-        help_text="OpenAI response ID from the previous response"
+        help_text="Conversation ID from the previous response"
     )
     question = serializers.CharField(
         help_text="Follow-up question about the analysis"
