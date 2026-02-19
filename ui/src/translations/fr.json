@@ -47,6 +47,7 @@
   "app.authFailed": "Échec de l'authentification.",
   "app.backendUnauthorized": "Votre compte est déjà authentifié, mais il n'a pas encore été autorisé sur nos serveurs. Contactez un administrateur.",
   "app.mobileMenuHint": "Utilisez le menu pour sélectionner la période et la zone d'intérêt pour votre évaluation.",
+  "app.selectParamsHint": "Sélectionnez les dates et une zone d'intérêt, puis cliquez sur Lancer l'analyse pour commencer.",
   "app.analysisParams": "Paramètres d'analyse",
   "app.preFireDate": "Date pré-incendie",
   "app.postFireDate": "Date post-incendie",

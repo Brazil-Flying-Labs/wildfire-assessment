@@ -7,7 +7,7 @@ import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
 import AreasOfInterest from "./AreasOfInterest";
 
-const UI_VERSION = "1.2.0";
+const UI_VERSION = "1.3.0";
 
 function App() {
   const { t, language } = useLanguage();
@@ -35,7 +35,7 @@ function App() {
   const [hasResults, setHasResults] = useState(false);
   const [deliverableStatus, setDeliverableStatus] = useState({});
   const [deliverableAlert, setDeliverableAlert] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false);
   const [showLandingPage, setShowLandingPageState] = useState(
     () => sessionStorage.getItem("showLandingPage") === "true"
   );
@@ -51,13 +51,19 @@ function App() {
   // Page navigation state: "analysis" or "areas"
   const [currentPage, setCurrentPage] = useState("analysis");
 
-  const toggleSidebar = useCallback(() => {
-    setIsSidebarOpen((previous) => !previous);
+  const toggleNav = useCallback(() => {
+    setIsNavOpen((previous) => !previous);
   }, []);
 
-  const closeSidebar = useCallback(() => {
-    setIsSidebarOpen(false);
+  const closeNav = useCallback(() => {
+    setIsNavOpen(false);
   }, []);
+
+  const navigateTo = useCallback((page) => {
+    setCurrentPage(page);
+    setIsNavOpen(false);
+  }, []);
+
   const [backendAuthorizationError, setBackendAuthorizationError] = useState(false);
   const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo.png`, []);
   const baseUrl = useMemo(() => {
@@ -129,8 +135,6 @@ function App() {
   );
 
   // Sync language with backend on login.
-  // If the user already picked a language locally (e.g. on the landing page),
-  // push that choice to the backend. Otherwise adopt the backend preference.
   useEffect(() => {
     if (!authReady || !baseUrl) return;
 
@@ -141,7 +145,6 @@ function App() {
           const data = await response.json();
           const backendLang = data.default_language;
           if (backendLang && backendLang !== language) {
-            // Local language differs from backend — push local choice to backend
             authorizedFetch(`${baseUrl}/me/`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
@@ -649,7 +652,6 @@ function App() {
     setHasResults(false);
     setDeliverableStatus({});
     setDeliverableAlert(null);
-    closeSidebar();
 
     try {
       const queryParams = new URLSearchParams({
@@ -759,6 +761,19 @@ function App() {
       <header className="app-header text-white">
         <div className="container-fluid d-flex align-items-center justify-content-between py-3 gap-3">
           <div className="d-flex align-items-center gap-2 gap-md-3 header-brand">
+            {/* Hamburger menu button */}
+            <button
+              type="button"
+              className="btn btn-link text-white p-0 nav-toggle-btn"
+              onClick={toggleNav}
+              aria-label="Toggle navigation"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
             <button
               type="button"
               className="btn p-0 border-0 bg-transparent"
@@ -779,35 +794,7 @@ function App() {
             </div>
           </div>
 
-          {/* Navigation Tabs */}
-          <nav className="nav-tabs-header d-none d-md-flex gap-1">
-            <button
-              type="button"
-              className={`btn btn-sm ${currentPage === "analysis" ? "btn-light" : "btn-outline-light"}`}
-              onClick={() => setCurrentPage("analysis")}
-            >
-              {t("nav.analysis")}
-            </button>
-            <button
-              type="button"
-              className={`btn btn-sm ${currentPage === "areas" ? "btn-light" : "btn-outline-light"}`}
-              onClick={() => setCurrentPage("areas")}
-            >
-              {t("nav.areas")}
-            </button>
-          </nav>
-
           <div className="d-flex align-items-center gap-2 header-actions">
-            {/* Mobile Navigation Dropdown */}
-            <select
-              className="form-select form-select-sm bg-transparent text-white border-light d-md-none"
-              value={currentPage}
-              onChange={(e) => setCurrentPage(e.target.value)}
-              style={{ width: "auto" }}
-            >
-              <option value="analysis">{t("nav.analysis")}</option>
-              <option value="areas">{t("nav.areas")}</option>
-            </select>
             <LanguageSelector className="form-select form-select-sm bg-transparent text-white border-light" />
             <div className="avatar-menu">
               {user?.picture ? (
@@ -840,397 +827,420 @@ function App() {
                 </div>
               </div>
             </div>
-            {currentPage === "analysis" && (
-              <button
-                type="button"
-                className="btn btn-outline-light btn-sm mobile-sidebar-toggle d-lg-none"
-                onClick={toggleSidebar}
-                aria-label={t("app.analysisParams")}
-              >
-                <span className="mobile-sidebar-icon" aria-hidden="true"></span>
-              </button>
-            )}
           </div>
         </div>
       </header>
 
       <div className="app-body d-flex flex-grow-1">
-        {currentPage === "areas" ? (
-          <main className="app-main flex-grow-1 d-flex flex-column">
+        {/* Navigation Sidebar */}
+        {isNavOpen && (
+          <button
+            type="button"
+            className="nav-backdrop"
+            onClick={closeNav}
+            aria-label={t("common.close")}
+          >
+            <span className="visually-hidden">{t("common.close")}</span>
+          </button>
+        )}
+        <nav className={`nav-sidebar ${isNavOpen ? "is-open" : ""}`}>
+          <div className="nav-sidebar-header d-flex justify-content-between align-items-center p-3">
+            <span className="fw-semibold">{t("app.title")}</span>
+            <button
+              type="button"
+              className="btn btn-link text-dark p-0"
+              onClick={closeNav}
+              aria-label={t("common.close")}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <ul className="nav-sidebar-menu list-unstyled m-0 p-0">
+            <li>
+              <button
+                type="button"
+                className={`nav-sidebar-item ${currentPage === "analysis" ? "active" : ""}`}
+                onClick={() => navigateTo("analysis")}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                <span>{t("nav.analysis")}</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                className={`nav-sidebar-item ${currentPage === "areas" ? "active" : ""}`}
+                onClick={() => navigateTo("areas")}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+                  <line x1="8" y1="2" x2="8" y2="18" />
+                  <line x1="16" y1="6" x2="16" y2="22" />
+                </svg>
+                <span>{t("nav.areas")}</span>
+              </button>
+            </li>
+          </ul>
+        </nav>
+
+        {/* Main Content */}
+        <main className="app-main flex-grow-1 d-flex flex-column">
+          {currentPage === "areas" ? (
             <AreasOfInterest
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
             />
-          </main>
-        ) : !backendAuthorizationError ? (
-          <>
-            {isSidebarOpen ? (
-              <button
-                type="button"
-                className="sidebar-backdrop d-lg-none"
-                onClick={closeSidebar}
-                aria-label={t("common.close")}
-              >
-                <span className="visually-hidden">{t("common.close")}</span>
-              </button>
-            ) : null}
-            <aside
-              className={`sidebar bg-light border-end p-4 ${
-                isSidebarOpen ? "is-open" : ""
-              }`}
-            >
-              <div className="d-flex justify-content-between align-items-center d-lg-none mb-3">
-                <h1 className="h5 mb-0">{t("app.analysisParams")}</h1>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={closeSidebar}
-                >
-                  {t("common.close")}
-                </button>
-              </div>
-              <h1 className="h5 mb-4 d-none d-lg-block">{t("app.analysisParams")}</h1>
-              <form onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <label htmlFor="preFireDate" className="form-label">
-                  {t("app.preFireDate")}
-                </label>
-                <div className="date-input-wrapper">
-                  <input
-                    type="text"
-                    className="form-control date-input-text"
-                    id="preFireDate"
-                    name="preFireDate"
-                    placeholder="YYYY-MM-DD"
-                    value={preFireInput}
-                    onChange={(event) =>
-                      setPreFireInput(formatIsoInput(event.target.value))
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary date-picker-button"
-                    aria-label={t("app.preFireDate")}
-                    onClick={() =>
-                      preFirePickerRef.current?.showPicker?.() ||
-                      preFirePickerRef.current?.focus()
-                    }
-                  >
-                    {t("common.pick")}
-                  </button>
-                  <input
-                    ref={preFirePickerRef}
-                    type="date"
-                    className="date-input-native"
-                    value={preFireDate}
-                    onChange={(event) =>
-                      setPreFireInput(normalizeDateValue(event.target.value))
-                    }
-                    max={postFireDate || undefined}
-                  />
+          ) : !backendAuthorizationError ? (
+            <section className="app-main-content p-4 flex-grow-1">
+              {backendAuthorizationError ? (
+                <div className="alert alert-warning" role="alert">
+                  {t("app.backendUnauthorized")}
+                </div>
+              ) : null}
+
+              {/* Analysis Form Card */}
+              <div className="card shadow-sm mb-4">
+                <div className="card-header bg-white">
+                  <h2 className="h5 mb-0">{t("app.analysisParams")}</h2>
+                </div>
+                <div className="card-body">
+                  <form onSubmit={handleSubmit}>
+                    <div className="row g-3">
+                      <div className="col-12 col-md-6 col-lg-3">
+                        <label htmlFor="preFireDate" className="form-label">
+                          {t("app.preFireDate")}
+                        </label>
+                        <div className="date-input-wrapper">
+                          <input
+                            type="text"
+                            className="form-control date-input-text"
+                            id="preFireDate"
+                            name="preFireDate"
+                            placeholder="YYYY-MM-DD"
+                            value={preFireInput}
+                            onChange={(event) =>
+                              setPreFireInput(formatIsoInput(event.target.value))
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary date-picker-button"
+                            aria-label={t("app.preFireDate")}
+                            onClick={() =>
+                              preFirePickerRef.current?.showPicker?.() ||
+                              preFirePickerRef.current?.focus()
+                            }
+                          >
+                            {t("common.pick")}
+                          </button>
+                          <input
+                            ref={preFirePickerRef}
+                            type="date"
+                            className="date-input-native"
+                            value={preFireDate}
+                            onChange={(event) =>
+                              setPreFireInput(normalizeDateValue(event.target.value))
+                            }
+                            max={postFireDate || undefined}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-md-6 col-lg-3">
+                        <label htmlFor="postFireDate" className="form-label">
+                          {t("app.postFireDate")}
+                        </label>
+                        <div className="date-input-wrapper">
+                          <input
+                            type="text"
+                            className="form-control date-input-text"
+                            id="postFireDate"
+                            name="postFireDate"
+                            placeholder="YYYY-MM-DD"
+                            value={postFireInput}
+                            onChange={(event) =>
+                              setPostFireInput(formatIsoInput(event.target.value))
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary date-picker-button"
+                            aria-label={t("app.postFireDate")}
+                            onClick={() =>
+                              postFirePickerRef.current?.showPicker?.() ||
+                              postFirePickerRef.current?.focus()
+                            }
+                          >
+                            {t("common.pick")}
+                          </button>
+                          <input
+                            ref={postFirePickerRef}
+                            type="date"
+                            className="date-input-native"
+                            value={postFireDate}
+                            onChange={(event) =>
+                              setPostFireInput(normalizeDateValue(event.target.value))
+                            }
+                            min={preFireDate || undefined}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="col-12 col-md-6 col-lg-4">
+                        <label htmlFor="reserve" className="form-label">
+                          {t("app.selectArea")}
+                        </label>
+                        <select
+                          className="form-select"
+                          id="reserve"
+                          name="reserve"
+                          value={selectedReserve}
+                          onChange={(event) => setSelectedReserve(event.target.value)}
+                          disabled={fetchState.loading || hasError}
+                        >
+                          {renderReserveOptions()}
+                        </select>
+                        {hasError ? (
+                          <div className="mt-2">
+                            <p className="small text-danger mb-2">
+                              {t("app.apiHint")}
+                            </p>
+                            <button
+                              type="button"
+                              className="btn btn-outline-danger btn-sm"
+                              onClick={loadReserves}
+                            >
+                              {t("common.tryAgain")}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="col-12 col-md-6 col-lg-2 d-flex align-items-end">
+                        <button
+                          type="submit"
+                          className="btn btn-primary w-100"
+                          disabled={isAnalyzeDisabled}
+                        >
+                          {analysisState.loading ? t("app.analyzing") : t("app.runAnalysis")}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
                 </div>
               </div>
 
-              <div className="mb-3">
-                <label htmlFor="postFireDate" className="form-label">
-                  {t("app.postFireDate")}
-                </label>
-                <div className="date-input-wrapper">
-                  <input
-                    type="text"
-                    className="form-control date-input-text"
-                    id="postFireDate"
-                    name="postFireDate"
-                    placeholder="YYYY-MM-DD"
-                    value={postFireInput}
-                    onChange={(event) =>
-                      setPostFireInput(formatIsoInput(event.target.value))
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary date-picker-button"
-                    aria-label={t("app.postFireDate")}
-                    onClick={() =>
-                      postFirePickerRef.current?.showPicker?.() ||
-                      postFirePickerRef.current?.focus()
-                    }
-                  >
-                    {t("common.pick")}
-                  </button>
-                  <input
-                    ref={postFirePickerRef}
-                    type="date"
-                    className="date-input-native"
-                    value={postFireDate}
-                    onChange={(event) =>
-                      setPostFireInput(normalizeDateValue(event.target.value))
-                    }
-                    min={preFireDate || undefined}
-                  />
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="reserve" className="form-label">
-                  {t("app.selectArea")}
-                </label>
-                <select
-                  className="form-select"
-                  id="reserve"
-                  name="reserve"
-                  value={selectedReserve}
-                  onChange={(event) => setSelectedReserve(event.target.value)}
-                  disabled={fetchState.loading || hasError}
-                >
-                  {renderReserveOptions()}
-                </select>
-                {hasError ? (
-                  <div className="mt-2">
-                    <p className="small text-danger mb-2">
-                      {t("app.apiHint")}
-                    </p>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger btn-sm"
-                      onClick={loadReserves}
-                    >
-                      {t("common.tryAgain")}
-                    </button>
+              {/* Analysis Results */}
+              {analysisState.loading ? (
+                <div className="placeholder-card border border-dashed rounded-3 p-5 text-center bg-white">
+                  <div className="spinner-border text-primary mb-3" role="status">
+                    <span className="visually-hidden">{t("common.loading")}</span>
                   </div>
-                ) : null}
-              </div>
+                  <p className="mb-0">{t("app.processing")}</p>
+                </div>
+              ) : null}
 
-              <button
-                type="submit"
-                className="btn btn-primary w-100"
-                disabled={isAnalyzeDisabled}
-              >
-                {analysisState.loading ? t("app.analyzing") : t("app.runAnalysis")}
-              </button>
+              {!analysisState.loading && analysisState.error ? (
+                <div className="alert alert-danger" role="alert">
+                  {analysisState.error}
+                </div>
+              ) : null}
 
-              <div className="mt-4 d-lg-none">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary w-100"
-                  onClick={closeSidebar}
-                >
-                  {t("app.hideMenu")}
-                </button>
-              </div>
-            </form>
-            </aside>
+              {!analysisState.loading &&
+              !analysisState.error &&
+              hasResults &&
+              analysisResult ? (
+                <div className="analysis-results d-flex flex-column gap-4">
+                  {bestDates ? (
+                    <div className="card border-0 shadow-sm">
+                      <div className="card-body">
+                        <h3 className="card-title h5 mb-3">
+                          {t("app.bestDates")}
+                        </h3>
+                        <dl className="row mb-0">
+                          {bestDates.preBest ? (
+                            <>
+                              <dt className="col-sm-4">{t("app.preFire")}</dt>
+                              <dd className="col-sm-8">{bestDates.preBest}</dd>
+                            </>
+                          ) : null}
+                          {bestDates.postBest ? (
+                            <>
+                              <dt className="col-sm-4">{t("app.postFire")}</dt>
+                              <dd className="col-sm-8">{bestDates.postBest}</dd>
+                            </>
+                          ) : null}
+                        </dl>
+                      </div>
+                    </div>
+                  ) : null}
 
-            <main className="app-main flex-grow-1 d-flex flex-column">
-              <section className="app-main-content p-5 flex-grow-1">
-            {backendAuthorizationError ? (
+                  {imageEntries.length ? (
+                    <section>
+                      <h3 className="h5 mb-3">{t("app.visualizations")}</h3>
+                      <div className="analysis-images row g-4">
+                        {imageEntries.map(([key, url]) => (
+                          <div className="col-12 col-md-6 col-lg-4" key={key}>
+                            <div className="card h-100 shadow-sm">
+                              <img
+                                src={url}
+                                className="card-img-top"
+                                alt={formatLabel(key)}
+                                loading="lazy"
+                              />
+                              <div className="card-body">
+                                <h4 className="card-title h6 mb-0">
+                                  {formatLabel(key)}
+                                </h4>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {severityEntries.length ? (
+                    <section>
+                      <h3 className="h5 mb-3">{t("app.severityTitle")}</h3>
+                      <div className="table-responsive">
+                        <table className="table table-sm table-striped align-middle">
+                          <thead className="table-light">
+                            <tr>
+                              <th scope="col">{t("app.severity")}</th>
+                              <th scope="col">{t("app.areaHa")}</th>
+                              <th scope="col">{t("app.percent")}</th>
+                              <th scope="col">{t("app.color")}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {severityEntries.map(({ name, area, percent }) => (
+                              <tr key={name}>
+                                <td>{name}</td>
+                                <td>{formatAreaValue(area)}</td>
+                                <td>{formatPercentValue(percent)}</td>
+                                <td>{getSeverityColor(name)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {tiffEntries.length || csvEntry ? (
+                    <section>
+                      <h3 className="h5 mb-3">{t("app.downloads")}</h3>
+                      <div className="analysis-downloads d-flex flex-wrap gap-2">
+                        {tiffEntries.map(([key, url]) => (
+                          <a
+                            key={key}
+                            href={url}
+                            className="btn btn-outline-secondary btn-sm"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {formatLabel(key)} (TIFF)
+                          </a>
+                        ))}
+                        {csvEntry ? (
+                          <a
+                            href={csvEntry[1]}
+                            className="btn btn-outline-secondary btn-sm"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {formatLabel(csvEntry[0])} (CSV)
+                          </a>
+                        ) : null}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  <section>
+                    <details className="analysis-raw border rounded-3 p-3 bg-white shadow-sm">
+                      <summary className="fw-medium mb-2">
+                        {t("app.viewJson")}
+                      </summary>
+                      <pre className="mb-0 bg-light p-3 rounded overflow-auto">
+                        {JSON.stringify(analysisResult, null, 2)}
+                      </pre>
+                    </details>
+                  </section>
+
+                  <section className="mt-4">
+                    <h3 className="h5 mb-2">{t("app.deliverableTitle")}</h3>
+                    <p className="small text-muted mb-3">
+                      {t("app.deliverableHint")}
+                    </p>
+                    <div className="d-flex flex-wrap gap-3">
+                      {scientificDeliverables.map(({ label, value }) => {
+                        const status = deliverableStatus[value] || {};
+                        return (
+                          <div
+                            key={value}
+                            className="d-flex flex-column align-items-start"
+                          >
+                            <button
+                              type="button"
+                              className="btn btn-link p-0"
+                              disabled={
+                                isScientificDeliverableDisabled || status.loading
+                              }
+                              onClick={() => handleScientificDeliverable(value)}
+                              title={t("app.deliverableTooltip", { label })}
+                            >
+                              {status.loading
+                                ? t("app.deliverableRequesting", { label })
+                                : label}
+                            </button>
+                            {status.taskId ? (
+                              <span className="small text-success">
+                                {t("app.taskId", { taskId: status.taskId })}
+                              </span>
+                            ) : null}
+                            {!status.loading && status.error ? (
+                              <span className="small text-danger">
+                                {status.error}
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {deliverableAlert ? (
+                      <div
+                        className={`alert alert-${deliverableAlert.type} mt-3`}
+                        role="alert"
+                      >
+                        {deliverableAlert.message}
+                      </div>
+                    ) : null}
+                  </section>
+                </div>
+              ) : null}
+
+              {!analysisState.loading &&
+              !analysisState.error &&
+              !analysisResult ? (
+                <div className="placeholder-card border border-dashed rounded-3 p-5 text-center text-muted bg-white">
+                  <p className="mb-0">{t("app.selectParamsHint")}</p>
+                </div>
+              ) : null}
+            </section>
+          ) : (
+            <section className="app-main-content p-4 flex-grow-1">
               <div className="alert alert-warning" role="alert">
                 {t("app.backendUnauthorized")}
               </div>
-            ) : null}
-
-            <div className="alert alert-info d-lg-none" role="alert">
-              {t("app.mobileMenuHint")}
-            </div>
-
-            {analysisState.loading ? (
-              <div className="placeholder-card border border-dashed rounded-3 p-5 text-center">
-                <div className="spinner-border text-primary mb-3" role="status">
-                  <span className="visually-hidden">{t("common.loading")}</span>
-                </div>
-                <p className="mb-0">{t("app.processing")}</p>
-              </div>
-            ) : null}
-
-            {!analysisState.loading && analysisState.error ? (
-              <div className="alert alert-danger" role="alert">
-                {analysisState.error}
-              </div>
-            ) : null}
-
-            {!analysisState.loading &&
-            !analysisState.error &&
-            hasResults &&
-            analysisResult ? (
-              <div className="analysis-results d-flex flex-column gap-4">
-                {bestDates ? (
-                  <div className="card border-0 shadow-sm">
-                    <div className="card-body">
-                      <h3 className="card-title h5 mb-3">
-                        {t("app.bestDates")}
-                      </h3>
-                      <dl className="row mb-0">
-                        {bestDates.preBest ? (
-                          <>
-                            <dt className="col-sm-4">{t("app.preFire")}</dt>
-                            <dd className="col-sm-8">{bestDates.preBest}</dd>
-                          </>
-                        ) : null}
-                        {bestDates.postBest ? (
-                          <>
-                            <dt className="col-sm-4">{t("app.postFire")}</dt>
-                            <dd className="col-sm-8">{bestDates.postBest}</dd>
-                          </>
-                        ) : null}
-                      </dl>
-                    </div>
-                  </div>
-                ) : null}
-
-                {imageEntries.length ? (
-                  <section>
-                    <h3 className="h5 mb-3">{t("app.visualizations")}</h3>
-                    <div className="analysis-images row g-4">
-                      {imageEntries.map(([key, url]) => (
-                        <div className="col-12 col-md-6 col-lg-4" key={key}>
-                          <div className="card h-100 shadow-sm">
-                            <img
-                              src={url}
-                              className="card-img-top"
-                              alt={formatLabel(key)}
-                              loading="lazy"
-                            />
-                            <div className="card-body">
-                              <h4 className="card-title h6 mb-0">
-                                {formatLabel(key)}
-                              </h4>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
-                {severityEntries.length ? (
-                  <section>
-                    <h3 className="h5 mb-3">{t("app.severityTitle")}</h3>
-                    <div className="table-responsive">
-                      <table className="table table-sm table-striped align-middle">
-                        <thead className="table-light">
-                          <tr>
-                            <th scope="col">{t("app.severity")}</th>
-                            <th scope="col">{t("app.areaHa")}</th>
-                            <th scope="col">{t("app.percent")}</th>
-                            <th scope="col">{t("app.color")}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {severityEntries.map(({ name, area, percent }) => (
-                            <tr key={name}>
-                              <td>{name}</td>
-                              <td>{formatAreaValue(area)}</td>
-                              <td>{formatPercentValue(percent)}</td>
-                              <td>{getSeverityColor(name)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                ) : null}
-
-                {tiffEntries.length || csvEntry ? (
-                  <section>
-                    <h3 className="h5 mb-3">{t("app.downloads")}</h3>
-                    <div className="analysis-downloads d-flex flex-wrap gap-2">
-                      {tiffEntries.map(([key, url]) => (
-                        <a
-                          key={key}
-                          href={url}
-                          className="btn btn-outline-secondary btn-sm"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {formatLabel(key)} (TIFF)
-                        </a>
-                      ))}
-                      {csvEntry ? (
-                        <a
-                          href={csvEntry[1]}
-                          className="btn btn-outline-secondary btn-sm"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {formatLabel(csvEntry[0])} (CSV)
-                        </a>
-                      ) : null}
-                    </div>
-                  </section>
-                ) : null}
-
-                <section>
-                  <details className="analysis-raw border rounded-3 p-3 bg-white shadow-sm">
-                    <summary className="fw-medium mb-2">
-                      {t("app.viewJson")}
-                    </summary>
-                    <pre className="mb-0 bg-light p-3 rounded overflow-auto">
-                      {JSON.stringify(analysisResult, null, 2)}
-                    </pre>
-                  </details>
-                </section>
-
-                <section className="mt-4">
-                  <h3 className="h5 mb-2">{t("app.deliverableTitle")}</h3>
-                  <p className="small text-muted mb-3">
-                    {t("app.deliverableHint")}
-                  </p>
-                  <div className="d-flex flex-wrap gap-3">
-                    {scientificDeliverables.map(({ label, value }) => {
-                      const status = deliverableStatus[value] || {};
-                      return (
-                        <div
-                          key={value}
-                          className="d-flex flex-column align-items-start"
-                        >
-                          <button
-                            type="button"
-                            className="btn btn-link p-0"
-                            disabled={
-                              isScientificDeliverableDisabled || status.loading
-                            }
-                            onClick={() => handleScientificDeliverable(value)}
-                            title={t("app.deliverableTooltip", { label })}
-                          >
-                            {status.loading
-                              ? t("app.deliverableRequesting", { label })
-                              : label}
-                          </button>
-                          {status.taskId ? (
-                            <span className="small text-success">
-                              {t("app.taskId", { taskId: status.taskId })}
-                            </span>
-                          ) : null}
-                          {!status.loading && status.error ? (
-                            <span className="small text-danger">
-                              {status.error}
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {deliverableAlert ? (
-                    <div
-                      className={`alert alert-${deliverableAlert.type} mt-3`}
-                      role="alert"
-                    >
-                      {deliverableAlert.message}
-                    </div>
-                  ) : null}
-                </section>
-              </div>
-            ) : null}
-
-            {!analysisState.loading &&
-            !analysisState.error &&
-            !analysisResult ? (
-              <div className="placeholder-card border border-dashed rounded-3 p-5 text-center text-muted"></div>
-            ) : null}
-              </section>
-            </main>
-          </>
-        ) : null}
+            </section>
+          )}
+        </main>
       </div>
 
       {/* AI Analysis floating button and modal - only on analysis page */}

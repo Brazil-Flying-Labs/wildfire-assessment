@@ -47,6 +47,7 @@
   "app.authFailed": "Falha na autenticação.",
   "app.backendUnauthorized": "Sua conta já está autenticada, mas ainda não foi autorizada em nossos servidores. Entre em contato com um administrador.",
   "app.mobileMenuHint": "Use o menu para selecionar o período e a área de interesse para sua avaliação.",
+  "app.selectParamsHint": "Selecione as datas e uma área de interesse, depois clique em Executar análise para começar.",
   "app.analysisParams": "Parâmetros de análise",
   "app.preFireDate": "Data pré-incêndio",
   "app.postFireDate": "Data pós-incêndio",

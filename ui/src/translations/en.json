@@ -47,6 +47,7 @@
   "app.authFailed": "Authentication failed.",
   "app.backendUnauthorized": "Your account is already authenticated, but it has not been authorized on our backend servers yet. Contact an administrator.",
   "app.mobileMenuHint": "Use the menu to select the time period and area of interest for your assessment.",
+  "app.selectParamsHint": "Select dates and an area of interest, then click Run Analysis to begin.",
   "app.analysisParams": "Analysis parameters",
   "app.preFireDate": "Pre-fire date",
   "app.postFireDate": "Post-fire date",
