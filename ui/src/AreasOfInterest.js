@@ -595,55 +595,34 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
         </div>
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="card-footer d-flex justify-content-between align-items-center">
-            <div className="text-muted small">
-              {t("areas.showing")} {(currentPage - 1) * pageSize + 1}-
-              {Math.min(currentPage * pageSize, totalCount)} {t("areas.of")}{" "}
-              {totalCount}
+          <div className="card-footer">
+            <div className="areas-pagination">
+              <button
+                type="button"
+                className="areas-pagination-btn"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                aria-label={t("areas.prevPage")}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <span className="areas-pagination-info">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="areas-pagination-btn"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                aria-label={t("areas.nextPage")}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
             </div>
-            <nav aria-label={t("areas.pagination")}>
-              <ul className="pagination pagination-sm mb-0">
-                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>
-                    &laquo;
-                  </button>
-                </li>
-                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                    &lsaquo;
-                  </button>
-                </li>
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-                  return (
-                    <li key={pageNum} className={`page-item ${currentPage === pageNum ? "active" : ""}`}>
-                      <button className="page-link" onClick={() => setCurrentPage(pageNum)}>
-                        {pageNum}
-                      </button>
-                    </li>
-                  );
-                })}
-                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                    &rsaquo;
-                  </button>
-                </li>
-                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                  <button className="page-link" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}>
-                    &raquo;
-                  </button>
-                </li>
-              </ul>
-            </nav>
           </div>
         )}
       </div>

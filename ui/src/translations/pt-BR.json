@@ -141,5 +141,7 @@
   "areas.clearSearch": "Limpar",
   "areas.showing": "Exibindo",
   "areas.of": "de",
-  "areas.pagination": "Paginação"
+  "areas.pagination": "Paginação",
+  "areas.prevPage": "Página anterior",
+  "areas.nextPage": "Próxima página"
 }

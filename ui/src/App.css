@@ -680,6 +680,46 @@
   vertical-align: middle;
 }
 
+/* Areas Pagination */
+.areas-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.areas-pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background: #fff;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.areas-pagination-btn:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+  color: #212529;
+}
+
+.areas-pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.areas-pagination-info {
+  font-size: 0.875rem;
+  color: #6c757d;
+  min-width: 60px;
+  text-align: center;
+}
+
 /* Areas Floating Action Button */
 .areas-fab {
   position: fixed;
