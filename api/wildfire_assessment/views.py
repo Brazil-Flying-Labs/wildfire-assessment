@@ -20,6 +20,7 @@ from wildfire_assessment.serializers import (
     AnalysisRequestSerializer,
     AreaOfInterestCreateSerializer,
     AreaOfInterestSerializer,
+    AreaOfInterestUpdateSerializer,
     UserMeSerializer,
 )
 from wildfire_assessment.svc.ai_analysis import (
@@ -60,6 +61,8 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == "create":
             return AreaOfInterestCreateSerializer
+        if self.action in ["update", "partial_update"]:
+            return AreaOfInterestUpdateSerializer
         return AreaOfInterestSerializer
 
     def get_queryset(self):
@@ -105,6 +108,46 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         Create a new AreaOfInterest with GeoJSON upload.
         """
         return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Update an AreaOfInterest.
+
+        Allows updating name, country, and optionally uploading a new GeoJSON file.
+        """
+        instance = self.get_object()
+
+        # Check if user has permission to update (via country)
+        user = request.user
+        country_ids = list(
+            user.country_permissions.values_list("country_id", flat=True)
+        )
+        if instance.country_id not in country_ids:
+            return Response(
+                {"error": "You do not have permission to update this area."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Partially update an AreaOfInterest.
+        """
+        instance = self.get_object()
+
+        # Check if user has permission to update (via country)
+        user = request.user
+        country_ids = list(
+            user.country_permissions.values_list("country_id", flat=True)
+        )
+        if instance.country_id not in country_ids:
+            return Response(
+                {"error": "You do not have permission to update this area."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         """

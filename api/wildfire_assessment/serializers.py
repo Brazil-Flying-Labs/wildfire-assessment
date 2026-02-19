@@ -224,6 +224,75 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
 EcologicalReserveCreateSerializer = AreaOfInterestCreateSerializer
 
 
+class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating areas of interest."""
+
+    geojson = serializers.JSONField(write_only=True, required=False)
+
+    class Meta:
+        model = AreaOfInterest
+        fields = ["id", "name", "country", "geojson"]
+
+    def validate_country(self, value):
+        """Ensure the user has access to the specified country."""
+        request = self.context.get("request")
+        if request and request.user:
+            user_countries = request.user.country_permissions.values_list(
+                "country_id", flat=True
+            )
+            if value.id not in user_countries:
+                raise serializers.ValidationError(
+                    "You do not have permission to move areas to this country."
+                )
+        return value
+
+    def validate_geojson(self, value):
+        """Reuse validation from create serializer."""
+        # Use the same validation as create
+        create_serializer = AreaOfInterestCreateSerializer(context=self.context)
+        return create_serializer.validate_geojson(value)
+
+    def update(self, instance, validated_data):
+        import json
+        import os
+        import uuid
+
+        from django.conf import settings
+
+        geojson_data = validated_data.pop("geojson", None)
+
+        # If new GeoJSON provided, save it and update the path
+        if geojson_data:
+            name = validated_data.get("name", instance.name)
+            safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+            filename = f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
+
+            polygons_dir = os.path.join(settings.BASE_DIR, "..", "..", "polygons")
+            os.makedirs(polygons_dir, exist_ok=True)
+
+            # Delete old file if exists
+            if instance.polygon_path:
+                old_path = os.path.join(polygons_dir, instance.polygon_path)
+                if os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                    except Exception:
+                        pass  # Log but don't fail
+
+            # Save new file
+            filepath = os.path.join(polygons_dir, filename)
+            with open(filepath, "w") as f:
+                json.dump(geojson_data, f)
+
+            validated_data["polygon_path"] = filename
+
+        return super().update(instance, validated_data)
+
+
+# Alias for backward compatibility
+EcologicalReserveUpdateSerializer = AreaOfInterestUpdateSerializer
+
+
 class UserMeSerializer(serializers.ModelSerializer):
     default_language = serializers.CharField(source="profile.default_language")
     authorized_countries = serializers.SerializerMethodField()

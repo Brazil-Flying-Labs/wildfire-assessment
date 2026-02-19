@@ -10,6 +10,7 @@ from wildfire_assessment.models import AreaOfInterest, Country, UserCountry, Use
 from wildfire_assessment.serializers import (
     AreaOfInterestCreateSerializer,
     AreaOfInterestSerializer,
+    AreaOfInterestUpdateSerializer,
     UserMeSerializer,
 )
 
@@ -562,3 +563,112 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("geojson", serializer.errors)
         self.assertIn("empty", str(serializer.errors["geojson"]).lower())
+
+
+class AreaOfInterestUpdateSerializerTests(TestCase):
+    def setUp(self):
+        self.country = Country.objects.create(name="Test Country", code="TC")
+        self.country2 = Country.objects.create(name="Other Country", code="OC")
+        self.user = User.objects.create_user(username="testuser", password="testpass")
+        UserCountry.objects.create(user=self.user, country=self.country)
+        UserCountry.objects.create(user=self.user, country=self.country2)
+        self.factory = APIRequestFactory()
+        self.valid_polygon = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+        }
+
+    @override_settings(BASE_DIR=tempfile.gettempdir())
+    def test_update_name_only(self):
+        """Test updating just the name without changing GeoJSON."""
+        # Create an area first
+        area = AreaOfInterest.objects.create(
+            name="Original Name",
+            polygon_path="test.geojson",
+            country=self.country,
+        )
+
+        request = self.factory.patch("/")
+        request.user = self.user
+        serializer = AreaOfInterestUpdateSerializer(
+            area,
+            data={"name": "Updated Name"},
+            partial=True,
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated = serializer.save()
+        self.assertEqual(updated.name, "Updated Name")
+        self.assertEqual(updated.polygon_path, "test.geojson")  # unchanged
+
+    @override_settings(BASE_DIR=tempfile.gettempdir())
+    def test_update_with_new_geojson(self):
+        """Test updating with a new GeoJSON file."""
+        # Create polygons dir
+        polygons_dir = os.path.join(tempfile.gettempdir(), "..", "..", "polygons")
+        os.makedirs(polygons_dir, exist_ok=True)
+        
+        # Create old file
+        old_path = os.path.join(polygons_dir, "old_file.geojson")
+        with open(old_path, "w") as f:
+            f.write("{}")
+
+        area = AreaOfInterest.objects.create(
+            name="Test Area",
+            polygon_path="old_file.geojson",
+            country=self.country,
+        )
+
+        request = self.factory.patch("/")
+        request.user = self.user
+        serializer = AreaOfInterestUpdateSerializer(
+            area,
+            data={
+                "name": "Test Area",
+                "geojson": self.valid_polygon,
+            },
+            partial=True,
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated = serializer.save()
+        self.assertNotEqual(updated.polygon_path, "old_file.geojson")
+        self.assertTrue(updated.polygon_path.endswith(".geojson"))
+
+    def test_update_country_unauthorized(self):
+        """Test that updating to unauthorized country fails."""
+        unauthorized_country = Country.objects.create(name="Unauthorized", code="UC")
+        area = AreaOfInterest.objects.create(
+            name="Test Area",
+            polygon_path="test.geojson",
+            country=self.country,
+        )
+
+        request = self.factory.patch("/")
+        request.user = self.user
+        serializer = AreaOfInterestUpdateSerializer(
+            area,
+            data={"country": unauthorized_country.id},
+            partial=True,
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("country", serializer.errors)
+
+    def test_update_country_authorized(self):
+        """Test that updating to authorized country succeeds."""
+        area = AreaOfInterest.objects.create(
+            name="Test Area",
+            polygon_path="test.geojson",
+            country=self.country,
+        )
+
+        request = self.factory.patch("/")
+        request.user = self.user
+        serializer = AreaOfInterestUpdateSerializer(
+            area,
+            data={"country": self.country2.id},
+            partial=True,
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)

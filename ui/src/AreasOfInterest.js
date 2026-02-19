@@ -19,6 +19,13 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Edit modal state
+  const [editingArea, setEditingArea] = useState(null);
+  const [editFormData, setEditFormData] = useState({ name: "", country: "" });
+  const [editGeojsonFile, setEditGeojsonFile] = useState(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const editFileInputRef = useRef(null);
+
   // Pagination and search state
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -33,13 +40,11 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     setError(null);
 
     try {
-      // Build query params
       const params = new URLSearchParams({ page: page.toString() });
       if (search) {
         params.append("search", search);
       }
 
-      // Fetch areas with pagination
       const areasResponse = await authorizedFetch(
         `${baseUrl}/area_of_interest/?${params.toString()}`
       );
@@ -123,6 +128,23 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     setSubmitError(null);
   }, []);
 
+  // Format error messages from API response
+  const formatApiErrors = useCallback((errorData) => {
+    let errorMessage = errorData.detail || errorData.error;
+    
+    if (!errorMessage && typeof errorData === "object") {
+      const errorParts = [];
+      for (const [field, errors] of Object.entries(errorData)) {
+        const errorList = Array.isArray(errors) ? errors : [errors];
+        const fieldLabel = field === "geojson" ? t("areas.geojsonFile") : field;
+        errorParts.push(`${fieldLabel}: ${errorList.join(", ")}`);
+      }
+      errorMessage = errorParts.join("\n");
+    }
+    
+    return errorMessage;
+  }, [t]);
+
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault();
@@ -137,7 +159,6 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
       setSubmitSuccess(null);
 
       try {
-        // Read and parse the GeoJSON file
         const fileContent = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target.result);
@@ -160,29 +181,13 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
 
         const response = await authorizedFetch(`${baseUrl}/area_of_interest/`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          
-          // Format validation errors with field names
-          let errorMessage = errorData.detail || errorData.error;
-          
-          if (!errorMessage && typeof errorData === "object") {
-            const errorParts = [];
-            for (const [field, errors] of Object.entries(errorData)) {
-              const errorList = Array.isArray(errors) ? errors : [errors];
-              const fieldLabel = field === "geojson" ? t("areas.geojsonFile") : field;
-              errorParts.push(`${fieldLabel}: ${errorList.join(", ")}`);
-            }
-            errorMessage = errorParts.join("\n") || t("areas.errorCreating");
-          }
-          
-          throw new Error(errorMessage || t("areas.errorCreating"));
+          throw new Error(formatApiErrors(errorData) || t("areas.errorCreating"));
         }
 
         setSubmitSuccess(t("areas.createSuccess"));
@@ -195,7 +200,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
         setSubmitting(false);
       }
     },
-    [authorizedFetch, baseUrl, formData, geojsonFile, loadAreas, resetForm, searchTerm, t]
+    [authorizedFetch, baseUrl, formData, formatApiErrors, geojsonFile, loadAreas, resetForm, searchTerm, t]
   );
 
   const handleDelete = useCallback(
@@ -205,9 +210,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
       try {
         const response = await authorizedFetch(
           `${baseUrl}/area_of_interest/${areaId}/`,
-          {
-            method: "DELETE",
-          }
+          { method: "DELETE" }
         );
 
         if (!response.ok && response.status !== 204) {
@@ -228,11 +231,115 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     [authorizedFetch, baseUrl, currentPage, loadAreas, searchTerm, t]
   );
 
+  // Edit handlers
+  const openEditModal = useCallback((area) => {
+    setEditingArea(area);
+    setEditFormData({
+      name: area.name,
+      country: area.country?.toString() || "",
+    });
+    setEditGeojsonFile(null);
+    setSubmitError(null);
+  }, []);
+
+  const closeEditModal = useCallback(() => {
+    setEditingArea(null);
+    setEditFormData({ name: "", country: "" });
+    setEditGeojsonFile(null);
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = "";
+    }
+  }, []);
+
+  const handleEditInputChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setEditFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
+
+  const handleEditFileChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setEditGeojsonFile(file);
+    }
+  }, []);
+
+  const handleEditSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+
+      if (!editFormData.name) {
+        setSubmitError(t("areas.fillAllFields"));
+        return;
+      }
+
+      setEditSubmitting(true);
+      setSubmitError(null);
+      setSubmitSuccess(null);
+
+      try {
+        const payload = {
+          name: editFormData.name,
+        };
+
+        // Only include country if changed
+        if (editFormData.country) {
+          payload.country = parseInt(editFormData.country, 10);
+        }
+
+        // Only include geojson if a new file was uploaded
+        if (editGeojsonFile) {
+          const fileContent = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => reject(new Error(t("areas.errorReadingFile")));
+            reader.readAsText(editGeojsonFile);
+          });
+
+          let geojsonData;
+          try {
+            geojsonData = JSON.parse(fileContent);
+          } catch (parseError) {
+            throw new Error(t("areas.invalidGeojson"));
+          }
+          payload.geojson = geojsonData;
+        }
+
+        const response = await authorizedFetch(
+          `${baseUrl}/area_of_interest/${editingArea.id}/`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(formatApiErrors(errorData) || t("areas.errorUpdating"));
+        }
+
+        setSubmitSuccess(t("areas.updateSuccess"));
+        closeEditModal();
+        loadAreas(currentPage, searchTerm);
+      } catch (err) {
+        console.error("Error updating area:", err);
+        setSubmitError(err.message);
+      } finally {
+        setEditSubmitting(false);
+      }
+    },
+    [authorizedFetch, baseUrl, closeEditModal, currentPage, editFormData, editGeojsonFile, editingArea, formatApiErrors, loadAreas, searchTerm, t]
+  );
+
   const isFormValid = useMemo(() => {
     return formData.name && formData.country && geojsonFile;
   }, [formData.name, formData.country, geojsonFile]);
 
-  if (loading) {
+  const isEditFormValid = useMemo(() => {
+    return editFormData.name;
+  }, [editFormData.name]);
+
+  if (loading && areas.length === 0) {
     return (
       <div className="d-flex justify-content-center align-items-center p-5">
         <div className="spinner-border text-primary" role="status">
@@ -242,7 +349,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     );
   }
 
-  if (error) {
+  if (error && areas.length === 0) {
     return (
       <div className="alert alert-danger m-4" role="alert">
         {error}
@@ -263,10 +370,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
 
       {/* Success/Error Messages */}
       {submitSuccess && (
-        <div
-          className="alert alert-success alert-dismissible fade show"
-          role="alert"
-        >
+        <div className="alert alert-success alert-dismissible fade show" role="alert">
           {submitSuccess}
           <button
             type="button"
@@ -277,10 +381,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
         </div>
       )}
       {submitError && (
-        <div
-          className="alert alert-danger alert-dismissible fade show"
-          role="alert"
-        >
+        <div className="alert alert-danger alert-dismissible fade show" role="alert">
           <div style={{ whiteSpace: "pre-wrap" }}>{submitError}</div>
           <button
             type="button"
@@ -366,11 +467,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
               >
                 {submitting ? (
                   <>
-                    <span
-                      className="spinner-border spinner-border-sm me-2"
-                      role="status"
-                      aria-hidden="true"
-                    ></span>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                     {t("areas.creating")}
                   </>
                 ) : (
@@ -399,7 +496,6 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
               {totalCount} {t("areas.total")}
             </span>
           </div>
-          {/* Search Bar */}
           <form onSubmit={handleSearch} className="d-flex gap-2">
             <input
               type="text"
@@ -471,11 +567,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
                               disabled={deleting}
                             >
                               {deleting ? (
-                                <span
-                                  className="spinner-border spinner-border-sm"
-                                  role="status"
-                                  aria-hidden="true"
-                                ></span>
+                                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
                               ) : (
                                 t("areas.confirmDelete")
                               )}
@@ -490,14 +582,24 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
                             </button>
                           </div>
                         ) : (
-                          <button
-                            type="button"
-                            className="btn btn-outline-danger btn-sm"
-                            onClick={() => setDeleteConfirm(area.id)}
-                            title={t("areas.delete")}
-                          >
-                            {t("areas.delete")}
-                          </button>
+                          <div className="btn-group btn-group-sm">
+                            <button
+                              type="button"
+                              className="btn btn-outline-primary"
+                              onClick={() => openEditModal(area)}
+                              title={t("areas.edit")}
+                            >
+                              {t("areas.edit")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline-danger"
+                              onClick={() => setDeleteConfirm(area.id)}
+                              title={t("areas.delete")}
+                            >
+                              {t("areas.delete")}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -517,29 +619,16 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
             </div>
             <nav aria-label={t("areas.pagination")}>
               <ul className="pagination pagination-sm mb-0">
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                  >
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>
                     &laquo;
                   </button>
                 </li>
-                <li
-                  className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
+                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
                     &lsaquo;
                   </button>
                 </li>
-                {/* Page numbers */}
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum;
                   if (totalPages <= 5) {
@@ -552,46 +641,20 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
                     pageNum = currentPage - 2 + i;
                   }
                   return (
-                    <li
-                      key={pageNum}
-                      className={`page-item ${
-                        currentPage === pageNum ? "active" : ""
-                      }`}
-                    >
-                      <button
-                        className="page-link"
-                        onClick={() => setCurrentPage(pageNum)}
-                      >
+                    <li key={pageNum} className={`page-item ${currentPage === pageNum ? "active" : ""}`}>
+                      <button className="page-link" onClick={() => setCurrentPage(pageNum)}>
                         {pageNum}
                       </button>
                     </li>
                   );
                 })}
-                <li
-                  className={`page-item ${
-                    currentPage === totalPages ? "disabled" : ""
-                  }`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() =>
-                      setCurrentPage((p) => Math.min(totalPages, p + 1))
-                    }
-                    disabled={currentPage === totalPages}
-                  >
+                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
                     &rsaquo;
                   </button>
                 </li>
-                <li
-                  className={`page-item ${
-                    currentPage === totalPages ? "disabled" : ""
-                  }`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                  >
+                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                  <button className="page-link" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}>
                     &raquo;
                   </button>
                 </li>
@@ -600,6 +663,106 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editingArea && (
+        <>
+          <div className="modal-backdrop fade show" onClick={closeEditModal}></div>
+          <div className="modal fade show d-block" tabIndex="-1" role="dialog">
+            <div className="modal-dialog modal-dialog-centered" role="document">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">{t("areas.editArea")}</h5>
+                  <button
+                    type="button"
+                    className="btn-close"
+                    onClick={closeEditModal}
+                    aria-label={t("common.close")}
+                  ></button>
+                </div>
+                <form onSubmit={handleEditSubmit}>
+                  <div className="modal-body">
+                    <div className="mb-3">
+                      <label htmlFor="editAreaName" className="form-label">
+                        {t("areas.name")} *
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        id="editAreaName"
+                        name="name"
+                        value={editFormData.name}
+                        onChange={handleEditInputChange}
+                        placeholder={t("areas.namePlaceholder")}
+                        required
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="editAreaCountry" className="form-label">
+                        {t("areas.country")}
+                      </label>
+                      <select
+                        className="form-select"
+                        id="editAreaCountry"
+                        name="country"
+                        value={editFormData.country}
+                        onChange={handleEditInputChange}
+                      >
+                        <option value="">{t("areas.keepCurrent")}</option>
+                        {authorizedCountries.map((country) => (
+                          <option key={country.id} value={country.id}>
+                            {country.name} ({country.code})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="editAreaGeojson" className="form-label">
+                        {t("areas.geojsonFile")}
+                      </label>
+                      <input
+                        type="file"
+                        className="form-control"
+                        id="editAreaGeojson"
+                        ref={editFileInputRef}
+                        accept=".geojson,.json"
+                        onChange={handleEditFileChange}
+                      />
+                      <div className="form-text">{t("areas.geojsonOptionalHint")}</div>
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={closeEditModal}
+                      disabled={editSubmitting}
+                    >
+                      {t("areas.cancel")}
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={editSubmitting || !isEditFormValid}
+                    >
+                      {editSubmitting ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          {t("areas.saving")}
+                        </>
+                      ) : (
+                        t("areas.save")
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
