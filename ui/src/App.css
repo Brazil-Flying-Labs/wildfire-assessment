@@ -437,3 +437,39 @@
     padding: 16px;
   }
 }
+
+/* Navigation tabs in header */
+.nav-tabs-header {
+  flex: 0 0 auto;
+}
+
+.nav-tabs-header .btn {
+  border-radius: 4px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.nav-tabs-header .btn-light {
+  background-color: #ffffff;
+  color: #1a2740;
+}
+
+.nav-tabs-header .btn-outline-light:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Reserves Management page */
+.reserves-management {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.reserves-management .table th,
+.reserves-management .table td {
+  vertical-align: middle;
+}
+
+.reserves-management .card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}

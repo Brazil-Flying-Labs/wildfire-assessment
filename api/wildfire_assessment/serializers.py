@@ -1,23 +1,130 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from wildfire_assessment.models import EcologicalReserve, UserProfile
+from wildfire_assessment.models import Country, EcologicalReserve, UserProfile
 
 User = get_user_model()
 
 
-class EcologicalReserveSerializer(serializers.HyperlinkedModelSerializer):
+class CountrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Country
+        fields = ["id", "name", "code"]
+
+
+class EcologicalReserveSerializer(serializers.ModelSerializer):
+    country_name = serializers.CharField(source="country.name", read_only=True)
+    country_code = serializers.CharField(source="country.code", read_only=True)
+
     class Meta:
         model = EcologicalReserve
-        fields = ["id", "name", "polygon_path", "municipio", "site", "codigo_ibge", "area_ha"]
+        fields = [
+            "id",
+            "name",
+            "polygon_path",
+            "municipio",
+            "site",
+            "codigo_ibge",
+            "area_ha",
+            "country",
+            "country_name",
+            "country_code",
+        ]
+        read_only_fields = ["polygon_path", "area_ha"]
+
+
+class EcologicalReserveCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating ecological reserves with GeoJSON upload."""
+
+    geojson = serializers.JSONField(write_only=True, required=True)
+
+    class Meta:
+        model = EcologicalReserve
+        fields = ["id", "name", "country", "geojson"]
+
+    def validate_country(self, value):
+        """Ensure the user has access to the specified country."""
+        request = self.context.get("request")
+        if request and request.user:
+            user_countries = request.user.country_permissions.values_list(
+                "country_id", flat=True
+            )
+            if value.id not in user_countries:
+                raise serializers.ValidationError(
+                    "You do not have permission to create reserves in this country."
+                )
+        return value
+
+    def validate_geojson(self, value):
+        """Validate that the GeoJSON has the expected structure."""
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("GeoJSON must be an object.")
+
+        geojson_type = value.get("type")
+        if geojson_type not in [
+            "Feature",
+            "FeatureCollection",
+            "Polygon",
+            "MultiPolygon",
+        ]:
+            raise serializers.ValidationError(
+                "GeoJSON must be a Feature, FeatureCollection, Polygon, or MultiPolygon."
+            )
+
+        return value
+
+    def create(self, validated_data):
+        import json
+        import os
+        import uuid
+
+        from django.conf import settings
+
+        geojson_data = validated_data.pop("geojson")
+        name = validated_data.get("name")
+
+        # Generate a unique filename
+        safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+        filename = f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
+
+        # Save to polygons directory
+        polygons_dir = os.path.join(
+            settings.BASE_DIR, "..", "..", "polygons"
+        )
+        os.makedirs(polygons_dir, exist_ok=True)
+
+        filepath = os.path.join(polygons_dir, filename)
+        with open(filepath, "w") as f:
+            json.dump(geojson_data, f)
+
+        # Calculate area if possible (simplified - actual calculation may need geopandas)
+        area_ha = None
+
+        validated_data["polygon_path"] = filename
+        validated_data["area_ha"] = area_ha
+
+        return super().create(validated_data)
 
 
 class UserMeSerializer(serializers.ModelSerializer):
     default_language = serializers.CharField(source="profile.default_language")
+    authorized_countries = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["email", "first_name", "last_name", "default_language"]
-        read_only_fields = ["email", "first_name", "last_name"]
+        fields = [
+            "email",
+            "first_name",
+            "last_name",
+            "default_language",
+            "authorized_countries",
+        ]
+        read_only_fields = ["email", "first_name", "last_name", "authorized_countries"]
+
+    def get_authorized_countries(self, obj):
+        countries = Country.objects.filter(
+            authorized_users__user=obj
+        ).values("id", "name", "code")
+        return list(countries)
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})

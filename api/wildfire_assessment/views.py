@@ -4,11 +4,13 @@ import os
 import uuid
 from datetime import datetime
 
+from django.db.models import Q
 from django.http import JsonResponse, StreamingHttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
@@ -16,6 +18,7 @@ from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import (
     AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
+    EcologicalReserveCreateSerializer,
     EcologicalReserveSerializer,
     UserMeSerializer,
 )
@@ -35,11 +38,48 @@ def health_status(_request):
     return JsonResponse({"status": "ok"})
 
 
-class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
+class EcologicalReservePagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class EcologicalReserveViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for EcologicalReserve CRUD operations.
+
+    Supports list, retrieve, create, and delete operations.
+    Users can only access reserves in countries they are authorized for.
+    """
 
     queryset = EcologicalReserve.objects.all().order_by("name")
     serializer_class = EcologicalReserveSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = EcologicalReservePagination
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return EcologicalReserveCreateSerializer
+        return EcologicalReserveSerializer
+
+    def get_queryset(self):
+        """Filter queryset to only show reserves the user has access to."""
+        queryset = super().get_queryset()
+        user = self.request.user
+        country_ids = user.country_permissions.values_list("country_id", flat=True)
+        if country_ids:
+            queryset = queryset.filter(country_id__in=country_ids)
+        else:
+            return queryset.none()
+
+        # Search by name or country name
+        search = self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) | Q(country__name__icontains=search)
+            )
+
+        return queryset
 
     def retrieve(self, request, *args, **kwargs):
         """
@@ -51,17 +91,55 @@ class EcologicalReserveViewSet(viewsets.ReadOnlyModelViewSet):
     def list(self, request, *args, **kwargs):
         """
         List all EcologicalReserves.
+
+        Supports pagination (default 20 per page) and search by name or country.
+        Query params:
+        - page: Page number
+        - page_size: Items per page (max 100)
+        - search: Search term for name or country name
         """
-        self.pagination_class = None
-
-        # We need to return only ecological reserves that the user has access to throug country
-        user = request.user
-        if country_ids := user.country_permissions.values_list("country_id", flat=True):
-            self.queryset = self.queryset.filter(country_id__in=country_ids)
-        else:
-            self.queryset = self.queryset.none()
-
         return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        """
+        Create a new EcologicalReserve with GeoJSON upload.
+        """
+        return super().create(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Delete an EcologicalReserve.
+
+        Also deletes the associated GeoJSON file.
+        """
+        instance = self.get_object()
+
+        # Check if user has permission to delete (via country)
+        user = request.user
+        country_ids = list(
+            user.country_permissions.values_list("country_id", flat=True)
+        )
+        if instance.country_id not in country_ids:
+            return Response(
+                {"error": "You do not have permission to delete this reserve."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Try to delete the associated GeoJSON file
+        if instance.polygon_path:
+            try:
+                polygon_path = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                    "..",
+                    "polygons",
+                    instance.polygon_path,
+                )
+                if os.path.exists(polygon_path):
+                    os.remove(polygon_path)
+            except Exception as e:
+                LOG.warning(f"Failed to delete polygon file: {e}")
+
+        return super().destroy(request, *args, **kwargs)
 
     @extend_schema(
         methods=["POST"],

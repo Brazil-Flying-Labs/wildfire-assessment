@@ -5,6 +5,7 @@ import AIAnalysisModal from "./AIAnalysisModal";
 import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
+import ReservesManagement from "./ReservesManagement";
 
 const UI_VERSION = "1.2.0";
 
@@ -46,6 +47,9 @@ function App() {
       sessionStorage.removeItem("showLandingPage");
     }
   }, []);
+
+  // Page navigation state: "analysis" or "reserves"
+  const [currentPage, setCurrentPage] = useState("analysis");
 
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen((previous) => !previous);
@@ -774,7 +778,36 @@ function App() {
               </p>
             </div>
           </div>
+
+          {/* Navigation Tabs */}
+          <nav className="nav-tabs-header d-none d-md-flex gap-1">
+            <button
+              type="button"
+              className={`btn btn-sm ${currentPage === "analysis" ? "btn-light" : "btn-outline-light"}`}
+              onClick={() => setCurrentPage("analysis")}
+            >
+              {t("nav.analysis")}
+            </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${currentPage === "reserves" ? "btn-light" : "btn-outline-light"}`}
+              onClick={() => setCurrentPage("reserves")}
+            >
+              {t("nav.reserves")}
+            </button>
+          </nav>
+
           <div className="d-flex align-items-center gap-2 header-actions">
+            {/* Mobile Navigation Dropdown */}
+            <select
+              className="form-select form-select-sm bg-transparent text-white border-light d-md-none"
+              value={currentPage}
+              onChange={(e) => setCurrentPage(e.target.value)}
+              style={{ width: "auto" }}
+            >
+              <option value="analysis">{t("nav.analysis")}</option>
+              <option value="reserves">{t("nav.reserves")}</option>
+            </select>
             <LanguageSelector className="form-select form-select-sm bg-transparent text-white border-light" />
             <div className="avatar-menu">
               {user?.picture ? (
@@ -807,20 +840,29 @@ function App() {
                 </div>
               </div>
             </div>
-            <button
-              type="button"
-              className="btn btn-outline-light btn-sm mobile-sidebar-toggle d-lg-none"
-              onClick={toggleSidebar}
-              aria-label={t("app.analysisParams")}
-            >
-              <span className="mobile-sidebar-icon" aria-hidden="true"></span>
-            </button>
+            {currentPage === "analysis" && (
+              <button
+                type="button"
+                className="btn btn-outline-light btn-sm mobile-sidebar-toggle d-lg-none"
+                onClick={toggleSidebar}
+                aria-label={t("app.analysisParams")}
+              >
+                <span className="mobile-sidebar-icon" aria-hidden="true"></span>
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       <div className="app-body d-flex flex-grow-1">
-        {!backendAuthorizationError ? (
+        {currentPage === "reserves" ? (
+          <main className="app-main flex-grow-1 d-flex flex-column">
+            <ReservesManagement
+              authorizedFetch={authorizedFetch}
+              baseUrl={baseUrl}
+            />
+          </main>
+        ) : !backendAuthorizationError ? (
           <>
             {isSidebarOpen ? (
               <button
@@ -1191,17 +1233,19 @@ function App() {
         </main>
       </div>
 
-      {/* AI Analysis floating button and modal */}
-      <AIAnalysisModal
-        isVisible={hasResults && severityEntries.length > 0}
-        preFireDate={preFireDate}
-        postFireDate={postFireDate}
-        areaOfInterest={selectedReserveName}
-        severityDistribution={severityDistributionForAPI}
-        imageUrls={imageEntries.map(([key, url]) => ({ label: formatLabel(key), url }))}
-        authorizedFetch={authorizedFetch}
-        baseUrl={baseUrl}
-      />
+      {/* AI Analysis floating button and modal - only on analysis page */}
+      {currentPage === "analysis" && (
+        <AIAnalysisModal
+          isVisible={hasResults && severityEntries.length > 0}
+          preFireDate={preFireDate}
+          postFireDate={postFireDate}
+          areaOfInterest={selectedReserveName}
+          severityDistribution={severityDistributionForAPI}
+          imageUrls={imageEntries.map(([key, url]) => ({ label: formatLabel(key), url }))}
+          authorizedFetch={authorizedFetch}
+          baseUrl={baseUrl}
+        />
+      )}
 
       <footer className="app-footer mt-auto py-3 text-center small">
         <div className="container-fluid">
