@@ -675,6 +675,50 @@
   vertical-align: middle;
 }
 
+/* Areas Floating Action Button */
+.areas-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: #0d6efd;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  z-index: 1000;
+}
+
+.areas-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(13, 110, 253, 0.5);
+  background: #0b5ed7;
+}
+
+.areas-fab:active {
+  transform: scale(0.95);
+}
+
+@media (max-width: 576px) {
+  .areas-fab {
+    right: 16px;
+    bottom: 16px;
+    width: 48px;
+    height: 48px;
+  }
+  
+  .areas-fab svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
 /* Placeholder card styling */
 .placeholder-card {
   background-color: #ffffff;

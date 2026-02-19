@@ -384,20 +384,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
 
   return (
     <div className="areas-management p-4">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="h4 mb-0">{t("areas.title")}</h2>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={openCreateModal}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="me-2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          {t("areas.addNew")}
-        </button>
-      </div>
+      <h2 className="h4 mb-4">{t("areas.title")}</h2>
 
       {/* Success/Error Messages */}
       {submitSuccess && (
@@ -850,6 +837,20 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
           </div>
         </>
       )}
+
+      {/* Floating Action Button */}
+      <button
+        type="button"
+        className="areas-fab"
+        onClick={openCreateModal}
+        aria-label={t("areas.addNew")}
+        title={t("areas.addNew")}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
     </div>
   );
 }
