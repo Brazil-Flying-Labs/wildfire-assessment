@@ -670,6 +670,11 @@
   background-color: #fff5f5;
 }
 
+/* Areas search input */
+.search-input-wrapper input {
+  padding-right: 2.5rem;
+}
+
 /* Areas table responsive */
 .areas-table td {
   vertical-align: middle;

@@ -34,6 +34,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
   const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const searchDebounceRef = useRef(null);
   const pageSize = 20;
 
   const loadAreas = useCallback(async (page = 1, search = "") => {
@@ -94,16 +95,40 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     loadAreas(currentPage, searchTerm);
   }, [loadAreas, currentPage, searchTerm]);
 
-  const handleSearch = useCallback((e) => {
-    e.preventDefault();
-    setSearchTerm(searchInput);
-    setCurrentPage(1);
-  }, [searchInput]);
+  // Debounced search handler
+  const handleSearchInput = useCallback((value) => {
+    setSearchInput(value);
+    
+    // Clear existing debounce timer
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    
+    // Search if 2+ characters or empty (to show all)
+    searchDebounceRef.current = setTimeout(() => {
+      if (value.length >= 2 || value.length === 0) {
+        setSearchTerm(value);
+        setCurrentPage(1);
+      }
+    }, 300);
+  }, []);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   const handleClearSearch = useCallback(() => {
     setSearchInput("");
     setSearchTerm("");
     setCurrentPage(1);
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
   }, []);
 
   const totalPages = useMemo(() => {
@@ -419,27 +444,29 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
               {totalCount} {t("areas.total")}
             </span>
           </div>
-          <form onSubmit={handleSearch} className="d-flex gap-2">
+          <div className="search-input-wrapper position-relative">
             <input
               type="text"
               className="form-control"
               placeholder={t("areas.searchPlaceholder")}
               value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
+              onChange={(e) => handleSearchInput(e.target.value)}
             />
-            <button type="submit" className="btn btn-outline-primary">
-              {t("areas.search")}
-            </button>
-            {searchTerm && (
+            {searchInput && (
               <button
                 type="button"
-                className="btn btn-outline-secondary"
+                className="btn btn-link position-absolute end-0 top-50 translate-middle-y text-secondary p-0 pe-2"
                 onClick={handleClearSearch}
+                aria-label={t("areas.clearSearch")}
               >
-                {t("areas.clearSearch")}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
               </button>
             )}
-          </form>
+          </div>
         </div>
         <div className="card-body p-0">
           {areas.length === 0 ? (
