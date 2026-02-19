@@ -113,12 +113,12 @@
 .app-header {
   background-color: #1a2740;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow-x: hidden;
+  position: relative;
+  z-index: 100;
 }
 
 .app-header .container-fluid {
   max-width: 100%;
-  overflow: hidden;
 }
 
 .app-header .brand-logo {
