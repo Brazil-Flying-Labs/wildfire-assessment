@@ -258,7 +258,7 @@ class AIAnalysisViewTests(APITestCase):
     @patch("wildfire_assessment.views.generate_analysis_stream")
     def test_analysis_returns_streaming_response(self, mock_generate):
         self.client.force_authenticate(user=self.user)
-        mock_generate.return_value = iter(["Hello ", "World"])
+        mock_generate.return_value = (iter(["Hello ", "World"]), {"response_id": None})
 
         response = self.client.post(self.url, self.valid_payload, format="json")
 
@@ -270,7 +270,7 @@ class AIAnalysisViewTests(APITestCase):
     @patch("wildfire_assessment.views.generate_analysis_stream")
     def test_analysis_passes_correct_parameters(self, mock_generate):
         self.client.force_authenticate(user=self.user)
-        mock_generate.return_value = iter([])
+        mock_generate.return_value = (iter(["chunk"]), {"response_id": None})
 
         self.client.post(self.url, self.valid_payload, format="json")
 
@@ -290,3 +290,122 @@ class AIAnalysisViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertIn("error", response.json())
+
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_returns_502_on_empty_stream(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (iter([]), {"response_id": None})
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn("empty response", response.json()["error"])
+
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_returns_500_on_generic_exception(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.side_effect = RuntimeError("connection failed")
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn("connection failed", response.json()["error"])
+
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_streaming_response_includes_response_id(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (
+            iter(["chunk"]),
+            {"response_id": "resp_abc"},
+        )
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        content = b"".join(response.streaming_content).decode("utf-8")
+        self.assertIn("[RESPONSE_ID]resp_abc[/RESPONSE_ID]", content)
+
+
+class AIAnalysisFollowUpViewTests(APITestCase):
+    """Tests for the AI analysis follow-up endpoint."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="tester",
+            email="tester@example.com",
+            password="password",
+        )
+        self.url = reverse("ai-analysis-followup")
+        self.valid_payload = {
+            "previous_response_id": "resp_123",
+            "question": "What about recovery?",
+        }
+
+    def test_followup_requires_authentication(self):
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_followup_returns_400_for_invalid_payload(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("wildfire_assessment.views.generate_followup_stream")
+    def test_followup_returns_streaming_response(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (
+            iter(["Follow ", "up"]),
+            {"response_id": "resp_456"},
+        )
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        content = b"".join(response.streaming_content).decode("utf-8")
+        self.assertIn("Follow up", content)
+        self.assertIn("[RESPONSE_ID]resp_456[/RESPONSE_ID]", content)
+
+    @patch("wildfire_assessment.views.generate_followup_stream")
+    def test_followup_passes_correct_parameters(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (iter(["chunk"]), {"response_id": None})
+
+        self.client.post(self.url, self.valid_payload, format="json")
+
+        mock_generate.assert_called_once()
+        call_kwargs = mock_generate.call_args.kwargs
+        self.assertEqual(call_kwargs["previous_response_id"], "resp_123")
+        self.assertEqual(call_kwargs["question"], "What about recovery?")
+
+    @patch("wildfire_assessment.views.generate_followup_stream")
+    def test_followup_returns_502_on_empty_stream(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (iter([]), {"response_id": None})
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertIn("empty response", response.json()["error"])
+
+    @patch("wildfire_assessment.views.generate_followup_stream")
+    def test_followup_returns_500_on_value_error(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.side_effect = ValueError("API key not set")
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn("error", response.json())
+
+    @patch("wildfire_assessment.views.generate_followup_stream")
+    def test_followup_returns_500_on_generic_exception(self, mock_generate):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.side_effect = RuntimeError("connection failed")
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn("connection failed", response.json()["error"])

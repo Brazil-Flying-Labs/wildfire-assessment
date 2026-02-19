@@ -6,9 +6,6 @@ import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
 
-// Test user for AI Analysis feature
-const AI_ANALYSIS_TEST_USER = "diogo.hudson@gmail.com";
-
 const UI_VERSION = "1.2.0";
 
 function App() {
@@ -753,9 +750,6 @@ function App() {
 
   const displayName = user?.name || user?.email || "User";
 
-  // AI Analysis feature (test user only) - these are simple values, not hooks
-  const isAIAnalysisUser = user?.email?.toLowerCase() === AI_ANALYSIS_TEST_USER.toLowerCase();
-
   return (
     <div className="app-root d-flex flex-column min-vh-100">
       <header className="app-header text-white">
@@ -1197,9 +1191,9 @@ function App() {
         </main>
       </div>
 
-      {/* AI Analysis floating button and modal (test user only) */}
+      {/* AI Analysis floating button and modal */}
       <AIAnalysisModal
-        isVisible={isAIAnalysisUser && hasResults && severityEntries.length > 0}
+        isVisible={hasResults && severityEntries.length > 0}
         preFireDate={preFireDate}
         postFireDate={postFireDate}
         areaOfInterest={selectedReserveName}

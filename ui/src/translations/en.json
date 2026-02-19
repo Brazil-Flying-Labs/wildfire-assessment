@@ -84,5 +84,12 @@
   "app.errorAnalysis": "Error running analysis ({status})",
   "app.errorDeliverable": "Error requesting deliverable ({status})",
   "auth.missingConfig": "Auth0 environment variables are not configured. Set",
-  "auth.missingConfigEnd": "before starting the application."
+  "auth.missingConfigEnd": "before starting the application.",
+  "ai.title": "AI Wildfire Analysis",
+  "ai.retry": "Retry",
+  "ai.generating": "Generating AI analysis...",
+  "ai.followUpPlaceholder": "Ask a follow-up question...",
+  "ai.send": "Send",
+  "ai.poweredBy": "Powered by OpenAI GPT-4o-mini",
+  "ai.openAnalysis": "Open AI Analysis"
 }

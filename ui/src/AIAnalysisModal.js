@@ -1,5 +1,6 @@
 import { useCallback, useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import { useLanguage } from "./LanguageContext";
 
 const RESPONSE_ID_REGEX = /\n?\n?\[RESPONSE_ID\](.*?)\[\/RESPONSE_ID\]$/;
 
@@ -28,6 +29,7 @@ function AIAnalysisModal({
   authorizedFetch,
   baseUrl,
 }) {
+  const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   // messages: [{ role: "assistant"|"user", text: string }]
   const [messages, setMessages] = useState([]);
@@ -268,8 +270,8 @@ function AIAnalysisModal({
         type="button"
         className="ai-analysis-fab"
         onClick={openModal}
-        title="AI Analysis"
-        aria-label="Open AI Analysis"
+        title={t("ai.openAnalysis")}
+        aria-label={t("ai.openAnalysis")}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -297,13 +299,13 @@ function AIAnalysisModal({
           >
             <div className="ai-analysis-modal-header">
               <h2 className="ai-analysis-modal-title">
-                AI Wildfire Analysis
+                {t("ai.title")}
               </h2>
               <button
                 type="button"
                 className="ai-analysis-modal-close"
                 onClick={closeModal}
-                aria-label="Close"
+                aria-label={t("common.close")}
               >
                 &times;
               </button>
@@ -318,7 +320,7 @@ function AIAnalysisModal({
                     className="btn btn-outline-danger btn-sm ms-3"
                     onClick={messages.length ? sendFollowUp : startAnalysis}
                   >
-                    Retry
+                    {t("ai.retry")}
                   </button>
                 </div>
               )}
@@ -326,9 +328,9 @@ function AIAnalysisModal({
               {!error && !messages.length && isLoading && (
                 <div className="text-center py-5">
                   <div className="spinner-border text-primary mb-3" role="status">
-                    <span className="visually-hidden">Loading...</span>
+                    <span className="visually-hidden">{t("common.loading")}</span>
                   </div>
-                  <p className="text-muted">Generating AI analysis...</p>
+                  <p className="text-muted">{t("ai.generating")}</p>
                 </div>
               )}
 
@@ -358,7 +360,7 @@ function AIAnalysisModal({
                     ref={inputRef}
                     type="text"
                     className="form-control form-control-sm"
-                    placeholder="Ask a follow-up question..."
+                    placeholder={t("ai.followUpPlaceholder")}
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -370,20 +372,20 @@ function AIAnalysisModal({
                     onClick={sendFollowUp}
                     disabled={isLoading || !question.trim()}
                   >
-                    Send
+                    {t("ai.send")}
                   </button>
                 </div>
               )}
               <div className="ai-chat-footer-meta">
                 <small className="text-muted">
-                  Powered by OpenAI GPT-4o-mini
+                  {t("ai.poweredBy")}
                 </small>
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={closeModal}
                 >
-                  Close
+                  {t("common.close")}
                 </button>
               </div>
             </div>

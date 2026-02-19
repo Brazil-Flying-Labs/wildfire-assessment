@@ -84,5 +84,12 @@
   "app.errorAnalysis": "Erreur lors de l'exécution de l'analyse ({status})",
   "app.errorDeliverable": "Erreur lors de la demande du livrable ({status})",
   "auth.missingConfig": "Les variables d'environnement Auth0 ne sont pas configurées. Définissez",
-  "auth.missingConfigEnd": "avant de démarrer l'application."
+  "auth.missingConfigEnd": "avant de démarrer l'application.",
+  "ai.title": "Analyse d'incendie par IA",
+  "ai.retry": "Réessayer",
+  "ai.generating": "Génération de l'analyse par IA...",
+  "ai.followUpPlaceholder": "Posez une question de suivi...",
+  "ai.send": "Envoyer",
+  "ai.poweredBy": "Propulsé par OpenAI GPT-4o-mini",
+  "ai.openAnalysis": "Ouvrir l'analyse par IA"
 }

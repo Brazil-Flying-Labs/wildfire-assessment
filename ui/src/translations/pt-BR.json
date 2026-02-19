@@ -84,5 +84,12 @@
   "app.errorAnalysis": "Erro ao executar análise ({status})",
   "app.errorDeliverable": "Erro ao solicitar produto ({status})",
   "auth.missingConfig": "As variáveis de ambiente do Auth0 não estão configuradas. Defina",
-  "auth.missingConfigEnd": "antes de iniciar a aplicação."
+  "auth.missingConfigEnd": "antes de iniciar a aplicação.",
+  "ai.title": "Análise de Incêndio por IA",
+  "ai.retry": "Tentar novamente",
+  "ai.generating": "Gerando análise por IA...",
+  "ai.followUpPlaceholder": "Faça uma pergunta de acompanhamento...",
+  "ai.send": "Enviar",
+  "ai.poweredBy": "Desenvolvido com OpenAI GPT-4o-mini",
+  "ai.openAnalysis": "Abrir Análise por IA"
 }
