@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "./LanguageContext";
 
-function UserProfile({ authorizedFetch, baseUrl, user }) {
+function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate }) {
   const { t } = useLanguage();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!backendProfile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -12,29 +12,51 @@ function UserProfile({ authorizedFetch, baseUrl, user }) {
     lastName: "",
   });
 
-  // Load user data from backend
-  useEffect(() => {
-    if (!baseUrl) return;
-
-    const loadUserData = async () => {
-      try {
-        const response = await authorizedFetch(`${baseUrl}/me/`);
-        if (response.ok) {
-          const data = await response.json();
-          setFormData({
-            firstName: data.first_name || "",
-            lastName: data.last_name || "",
-          });
-        }
-      } catch (err) {
-        console.error("Error loading user data:", err);
-      } finally {
-        setLoading(false);
+  // Get Auth0 name parts for prefill fallback
+  const getAuth0NameParts = useCallback(() => {
+    // Try given_name/family_name first (from Auth0 profile)
+    if (user?.given_name || user?.family_name) {
+      return {
+        firstName: user.given_name || "",
+        lastName: user.family_name || "",
+      };
+    }
+    // Fall back to splitting the name field
+    if (user?.name) {
+      const parts = user.name.trim().split(/\s+/);
+      if (parts.length >= 2) {
+        return {
+          firstName: parts[0],
+          lastName: parts.slice(1).join(" "),
+        };
       }
-    };
+      return { firstName: user.name, lastName: "" };
+    }
+    return { firstName: "", lastName: "" };
+  }, [user]);
 
-    loadUserData();
-  }, [authorizedFetch, baseUrl]);
+  // Initialize form data from backend profile or Auth0 fallback
+  useEffect(() => {
+    if (backendProfile) {
+      const backendFirstName = backendProfile.first_name || "";
+      const backendLastName = backendProfile.last_name || "";
+      
+      // If backend has no name, prefill with Auth0 name
+      if (!backendFirstName && !backendLastName) {
+        const auth0Names = getAuth0NameParts();
+        setFormData({
+          firstName: auth0Names.firstName,
+          lastName: auth0Names.lastName,
+        });
+      } else {
+        setFormData({
+          firstName: backendFirstName,
+          lastName: backendLastName,
+        });
+      }
+      setLoading(false);
+    }
+  }, [backendProfile, getAuth0NameParts]);
 
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -63,6 +85,11 @@ function UserProfile({ authorizedFetch, baseUrl, user }) {
           throw new Error(errorData.detail || t("profile.errorSaving"));
         }
 
+        // Refresh backend profile in parent to update avatar display
+        if (onProfileUpdate) {
+          await onProfileUpdate();
+        }
+
         setSuccess(t("profile.saveSuccess"));
       } catch (err) {
         console.error("Error saving profile:", err);
@@ -71,7 +98,7 @@ function UserProfile({ authorizedFetch, baseUrl, user }) {
         setSaving(false);
       }
     },
-    [authorizedFetch, baseUrl, formData, t]
+    [authorizedFetch, baseUrl, formData, onProfileUpdate, t]
   );
 
   if (loading) {

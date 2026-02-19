@@ -37,6 +37,7 @@ function App() {
   const [deliverableStatus, setDeliverableStatus] = useState({});
   const [deliverableAlert, setDeliverableAlert] = useState(null);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [backendProfile, setBackendProfile] = useState(null);
   const [showLandingPage, setShowLandingPageState] = useState(
     () => sessionStorage.getItem("showLandingPage") === "true"
   );
@@ -135,15 +136,29 @@ function App() {
     [setBackendAuthorizationError, t]
   );
 
-  // Sync language with backend on login.
+  // Fetch backend profile and sync language on login.
+  const fetchBackendProfile = useCallback(async () => {
+    if (!baseUrl) return;
+    try {
+      const response = await authorizedFetch(`${baseUrl}/me/`);
+      if (response.ok) {
+        const data = await response.json();
+        setBackendProfile(data);
+        return data;
+      }
+    } catch (error) {
+      console.error("Failed to fetch user profile:", error);
+    }
+    return null;
+  }, [authorizedFetch, baseUrl]);
+
   useEffect(() => {
     if (!authReady || !baseUrl) return;
 
     (async () => {
       try {
-        const response = await authorizedFetch(`${baseUrl}/me/`);
-        if (response.ok) {
-          const data = await response.json();
+        const data = await fetchBackendProfile();
+        if (data) {
           const backendLang = data.default_language;
           if (backendLang && backendLang !== language) {
             authorizedFetch(`${baseUrl}/me/`, {
@@ -155,8 +170,6 @@ function App() {
             );
           }
         }
-      } catch (error) {
-        console.error("Failed to fetch user profile:", error);
       } finally {
         languageLoadedRef.current = true;
       }
@@ -711,6 +724,16 @@ function App() {
     }, {});
   }, [severityEntries]);
 
+  // Prefer backend profile name, fallback to Auth0 name
+  const displayName = useMemo(() => {
+    const firstName = backendProfile?.first_name?.trim();
+    const lastName = backendProfile?.last_name?.trim();
+    if (firstName || lastName) {
+      return [firstName, lastName].filter(Boolean).join(" ");
+    }
+    return user?.name || user?.email || "User";
+  }, [backendProfile, user]);
+
   if (authError) {
     return (
       <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
@@ -754,8 +777,6 @@ function App() {
       />
     );
   }
-
-  const displayName = user?.name || user?.email || "User";
 
   return (
     <div className="app-root d-flex flex-column min-vh-100">
@@ -926,6 +947,8 @@ function App() {
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
               user={user}
+              backendProfile={backendProfile}
+              onProfileUpdate={fetchBackendProfile}
             />
           ) : !backendAuthorizationError ? (
             <section className="app-main-content p-4 flex-grow-1">
