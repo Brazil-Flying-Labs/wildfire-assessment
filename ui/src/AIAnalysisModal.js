@@ -1,8 +1,21 @@
 import { useCallback, useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 
+const RESPONSE_ID_REGEX = /\n?\n?\[RESPONSE_ID\](.*?)\[\/RESPONSE_ID\]$/;
+
 /**
- * AI Analysis floating button and modal component.
+ * Parse streaming text to extract the response_id marker appended by the backend.
+ */
+function extractResponseId(text) {
+  const match = text.match(RESPONSE_ID_REGEX);
+  if (match) {
+    return { text: text.replace(RESPONSE_ID_REGEX, ""), responseId: match[1] };
+  }
+  return { text, responseId: null };
+}
+
+/**
+ * AI Analysis floating button and modal component with follow-up chat.
  * Only visible for authorized test users.
  */
 function AIAnalysisModal({
@@ -11,28 +24,49 @@ function AIAnalysisModal({
   postFireDate,
   areaOfInterest,
   severityDistribution,
+  imageUrls,
   authorizedFetch,
   baseUrl,
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [analysisText, setAnalysisText] = useState("");
+  // messages: [{ role: "assistant"|"user", text: string }]
+  const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [question, setQuestion] = useState("");
+  const responseIdRef = useRef(null);
   const abortControllerRef = useRef(null);
   const contentRef = useRef(null);
+  const inputRef = useRef(null);
+  const severityRef = useRef(severityDistribution);
+  const imageUrlsRef = useRef(imageUrls);
+  severityRef.current = severityDistribution;
+  imageUrlsRef.current = imageUrls;
 
-  // Auto-scroll to bottom as content streams in
+  // Clear cached AI analysis when a new fire analysis is run
   useEffect(() => {
-    if (contentRef.current && analysisText) {
+    setMessages([]);
+    setError(null);
+    setIsModalOpen(false);
+    responseIdRef.current = null;
+  }, [preFireDate, postFireDate, areaOfInterest, severityDistribution]);
+
+  // Auto-scroll to bottom as content changes
+  useEffect(() => {
+    if (contentRef.current) {
       contentRef.current.scrollTop = contentRef.current.scrollHeight;
     }
-  }, [analysisText]);
+  }, [messages, isLoading]);
+
+  const startAnalysisRef = useRef(null);
 
   const openModal = useCallback(() => {
     setIsModalOpen(true);
-    setAnalysisText("");
-    setError(null);
-  }, []);
+    if (!messages.length && !isLoading) {
+      setError(null);
+      startAnalysisRef.current = true;
+    }
+  }, [messages.length, isLoading]);
 
   const closeModal = useCallback(() => {
     if (abortControllerRef.current) {
@@ -43,10 +77,44 @@ function AIAnalysisModal({
     setIsLoading(false);
   }, []);
 
+  /**
+   * Read a streaming response, appending text to the last assistant message.
+   * Extracts the response_id from the final marker.
+   */
+  const readStream = useCallback(async (response) => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      fullText += chunk;
+
+      // Strip the response_id marker for display
+      const { text: cleanText } = extractResponseId(fullText);
+      setMessages((prev) => {
+        const updated = [...prev];
+        updated[updated.length - 1] = { role: "assistant", text: cleanText };
+        return updated;
+      });
+    }
+
+    const { text: finalText, responseId } = extractResponseId(fullText);
+    if (responseId) {
+      responseIdRef.current = responseId;
+    }
+    setMessages((prev) => {
+      const updated = [...prev];
+      updated[updated.length - 1] = { role: "assistant", text: finalText };
+      return updated;
+    });
+  }, []);
+
   const startAnalysis = useCallback(async () => {
     if (!baseUrl || isLoading) return;
 
-    // Abort any existing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -55,20 +123,39 @@ function AIAnalysisModal({
     abortControllerRef.current = controller;
 
     setIsLoading(true);
-    setAnalysisText("");
+    setMessages([{ role: "assistant", text: "" }]);
     setError(null);
+    responseIdRef.current = null;
 
     try {
+      const images = imageUrlsRef.current || [];
+      const imageDataUrls = await Promise.all(
+        images.map(async ({ label, url }) => {
+          try {
+            const resp = await fetch(url);
+            const blob = await resp.blob();
+            const dataUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.readAsDataURL(blob);
+            });
+            return { label, url: dataUrl };
+          } catch {
+            return null;
+          }
+        })
+      );
+
       const response = await authorizedFetch(`${baseUrl}/analysis/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pre_fire_date: preFireDate,
           post_fire_date: postFireDate,
           area_of_interest: areaOfInterest,
-          severity_distribution: severityDistribution,
+          severity_distribution: severityRef.current,
+          image_urls: imageDataUrls.filter(Boolean),
+
         }),
         signal: controller.signal,
       });
@@ -78,45 +165,97 @@ function AIAnalysisModal({
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      // Read the streaming response
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        setAnalysisText((prev) => prev + chunk);
-      }
+      await readStream(response);
     } catch (err) {
-      if (err.name === "AbortError") {
-        return;
-      }
+      if (err.name === "AbortError") return;
       console.error("AI Analysis error:", err);
       setError(err.message || "Failed to generate analysis");
+      setMessages([]);
     } finally {
       if (abortControllerRef.current === controller) {
         setIsLoading(false);
         abortControllerRef.current = null;
       }
     }
-  }, [
-    authorizedFetch,
-    baseUrl,
-    preFireDate,
-    postFireDate,
-    areaOfInterest,
-    severityDistribution,
-    isLoading,
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authorizedFetch, baseUrl, preFireDate, postFireDate, areaOfInterest, readStream]);
 
-  // Start analysis when modal opens
+  const sendFollowUp = useCallback(async () => {
+    const trimmed = question.trim();
+    if (!trimmed || !baseUrl || isLoading || !responseIdRef.current) return;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setQuestion("");
+    setIsLoading(true);
+    setError(null);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: trimmed },
+      { role: "assistant", text: "" },
+    ]);
+
+    try {
+      const response = await authorizedFetch(`${baseUrl}/analysis/followup/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          previous_response_id: responseIdRef.current,
+          question: trimmed,
+
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      await readStream(response);
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      console.error("AI Follow-up error:", err);
+      setError(err.message || "Failed to get response");
+      // Remove the empty assistant message
+      setMessages((prev) => prev.slice(0, -1));
+    } finally {
+      if (abortControllerRef.current === controller) {
+        setIsLoading(false);
+        abortControllerRef.current = null;
+      }
+    }
+  }, [authorizedFetch, baseUrl, isLoading, question, readStream]);
+
+  const handleKeyDown = useCallback(
+    (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendFollowUp();
+      }
+    },
+    [sendFollowUp]
+  );
+
+  // Start analysis once when modal opens
   useEffect(() => {
-    if (isModalOpen && !analysisText && !isLoading && !error) {
+    if (startAnalysisRef.current && isModalOpen) {
+      startAnalysisRef.current = false;
       startAnalysis();
     }
-  }, [isModalOpen, analysisText, isLoading, error, startAnalysis]);
+  }, [isModalOpen, startAnalysis]);
+
+  // Focus input when loading finishes and there are messages
+  useEffect(() => {
+    if (!isLoading && messages.length > 0 && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isLoading, messages.length]);
 
   if (!isVisible) {
     return null;
@@ -158,7 +297,7 @@ function AIAnalysisModal({
           >
             <div className="ai-analysis-modal-header">
               <h2 className="ai-analysis-modal-title">
-                🤖 AI Wildfire Analysis
+                AI Wildfire Analysis
               </h2>
               <button
                 type="button"
@@ -166,7 +305,7 @@ function AIAnalysisModal({
                 onClick={closeModal}
                 aria-label="Close"
               >
-                ×
+                &times;
               </button>
             </div>
 
@@ -177,14 +316,14 @@ function AIAnalysisModal({
                   <button
                     type="button"
                     className="btn btn-outline-danger btn-sm ms-3"
-                    onClick={startAnalysis}
+                    onClick={messages.length ? sendFollowUp : startAnalysis}
                   >
                     Retry
                   </button>
                 </div>
               )}
 
-              {!error && !analysisText && isLoading && (
+              {!error && !messages.length && isLoading && (
                 <div className="text-center py-5">
                   <div className="spinner-border text-primary mb-3" role="status">
                     <span className="visually-hidden">Loading...</span>
@@ -193,27 +332,60 @@ function AIAnalysisModal({
                 </div>
               )}
 
-              {analysisText && (
-                <div className="ai-analysis-content">
-                  <ReactMarkdown>{analysisText}</ReactMarkdown>
-                  {isLoading && (
-                    <span className="ai-analysis-cursor">▌</span>
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`ai-chat-message ai-chat-${msg.role}`}
+                >
+                  {msg.role === "user" ? (
+                    <div className="ai-chat-user-bubble">{msg.text}</div>
+                  ) : (
+                    <div className="ai-analysis-content">
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                      {isLoading && idx === messages.length - 1 && (
+                        <span className="ai-analysis-cursor">&#9612;</span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
+              ))}
             </div>
 
             <div className="ai-analysis-modal-footer">
-              <small className="text-muted">
-                Powered by OpenAI GPT-4o-mini
-              </small>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={closeModal}
-              >
-                Close
-              </button>
+              {messages.length > 0 && responseIdRef.current && (
+                <div className="ai-chat-input-row">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Ask a follow-up question..."
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={sendFollowUp}
+                    disabled={isLoading || !question.trim()}
+                  >
+                    Send
+                  </button>
+                </div>
+              )}
+              <div className="ai-chat-footer-meta">
+                <small className="text-muted">
+                  Powered by OpenAI GPT-4o-mini
+                </small>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={closeModal}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -25,6 +25,7 @@ LOG = logging.getLogger(__name__)
 ENV = os.environ.get("ENV", "local")
 USE_LOCAL_SECRET = os.environ.get("SKIP_AWS_SECRETS") == "1"
 
+
 if USE_LOCAL_SECRET:
     secret = {
         "SOCIAL_AUTH_AUTH0_DOMAIN": "your-domain.auth0.com",
@@ -52,6 +53,8 @@ if USE_LOCAL_SECRET:
     }
 else:
     secret = json.loads(get_aws_secret_manager_secret(ENV))
+
+OPENAI_API_KEY = secret.get("OPENAI_API_KEY")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

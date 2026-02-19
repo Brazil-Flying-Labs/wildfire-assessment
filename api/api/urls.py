@@ -26,6 +26,7 @@ from drf_spectacular.views import (
 )
 from rest_framework import routers
 from wildfire_assessment.views import (
+    AIAnalysisFollowUpView,
     AIAnalysisView,
     EcologicalReserveViewSet,
     UserMeView,
@@ -39,6 +40,7 @@ urlpatterns = [
     path("", health_status, name="health-status"),
     path("me/", UserMeView.as_view(), name="user-me"),
     path("analysis/", AIAnalysisView.as_view(), name="ai-analysis"),
+    path("analysis/followup/", AIAnalysisFollowUpView.as_view(), name="ai-analysis-followup"),
     path("", include(router.urls)),
     path(
         "admin/login/",

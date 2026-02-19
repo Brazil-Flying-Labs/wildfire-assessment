@@ -44,3 +44,20 @@ class AnalysisRequestSerializer(serializers.Serializer):
         child=serializers.DictField(),
         help_text="DNBR severity distribution data",
     )
+    image_urls = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        default=list,
+        help_text="List of image objects with 'label' and 'url' keys",
+    )
+
+
+class AnalysisFollowUpSerializer(serializers.Serializer):
+    """Serializer for AI analysis follow-up questions."""
+
+    previous_response_id = serializers.CharField(
+        help_text="OpenAI response ID from the previous response"
+    )
+    question = serializers.CharField(
+        help_text="Follow-up question about the analysis"
+    )

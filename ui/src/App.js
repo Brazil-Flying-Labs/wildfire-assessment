@@ -1204,6 +1204,7 @@ function App() {
         postFireDate={postFireDate}
         areaOfInterest={selectedReserveName}
         severityDistribution={severityDistributionForAPI}
+        imageUrls={imageEntries.map(([key, url]) => ({ label: formatLabel(key), url }))}
         authorizedFetch={authorizedFetch}
         baseUrl={baseUrl}
       />

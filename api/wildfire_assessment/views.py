@@ -14,11 +14,15 @@ from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_assessment.models import EcologicalReserve
 from wildfire_assessment.serializers import (
+    AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
     EcologicalReserveSerializer,
     UserMeSerializer,
 )
-from wildfire_assessment.svc.openai_analysis import generate_analysis_stream
+from wildfire_assessment.svc.openai_analysis import (
+    generate_analysis_stream,
+    generate_followup_stream,
+)
 from wildfire_assessment.svc.processor import (
     process_fire_assessment,
     process_scientific_deliverable,
@@ -233,20 +237,25 @@ class AIAnalysisView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
+        language = getattr(
+            getattr(request.user, "profile", None), "default_language", "en"
+        )
 
         try:
-            response = StreamingHttpResponse(
-                generate_analysis_stream(
-                    pre_fire_date=str(data["pre_fire_date"]),
-                    post_fire_date=str(data["post_fire_date"]),
-                    area_of_interest=data["area_of_interest"],
-                    severity_distribution=data["severity_distribution"],
-                ),
-                content_type="text/plain; charset=utf-8",
+            stream, holder = generate_analysis_stream(
+                pre_fire_date=str(data["pre_fire_date"]),
+                post_fire_date=str(data["post_fire_date"]),
+                area_of_interest=data["area_of_interest"],
+                severity_distribution=data["severity_distribution"],
+                image_urls=data.get("image_urls", []),
+                language=language,
             )
-            response["Cache-Control"] = "no-cache"
-            response["X-Accel-Buffering"] = "no"
-            return response
+            first_chunk = next(stream)
+        except StopIteration:
+            return Response(
+                {"error": "AI analysis returned empty response"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
         except ValueError as e:
             return Response(
                 {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -257,3 +266,66 @@ class AIAnalysisView(APIView):
                 {"error": f"Failed to generate analysis: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+        return _build_streaming_response(first_chunk, stream, holder)
+
+
+class AIAnalysisFollowUpView(APIView):
+    """Follow-up questions on a previous AI analysis."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = AnalysisFollowUpSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        language = getattr(
+            getattr(request.user, "profile", None), "default_language", "en"
+        )
+
+        try:
+            stream, holder = generate_followup_stream(
+                previous_response_id=data["previous_response_id"],
+                question=data["question"],
+                language=language,
+            )
+            first_chunk = next(stream)
+        except StopIteration:
+            return Response(
+                {"error": "AI returned empty response"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except ValueError as e:
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        except Exception as e:
+            LOG.exception("Error generating AI follow-up")
+            return Response(
+                {"error": f"Failed to generate response: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return _build_streaming_response(first_chunk, stream, holder)
+
+
+def _build_streaming_response(first_chunk, stream, holder):
+    """Build a StreamingHttpResponse that appends the response_id as a final marker."""
+
+    def stream_with_response_id():
+        yield first_chunk
+        yield from stream
+        # Send response_id as a parseable final line
+        response_id = holder.get("response_id")
+        if response_id:
+            yield f"\n\n[RESPONSE_ID]{response_id}[/RESPONSE_ID]"
+
+    response = StreamingHttpResponse(
+        stream_with_response_id(),
+        content_type="text/plain; charset=utf-8",
+    )
+    response["Cache-Control"] = "no-cache"
+    response["X-Accel-Buffering"] = "no"
+    return response

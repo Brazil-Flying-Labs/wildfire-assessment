@@ -371,14 +371,54 @@
   }
 }
 
+.ai-chat-message {
+  margin-bottom: 1rem;
+}
+
+.ai-chat-user {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ai-chat-user-bubble {
+  background-color: #1a2740;
+  color: #fff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 1rem 1rem 0.25rem 1rem;
+  max-width: 80%;
+  white-space: pre-wrap;
+}
+
+.ai-chat-assistant {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .ai-analysis-modal-footer {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 0.5rem;
   padding: 12px 20px;
   border-top: 1px solid #e9ecef;
   background: #f8f9fa;
   border-radius: 0 0 12px 12px;
+}
+
+.ai-chat-input-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.ai-chat-input-row input {
+  flex: 1;
+}
+
+.ai-chat-footer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
 }
 
 @media (max-width: 576px) {
