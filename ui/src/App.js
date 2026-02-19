@@ -758,7 +758,7 @@ function App() {
     <div className="app-root d-flex flex-column min-vh-100">
       <header className="app-header text-white">
         <div className="container-fluid d-flex align-items-center justify-content-between py-3 gap-3">
-          <div className="d-flex align-items-center gap-3 flex-shrink-0">
+          <div className="d-flex align-items-center gap-2 gap-md-3 header-brand">
             <button
               type="button"
               className="btn p-0 border-0 bg-transparent"
