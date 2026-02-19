@@ -6,6 +6,7 @@ import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
 import AreasOfInterest from "./AreasOfInterest";
+import UserProfile from "./UserProfile";
 
 const UI_VERSION = "1.3.0";
 
@@ -885,6 +886,19 @@ function App() {
                 <span>{t("nav.areas")}</span>
               </button>
             </li>
+            <li>
+              <button
+                type="button"
+                className={`nav-sidebar-item ${currentPage === "profile" ? "active" : ""}`}
+                onClick={() => navigateTo("profile")}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span>{t("nav.profile")}</span>
+              </button>
+            </li>
           </ul>
         </nav>
 
@@ -906,6 +920,12 @@ function App() {
             <AreasOfInterest
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
+            />
+          ) : currentPage === "profile" ? (
+            <UserProfile
+              authorizedFetch={authorizedFetch}
+              baseUrl={baseUrl}
+              user={user}
             />
           ) : !backendAuthorizationError ? (
             <section className="app-main-content p-4 flex-grow-1">

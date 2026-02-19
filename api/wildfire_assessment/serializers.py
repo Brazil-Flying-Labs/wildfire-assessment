@@ -294,7 +294,9 @@ EcologicalReserveUpdateSerializer = AreaOfInterestUpdateSerializer
 
 
 class UserMeSerializer(serializers.ModelSerializer):
-    default_language = serializers.CharField(source="profile.default_language")
+    default_language = serializers.CharField(
+        source="profile.default_language", required=False
+    )
     authorized_countries = serializers.SerializerMethodField()
 
     class Meta:
@@ -306,7 +308,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             "default_language",
             "authorized_countries",
         ]
-        read_only_fields = ["email", "first_name", "last_name", "authorized_countries"]
+        read_only_fields = ["email", "authorized_countries"]
 
     def get_authorized_countries(self, obj):
         countries = Country.objects.filter(
@@ -316,10 +318,20 @@ class UserMeSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
+
+        # Update first_name and last_name if provided
+        if "first_name" in validated_data:
+            instance.first_name = validated_data["first_name"]
+        if "last_name" in validated_data:
+            instance.last_name = validated_data["last_name"]
+        instance.save()
+
+        # Update language preference
         if "default_language" in profile_data:
             profile, _ = UserProfile.objects.get_or_create(user=instance)
             profile.default_language = profile_data["default_language"]
             profile.save(update_fields=["default_language"])
+
         return instance
 
 

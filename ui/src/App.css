@@ -764,6 +764,12 @@
   }
 }
 
+/* User Profile page */
+.user-profile {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
 /* Placeholder card styling */
 .placeholder-card {
   background-color: #ffffff;
