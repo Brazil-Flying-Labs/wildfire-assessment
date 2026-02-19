@@ -177,6 +177,155 @@ class WildfireAssessmentTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    def test_search_by_name(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-list")
+        response = self.client.get(f"{url}?search=Reserve")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["name"], "Reserve A")
+
+    def test_search_by_country(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-list")
+        response = self.client.get(f"{url}?search=Test Country")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["count"], 1)
+
+    def test_search_no_results(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-list")
+        response = self.client.get(f"{url}?search=NonExistent")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["count"], 0)
+
+    def test_create_area_of_interest_success(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-list")
+        payload = {
+            "name": "New Area",
+            "country": self.country.id,
+            "geojson": {
+                "type": "Feature",
+                "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
+                "properties": {},
+            },
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.json()["name"], "New Area")
+        self.assertTrue(AreaOfInterest.objects.filter(name="New Area").exists())
+
+    def test_create_area_of_interest_unauthorized_country(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-list")
+        payload = {
+            "name": "New Area",
+            "country": self.other_country.id,  # User doesn't have access
+            "geojson": {"type": "Feature", "geometry": {}, "properties": {}},
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("country", response.json())
+
+    def test_create_area_of_interest_invalid_geojson_not_dict(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-list")
+        payload = {
+            "name": "New Area",
+            "country": self.country.id,
+            "geojson": "not a dict",
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("geojson", response.json())
+
+    def test_create_area_of_interest_invalid_geojson_type(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-list")
+        payload = {
+            "name": "New Area",
+            "country": self.country.id,
+            "geojson": {"type": "InvalidType"},
+        }
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("geojson", response.json())
+
+    def test_delete_area_of_interest_success(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-detail", args=[self.reserve.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(AreaOfInterest.objects.filter(id=self.reserve.id).exists())
+
+    def test_delete_area_of_interest_no_permission(self):
+        # User has permission for country but not other_country
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-detail", args=[self.other_reserve.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_delete_area_of_interest_with_file_cleanup(self):
+        from unittest.mock import patch
+
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+
+        # Create a temp file to simulate polygon file
+        with patch("os.path.exists", return_value=True), \
+             patch("os.remove") as mock_remove:
+            url = reverse("areaofinterest-detail", args=[self.reserve.id])
+            response = self.client.delete(url)
+            self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+            mock_remove.assert_called_once()
+
+    def test_delete_area_of_interest_file_deletion_error(self):
+        from unittest.mock import patch
+
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+
+        # Simulate file deletion error
+        with patch("os.path.exists", return_value=True), \
+             patch("os.remove", side_effect=OSError("Permission denied")), \
+             patch("wildfire_assessment.views.LOG") as mock_log:
+            url = reverse("areaofinterest-detail", args=[self.reserve.id])
+            response = self.client.delete(url)
+            # Should still succeed even if file deletion fails
+            self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+            mock_log.warning.assert_called_once()
+
+    def test_delete_area_of_interest_permission_check_in_destroy(self):
+        """Test the defensive permission check in destroy method."""
+        from unittest.mock import patch
+
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+
+        # Patch get_object to return a reserve from a different country
+        # This tests the defensive permission check that would normally be unreachable
+        with patch(
+            "wildfire_assessment.views.AreaOfInterestViewSet.get_object",
+            return_value=self.other_reserve
+        ):
+            url = reverse("areaofinterest-detail", args=[self.other_reserve.id])
+            response = self.client.delete(url)
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+            self.assertIn("permission", response.json()["error"])
+
 
 class UserMeViewTests(APITestCase):
     def setUp(self):
