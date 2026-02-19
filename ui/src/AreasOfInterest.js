@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "./LanguageContext";
 
-function ReservesManagement({ authorizedFetch, baseUrl }) {
+function AreasOfInterest({ authorizedFetch, baseUrl }) {
   const { t } = useLanguage();
-  const [reserves, setReserves] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [authorizedCountries, setAuthorizedCountries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,7 +26,7 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
   const [searchInput, setSearchInput] = useState("");
   const pageSize = 20;
 
-  const loadReserves = useCallback(async (page = 1, search = "") => {
+  const loadAreas = useCallback(async (page = 1, search = "") => {
     if (!baseUrl) return;
 
     setLoading(true);
@@ -39,20 +39,20 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
         params.append("search", search);
       }
 
-      // Fetch reserves with pagination
-      const reservesResponse = await authorizedFetch(
-        `${baseUrl}/ecological_reserve/?${params.toString()}`
+      // Fetch areas with pagination
+      const areasResponse = await authorizedFetch(
+        `${baseUrl}/area_of_interest/?${params.toString()}`
       );
-      if (reservesResponse.ok) {
-        const reservesData = await reservesResponse.json();
-        setReserves(reservesData.results || []);
-        setTotalCount(reservesData.count || 0);
+      if (areasResponse.ok) {
+        const areasData = await areasResponse.json();
+        setAreas(areasData.results || []);
+        setTotalCount(areasData.count || 0);
         setCurrentPage(page);
       } else {
-        throw new Error(t("reserves.errorLoading"));
+        throw new Error(t("areas.errorLoading"));
       }
     } catch (err) {
-      console.error("Error loading reserves:", err);
+      console.error("Error loading areas:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -75,16 +75,16 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
 
   const loadData = useCallback(async () => {
     await loadAuthorizedCountries();
-    await loadReserves(1, searchTerm);
-  }, [loadAuthorizedCountries, loadReserves, searchTerm]);
+    await loadAreas(1, searchTerm);
+  }, [loadAuthorizedCountries, loadAreas, searchTerm]);
 
   useEffect(() => {
     loadAuthorizedCountries();
   }, [loadAuthorizedCountries]);
 
   useEffect(() => {
-    loadReserves(currentPage, searchTerm);
-  }, [loadReserves, currentPage, searchTerm]);
+    loadAreas(currentPage, searchTerm);
+  }, [loadAreas, currentPage, searchTerm]);
 
   const handleSearch = useCallback((e) => {
     e.preventDefault();
@@ -128,7 +128,7 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
       e.preventDefault();
 
       if (!formData.name || !formData.country || !geojsonFile) {
-        setSubmitError(t("reserves.fillAllFields"));
+        setSubmitError(t("areas.fillAllFields"));
         return;
       }
 
@@ -141,7 +141,7 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
         const fileContent = await new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target.result);
-          reader.onerror = () => reject(new Error(t("reserves.errorReadingFile")));
+          reader.onerror = () => reject(new Error(t("areas.errorReadingFile")));
           reader.readAsText(geojsonFile);
         });
 
@@ -149,7 +149,7 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
         try {
           geojsonData = JSON.parse(fileContent);
         } catch (parseError) {
-          throw new Error(t("reserves.invalidGeojson"));
+          throw new Error(t("areas.invalidGeojson"));
         }
 
         const payload = {
@@ -158,7 +158,7 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
           geojson: geojsonData,
         };
 
-        const response = await authorizedFetch(`${baseUrl}/ecological_reserve/`, {
+        const response = await authorizedFetch(`${baseUrl}/area_of_interest/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -172,15 +172,15 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
             errorData.detail ||
               errorData.error ||
               Object.values(errorData).flat().join(", ") ||
-              t("reserves.errorCreating")
+              t("areas.errorCreating")
           );
         }
 
-        setSubmitSuccess(t("reserves.createSuccess"));
+        setSubmitSuccess(t("areas.createSuccess"));
         resetForm();
-        loadReserves(1, searchTerm);
+        loadAreas(1, searchTerm);
       } catch (err) {
-        console.error("Error creating reserve:", err);
+        console.error("Error creating area:", err);
         setSubmitError(err.message);
       } finally {
         setSubmitting(false);
@@ -190,12 +190,12 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
   );
 
   const handleDelete = useCallback(
-    async (reserveId) => {
+    async (areaId) => {
       setDeleting(true);
 
       try {
         const response = await authorizedFetch(
-          `${baseUrl}/ecological_reserve/${reserveId}/`,
+          `${baseUrl}/area_of_interest/${areaId}/`,
           {
             method: "DELETE",
           }
@@ -203,14 +203,14 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
 
         if (!response.ok && response.status !== 204) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || t("reserves.errorDeleting"));
+          throw new Error(errorData.error || t("areas.errorDeleting"));
         }
 
-        setSubmitSuccess(t("reserves.deleteSuccess"));
+        setSubmitSuccess(t("areas.deleteSuccess"));
         setDeleteConfirm(null);
-        loadReserves(currentPage, searchTerm);
+        loadAreas(currentPage, searchTerm);
       } catch (err) {
-        console.error("Error deleting reserve:", err);
+        console.error("Error deleting area:", err);
         setSubmitError(err.message);
       } finally {
         setDeleting(false);
@@ -249,8 +249,8 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
   }
 
   return (
-    <div className="reserves-management p-4">
-      <h2 className="h4 mb-4">{t("reserves.title")}</h2>
+    <div className="areas-management p-4">
+      <h2 className="h4 mb-4">{t("areas.title")}</h2>
 
       {/* Success/Error Messages */}
       {submitSuccess && (
@@ -285,40 +285,40 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
       {/* Create Form */}
       <div className="card shadow-sm mb-4">
         <div className="card-header">
-          <h3 className="h5 mb-0">{t("reserves.createNew")}</h3>
+          <h3 className="h5 mb-0">{t("areas.createNew")}</h3>
         </div>
         <div className="card-body">
           <form onSubmit={handleSubmit}>
             <div className="row g-3">
               <div className="col-md-4">
-                <label htmlFor="reserveName" className="form-label">
-                  {t("reserves.name")} *
+                <label htmlFor="areaName" className="form-label">
+                  {t("areas.name")} *
                 </label>
                 <input
                   type="text"
                   className="form-control"
-                  id="reserveName"
+                  id="areaName"
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder={t("reserves.namePlaceholder")}
+                  placeholder={t("areas.namePlaceholder")}
                   required
                 />
               </div>
 
               <div className="col-md-4">
-                <label htmlFor="reserveCountry" className="form-label">
-                  {t("reserves.country")} *
+                <label htmlFor="areaCountry" className="form-label">
+                  {t("areas.country")} *
                 </label>
                 <select
                   className="form-select"
-                  id="reserveCountry"
+                  id="areaCountry"
                   name="country"
                   value={formData.country}
                   onChange={handleInputChange}
                   required
                 >
-                  <option value="">{t("reserves.selectCountry")}</option>
+                  <option value="">{t("areas.selectCountry")}</option>
                   {authorizedCountries.map((country) => (
                     <option key={country.id} value={country.id}>
                       {country.name} ({country.code})
@@ -327,25 +327,25 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
                 </select>
                 {authorizedCountries.length === 0 && (
                   <div className="form-text text-warning">
-                    {t("reserves.noCountries")}
+                    {t("areas.noCountries")}
                   </div>
                 )}
               </div>
 
               <div className="col-md-4">
-                <label htmlFor="reserveGeojson" className="form-label">
-                  {t("reserves.geojsonFile")} *
+                <label htmlFor="areaGeojson" className="form-label">
+                  {t("areas.geojsonFile")} *
                 </label>
                 <input
                   type="file"
                   className="form-control"
-                  id="reserveGeojson"
+                  id="areaGeojson"
                   ref={fileInputRef}
                   accept=".geojson,.json"
                   onChange={handleFileChange}
                   required
                 />
-                <div className="form-text">{t("reserves.geojsonHint")}</div>
+                <div className="form-text">{t("areas.geojsonHint")}</div>
               </div>
             </div>
 
@@ -362,10 +362,10 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
                       role="status"
                       aria-hidden="true"
                     ></span>
-                    {t("reserves.creating")}
+                    {t("areas.creating")}
                   </>
                 ) : (
-                  t("reserves.create")
+                  t("areas.create")
                 )}
               </button>
               <button
@@ -374,20 +374,20 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
                 onClick={resetForm}
                 disabled={submitting}
               >
-                {t("reserves.reset")}
+                {t("areas.reset")}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Reserves Table */}
+      {/* Areas Table */}
       <div className="card shadow-sm">
         <div className="card-header">
           <div className="d-flex justify-content-between align-items-center mb-3">
-            <h3 className="h5 mb-0">{t("reserves.existingReserves")}</h3>
+            <h3 className="h5 mb-0">{t("areas.existingAreas")}</h3>
             <span className="badge bg-secondary">
-              {totalCount} {t("reserves.total")}
+              {totalCount} {t("areas.total")}
             </span>
           </div>
           {/* Search Bar */}
@@ -395,12 +395,12 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
             <input
               type="text"
               className="form-control"
-              placeholder={t("reserves.searchPlaceholder")}
+              placeholder={t("areas.searchPlaceholder")}
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
             <button type="submit" className="btn btn-outline-primary">
-              {t("reserves.search")}
+              {t("areas.search")}
             </button>
             {searchTerm && (
               <button
@@ -408,57 +408,57 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
                 className="btn btn-outline-secondary"
                 onClick={handleClearSearch}
               >
-                {t("reserves.clearSearch")}
+                {t("areas.clearSearch")}
               </button>
             )}
           </form>
         </div>
         <div className="card-body p-0">
-          {reserves.length === 0 ? (
+          {areas.length === 0 ? (
             <div className="p-4 text-center text-muted">
-              {t("reserves.noReserves")}
+              {t("areas.noAreas")}
             </div>
           ) : (
             <div className="table-responsive">
               <table className="table table-hover mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th scope="col">{t("reserves.name")}</th>
-                    <th scope="col">{t("reserves.country")}</th>
-                    <th scope="col">{t("reserves.areaHa")}</th>
-                    <th scope="col">{t("reserves.municipality")}</th>
+                    <th scope="col">{t("areas.name")}</th>
+                    <th scope="col">{t("areas.country")}</th>
+                    <th scope="col">{t("areas.areaHa")}</th>
+                    <th scope="col">{t("areas.municipality")}</th>
                     <th scope="col" className="text-end">
-                      {t("reserves.actions")}
+                      {t("areas.actions")}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {reserves.map((reserve) => (
-                    <tr key={reserve.id}>
+                  {areas.map((area) => (
+                    <tr key={area.id}>
                       <td>
-                        <strong>{reserve.name}</strong>
+                        <strong>{area.name}</strong>
                       </td>
                       <td>
-                        {reserve.country_name
-                          ? `${reserve.country_name} (${reserve.country_code})`
+                        {area.country_name
+                          ? `${area.country_name} (${area.country_code})`
                           : "-"}
                       </td>
                       <td>
-                        {reserve.area_ha
-                          ? parseFloat(reserve.area_ha).toLocaleString("pt-BR", {
+                        {area.area_ha
+                          ? parseFloat(area.area_ha).toLocaleString("pt-BR", {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
                             })
                           : "-"}
                       </td>
-                      <td>{reserve.municipio || "-"}</td>
+                      <td>{area.municipio || "-"}</td>
                       <td className="text-end">
-                        {deleteConfirm === reserve.id ? (
+                        {deleteConfirm === area.id ? (
                           <div className="btn-group btn-group-sm">
                             <button
                               type="button"
                               className="btn btn-danger"
-                              onClick={() => handleDelete(reserve.id)}
+                              onClick={() => handleDelete(area.id)}
                               disabled={deleting}
                             >
                               {deleting ? (
@@ -468,7 +468,7 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
                                   aria-hidden="true"
                                 ></span>
                               ) : (
-                                t("reserves.confirmDelete")
+                                t("areas.confirmDelete")
                               )}
                             </button>
                             <button
@@ -477,17 +477,17 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
                               onClick={() => setDeleteConfirm(null)}
                               disabled={deleting}
                             >
-                              {t("reserves.cancel")}
+                              {t("areas.cancel")}
                             </button>
                           </div>
                         ) : (
                           <button
                             type="button"
                             className="btn btn-outline-danger btn-sm"
-                            onClick={() => setDeleteConfirm(reserve.id)}
-                            title={t("reserves.delete")}
+                            onClick={() => setDeleteConfirm(area.id)}
+                            title={t("areas.delete")}
                           >
-                            {t("reserves.delete")}
+                            {t("areas.delete")}
                           </button>
                         )}
                       </td>
@@ -502,11 +502,11 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
         {totalPages > 1 && (
           <div className="card-footer d-flex justify-content-between align-items-center">
             <div className="text-muted small">
-              {t("reserves.showing")} {(currentPage - 1) * pageSize + 1}-
-              {Math.min(currentPage * pageSize, totalCount)} {t("reserves.of")}{" "}
+              {t("areas.showing")} {(currentPage - 1) * pageSize + 1}-
+              {Math.min(currentPage * pageSize, totalCount)} {t("areas.of")}{" "}
               {totalCount}
             </div>
-            <nav aria-label={t("reserves.pagination")}>
+            <nav aria-label={t("areas.pagination")}>
               <ul className="pagination pagination-sm mb-0">
                 <li
                   className={`page-item ${currentPage === 1 ? "disabled" : ""}`}
@@ -595,4 +595,4 @@ function ReservesManagement({ authorizedFetch, baseUrl }) {
   );
 }
 
-export default ReservesManagement;
+export default AreasOfInterest;

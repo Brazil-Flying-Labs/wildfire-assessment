@@ -11,7 +11,7 @@ class Country(models.Model):
         return f"{self.code} - {self.name}"
 
 
-class EcologicalReserve(models.Model):
+class AreaOfInterest(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
     polygon_path = models.CharField(max_length=255)
@@ -26,10 +26,19 @@ class EcologicalReserve(models.Model):
     country = models.ForeignKey(
         Country,
         on_delete=models.CASCADE,
-        related_name="ecological_reserves",
+        related_name="areas_of_interest",
         null=True,
         blank=True,
     )
+
+    class Meta:
+        db_table = "wildfire_assessment_ecologicalreserve"
+        verbose_name = "Area of Interest"
+        verbose_name_plural = "Areas of Interest"
+
+
+# Alias for backward compatibility
+EcologicalReserve = AreaOfInterest
 
 
 class UserCountry(models.Model):

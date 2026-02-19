@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from wildfire_assessment.models import Country, EcologicalReserve
+from wildfire_assessment.models import AreaOfInterest, Country, UserCountry
 from wildfire_assessment.views import health_status
 
 
@@ -15,12 +15,12 @@ class WildfireAssessmentTests(APITestCase):
     def setUp(self):
         self.country = Country.objects.create(name="Test Country", code="TC")
         self.other_country = Country.objects.create(name="Other Country", code="OC")
-        self.reserve = EcologicalReserve.objects.create(
+        self.reserve = AreaOfInterest.objects.create(
             name="Reserve A",
             polygon_path="polygon.json",
             country=self.country,
         )
-        self.other_reserve = EcologicalReserve.objects.create(
+        self.other_reserve = AreaOfInterest.objects.create(
             name="Reserve B",
             polygon_path="polygon2.json",
             country=self.other_country,
@@ -30,7 +30,7 @@ class WildfireAssessmentTests(APITestCase):
         )
 
     def test_list_requires_authentication(self):
-        url = reverse("ecologicalreserve-list")
+        url = reverse("areaofinterest-list")
         response = self.client.get(url)
         self.assertIn(
             response.status_code,
@@ -38,7 +38,7 @@ class WildfireAssessmentTests(APITestCase):
         )
 
     def test_retrieve_requires_authentication(self):
-        url = reverse("ecologicalreserve-detail", args=[self.reserve.id])
+        url = reverse("areaofinterest-detail", args=[self.reserve.id])
         response = self.client.get(url)
         self.assertIn(
             response.status_code,
@@ -46,7 +46,7 @@ class WildfireAssessmentTests(APITestCase):
         )
 
     def test_analyze_requires_authentication(self):
-        base_url = reverse("ecologicalreserve-analyze", args=[self.reserve.id])
+        base_url = reverse("areaofinterest-analyze", args=[self.reserve.id])
         query = urlencode(
             {
                 "pre_fire_date": "2023-01-01",
@@ -61,7 +61,7 @@ class WildfireAssessmentTests(APITestCase):
 
     def test_scientific_deliverable_requires_authentication(self):
         base_url = reverse(
-            "ecologicalreserve-scientific-deliverable", args=[self.reserve.id]
+            "areaofinterest-scientific-deliverable", args=[self.reserve.id]
         )
         query = urlencode(
             {
@@ -78,26 +78,28 @@ class WildfireAssessmentTests(APITestCase):
 
     def test_list_returns_empty_without_country_permissions(self):
         self.client.force_authenticate(user=self.user)
-        url = reverse("ecologicalreserve-list")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json(), [])
-
-    def test_list_returns_only_authorized_country_reserves(self):
-        from wildfire_assessment.models import UserCountry
-
-        UserCountry.objects.create(user=self.user, country=self.country)
-        self.client.force_authenticate(user=self.user)
-        url = reverse("ecologicalreserve-list")
+        url = reverse("areaofinterest-list")
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["name"], self.reserve.name)
+        self.assertEqual(data["count"], 0)
+        self.assertEqual(data["results"], [])
+
+    def test_list_returns_only_authorized_country_reserves(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(len(data["results"]), 1)
+        self.assertEqual(data["results"][0]["name"], self.reserve.name)
 
     def test_retrieve_returns_reserve_for_authenticated_user(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
-        url = reverse("ecologicalreserve-detail", args=[self.reserve.id])
+        url = reverse("areaofinterest-detail", args=[self.reserve.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -108,6 +110,7 @@ class WildfireAssessmentTests(APITestCase):
     def test_analyze_calls_processor_with_expected_arguments(
         self, mock_process, mock_scientific
     ):
+        UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
         query = urlencode(
             {
@@ -115,7 +118,7 @@ class WildfireAssessmentTests(APITestCase):
                 "post_fire_date": "2023-01-15",
             }
         )
-        url = reverse("ecologicalreserve-analyze", args=[self.reserve.id])
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
 
         mock_process.return_value = {"s3_urls": {}, "analysis_results": {}}
         response = self.client.post(f"{url}?{query}")
@@ -130,9 +133,10 @@ class WildfireAssessmentTests(APITestCase):
 
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     def test_scientific_deliverable_handles_all_deliverables(self, mock_process):
+        UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
         url = reverse(
-            "ecologicalreserve-scientific-deliverable", args=[self.reserve.id]
+            "areaofinterest-scientific-deliverable", args=[self.reserve.id]
         )
 
         for deliverable in [

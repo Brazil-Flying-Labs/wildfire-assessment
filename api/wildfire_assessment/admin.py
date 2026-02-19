@@ -1,22 +1,17 @@
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from wildfire_assessment.models import (
-    Country,
-    EcologicalReserve,
-    UserCountry,
-    UserProfile,
-)
+from wildfire_assessment.models import AreaOfInterest, Country, UserCountry, UserProfile
 
 # Register your models here.
 
 
-class EcologicalReserveAdmin(admin.ModelAdmin):
+class AreaOfInterestAdmin(admin.ModelAdmin):
     list_display = ("name", "polygon_path", "country")
     search_fields = ("name", "polygon_path")
 
 
-admin.site.register(EcologicalReserve, EcologicalReserveAdmin)
+admin.site.register(AreaOfInterest, AreaOfInterestAdmin)
 
 
 class CountryAdmin(admin.ModelAdmin):

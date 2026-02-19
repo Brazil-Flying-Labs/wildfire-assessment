@@ -14,12 +14,12 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
-from wildfire_assessment.models import EcologicalReserve
+from wildfire_assessment.models import AreaOfInterest
 from wildfire_assessment.serializers import (
     AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
-    EcologicalReserveCreateSerializer,
-    EcologicalReserveSerializer,
+    AreaOfInterestCreateSerializer,
+    AreaOfInterestSerializer,
     UserMeSerializer,
 )
 from wildfire_assessment.svc.ai_analysis import (
@@ -38,29 +38,29 @@ def health_status(_request):
     return JsonResponse({"status": "ok"})
 
 
-class EcologicalReservePagination(PageNumberPagination):
+class AreaOfInterestPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = "page_size"
     max_page_size = 100
 
 
-class EcologicalReserveViewSet(viewsets.ModelViewSet):
+class AreaOfInterestViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for EcologicalReserve CRUD operations.
+    ViewSet for AreaOfInterest CRUD operations.
 
     Supports list, retrieve, create, and delete operations.
-    Users can only access reserves in countries they are authorized for.
+    Users can only access areas in countries they are authorized for.
     """
 
-    queryset = EcologicalReserve.objects.all().order_by("name")
-    serializer_class = EcologicalReserveSerializer
+    queryset = AreaOfInterest.objects.all().order_by("name")
+    serializer_class = AreaOfInterestSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = EcologicalReservePagination
+    pagination_class = AreaOfInterestPagination
 
     def get_serializer_class(self):
         if self.action == "create":
-            return EcologicalReserveCreateSerializer
-        return EcologicalReserveSerializer
+            return AreaOfInterestCreateSerializer
+        return AreaOfInterestSerializer
 
     def get_queryset(self):
         """Filter queryset to only show reserves the user has access to."""
@@ -83,14 +83,14 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         """
-        Retrieve a specific EcologicalReserve by its ID.
+        Retrieve a specific AreaOfInterest by its ID.
 
         """
         return super().retrieve(request, *args, **kwargs)
 
     def list(self, request, *args, **kwargs):
         """
-        List all EcologicalReserves.
+        List all AreaOfInterests.
 
         Supports pagination (default 20 per page) and search by name or country.
         Query params:
@@ -102,13 +102,13 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """
-        Create a new EcologicalReserve with GeoJSON upload.
+        Create a new AreaOfInterest with GeoJSON upload.
         """
         return super().create(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         """
-        Delete an EcologicalReserve.
+        Delete an AreaOfInterest.
 
         Also deletes the associated GeoJSON file.
         """
@@ -171,8 +171,8 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="analyze")
     def analyze(self, request, pk=None):
         """
-        Custom action to analyze an EcologicalReserve.
-        The 'id' parameter is the id of the EcologicalReserve.
+        Custom action to analyze an AreaOfInterest.
+        The 'id' parameter is the id of the AreaOfInterest.
         """
         instance = self.get_object()
         execution_id = uuid.uuid4()
@@ -239,8 +239,8 @@ class EcologicalReserveViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="scientific_deliverable")
     def scientific_deliverable(self, request, pk=None):
         """
-        Custom action to analyze an EcologicalReserve.
-        The 'id' parameter is the id of the EcologicalReserve.
+        Custom action to analyze an AreaOfInterest.
+        The 'id' parameter is the id of the AreaOfInterest.
         """
 
         deliverable = request.query_params.get("deliverable")

@@ -3,17 +3,14 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
-from wildfire_assessment.models import Country, EcologicalReserve, UserProfile
-from wildfire_assessment.serializers import (
-    EcologicalReserveSerializer,
-    UserMeSerializer,
-)
+from wildfire_assessment.models import AreaOfInterest, Country, UserProfile
+from wildfire_assessment.serializers import AreaOfInterestSerializer, UserMeSerializer
 
 
-class EcologicalReserveSerializerTests(TestCase):
+class AreaOfInterestSerializerTests(TestCase):
     def setUp(self):
         self.country = Country.objects.create(name="Test Country", code="TC")
-        self.reserve = EcologicalReserve.objects.create(
+        self.reserve = AreaOfInterest.objects.create(
             name="Reserve A",
             polygon_path="polygon.json",
             municipio="Test City",
@@ -26,17 +23,17 @@ class EcologicalReserveSerializerTests(TestCase):
 
     def test_contains_expected_fields(self):
         request = self.factory.get("/")
-        serializer = EcologicalReserveSerializer(
+        serializer = AreaOfInterestSerializer(
             self.reserve, context={"request": request}
         )
         self.assertEqual(
             set(serializer.data.keys()),
-            {"id", "name", "polygon_path", "municipio", "site", "codigo_ibge", "area_ha"},
+            {"id", "name", "polygon_path", "municipio", "site", "codigo_ibge", "area_ha", "country", "country_name", "country_code"},
         )
 
     def test_field_values(self):
         request = self.factory.get("/")
-        serializer = EcologicalReserveSerializer(
+        serializer = AreaOfInterestSerializer(
             self.reserve, context={"request": request}
         )
         data = serializer.data
@@ -61,7 +58,7 @@ class UserMeSerializerTests(TestCase):
         serializer = UserMeSerializer(self.user)
         self.assertEqual(
             set(serializer.data.keys()),
-            {"email", "first_name", "last_name", "default_language"},
+            {"email", "first_name", "last_name", "default_language", "authorized_countries"},
         )
 
     def test_read_only_fields(self):

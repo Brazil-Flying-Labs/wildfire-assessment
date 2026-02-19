@@ -459,17 +459,17 @@
 }
 
 /* Reserves Management page */
-.reserves-management {
+.areas-management {
   max-width: 1200px;
   margin: 0 auto;
 }
 
-.reserves-management .table th,
-.reserves-management .table td {
+.areas-management .table th,
+.areas-management .table td {
   vertical-align: middle;
 }
 
-.reserves-management .card-header {
+.areas-management .card-header {
   background-color: #f8f9fa;
   border-bottom: 1px solid #e9ecef;
 }

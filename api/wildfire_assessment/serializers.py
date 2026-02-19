@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from wildfire_assessment.models import Country, EcologicalReserve, UserProfile
+from wildfire_assessment.models import AreaOfInterest, Country, UserProfile
 
 User = get_user_model()
 
@@ -11,12 +11,12 @@ class CountrySerializer(serializers.ModelSerializer):
         fields = ["id", "name", "code"]
 
 
-class EcologicalReserveSerializer(serializers.ModelSerializer):
+class AreaOfInterestSerializer(serializers.ModelSerializer):
     country_name = serializers.CharField(source="country.name", read_only=True)
     country_code = serializers.CharField(source="country.code", read_only=True)
 
     class Meta:
-        model = EcologicalReserve
+        model = AreaOfInterest
         fields = [
             "id",
             "name",
@@ -32,13 +32,17 @@ class EcologicalReserveSerializer(serializers.ModelSerializer):
         read_only_fields = ["polygon_path", "area_ha"]
 
 
-class EcologicalReserveCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating ecological reserves with GeoJSON upload."""
+# Alias for backward compatibility
+EcologicalReserveSerializer = AreaOfInterestSerializer
+
+
+class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating areas of interest with GeoJSON upload."""
 
     geojson = serializers.JSONField(write_only=True, required=True)
 
     class Meta:
-        model = EcologicalReserve
+        model = AreaOfInterest
         fields = ["id", "name", "country", "geojson"]
 
     def validate_country(self, value):
@@ -50,7 +54,7 @@ class EcologicalReserveCreateSerializer(serializers.ModelSerializer):
             )
             if value.id not in user_countries:
                 raise serializers.ValidationError(
-                    "You do not have permission to create reserves in this country."
+                    "You do not have permission to create areas of interest in this country."
                 )
         return value
 
@@ -103,6 +107,10 @@ class EcologicalReserveCreateSerializer(serializers.ModelSerializer):
         validated_data["area_ha"] = area_ha
 
         return super().create(validated_data)
+
+
+# Alias for backward compatibility
+EcologicalReserveCreateSerializer = AreaOfInterestCreateSerializer
 
 
 class UserMeSerializer(serializers.ModelSerializer):

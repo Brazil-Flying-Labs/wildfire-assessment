@@ -5,7 +5,7 @@ import AIAnalysisModal from "./AIAnalysisModal";
 import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
-import ReservesManagement from "./ReservesManagement";
+import AreasOfInterest from "./AreasOfInterest";
 
 const UI_VERSION = "1.2.0";
 
@@ -22,7 +22,7 @@ function App() {
     getAccessTokenSilently,
     error: authError,
   } = useAuth0();
-  const [ecologicalReserves, setEcologicalReserves] = useState([]);
+  const [areasOfInterest, setAreasOfInterest] = useState([]);
   const [fetchState, setFetchState] = useState({ loading: true, error: null });
   const [selectedReserve, setSelectedReserve] = useState("");
   const [preFireInput, setPreFireInput] = useState("");
@@ -48,7 +48,7 @@ function App() {
     }
   }, []);
 
-  // Page navigation state: "analysis" or "reserves"
+  // Page navigation state: "analysis" or "areas"
   const [currentPage, setCurrentPage] = useState("analysis");
 
   const toggleSidebar = useCallback(() => {
@@ -190,7 +190,7 @@ function App() {
     (async () => {
       try {
         const response = await authorizedFetch(
-          `${baseUrl}/ecological_reserve/`,
+          `${baseUrl}/area_of_interest/`,
           {
             signal: controller.signal,
           }
@@ -203,7 +203,7 @@ function App() {
         }
 
         const data = await response.json();
-        setEcologicalReserves(data);
+        setAreasOfInterest(data);
         setFetchState({ loading: false, error: null });
       } catch (error) {
         if (error.name === "AbortError") return;
@@ -314,7 +314,7 @@ function App() {
       );
     }
 
-    if (!ecologicalReserves.length) {
+    if (!areasOfInterest.length) {
       return (
         <option value="" disabled>
           {t("app.noReserves")}
@@ -326,7 +326,7 @@ function App() {
       <option key="placeholder" value="" disabled>
         {t("app.chooseOption")}
       </option>,
-      ...ecologicalReserves.map((reserve) => (
+      ...areasOfInterest.map((reserve) => (
         <option key={reserve.id} value={reserve.id}>
           {reserve.name}
         </option>
@@ -573,7 +573,7 @@ function App() {
           deliverable: deliverableName,
         });
 
-        const url = `${baseUrl}/ecological_reserve/${selectedReserve}/scientific_deliverable/?${queryParams.toString()}`;
+        const url = `${baseUrl}/area_of_interest/${selectedReserve}/scientific_deliverable/?${queryParams.toString()}`;
 
         const response = await authorizedFetch(url, { method: "POST" });
         ensureAuthorizedResponse(response);
@@ -656,7 +656,7 @@ function App() {
         pre_fire_date: preFireDate,
         post_fire_date: postFireDate,
       });
-      const url = `${baseUrl}/ecological_reserve/${selectedReserve}/analyze/?${queryParams.toString()}`;
+      const url = `${baseUrl}/area_of_interest/${selectedReserve}/analyze/?${queryParams.toString()}`;
 
       const response = await authorizedFetch(url, {
         method: "POST",
@@ -692,10 +692,10 @@ function App() {
 
   // AI Analysis feature - memoized values for the API call
   const selectedReserveName = useMemo(() => {
-    if (!selectedReserve || !ecologicalReserves.length) return "";
-    const reserve = ecologicalReserves.find((r) => String(r.id) === String(selectedReserve));
+    if (!selectedReserve || !areasOfInterest.length) return "";
+    const reserve = areasOfInterest.find((r) => String(r.id) === String(selectedReserve));
     return reserve?.name || "";
-  }, [selectedReserve, ecologicalReserves]);
+  }, [selectedReserve, areasOfInterest]);
 
   const severityDistributionForAPI = useMemo(() => {
     if (!severityEntries.length) return {};
@@ -790,10 +790,10 @@ function App() {
             </button>
             <button
               type="button"
-              className={`btn btn-sm ${currentPage === "reserves" ? "btn-light" : "btn-outline-light"}`}
-              onClick={() => setCurrentPage("reserves")}
+              className={`btn btn-sm ${currentPage === "areas" ? "btn-light" : "btn-outline-light"}`}
+              onClick={() => setCurrentPage("areas")}
             >
-              {t("nav.reserves")}
+              {t("nav.areas")}
             </button>
           </nav>
 
@@ -806,7 +806,7 @@ function App() {
               style={{ width: "auto" }}
             >
               <option value="analysis">{t("nav.analysis")}</option>
-              <option value="reserves">{t("nav.reserves")}</option>
+              <option value="areas">{t("nav.areas")}</option>
             </select>
             <LanguageSelector className="form-select form-select-sm bg-transparent text-white border-light" />
             <div className="avatar-menu">
@@ -855,9 +855,9 @@ function App() {
       </header>
 
       <div className="app-body d-flex flex-grow-1">
-        {currentPage === "reserves" ? (
+        {currentPage === "areas" ? (
           <main className="app-main flex-grow-1 d-flex flex-column">
-            <ReservesManagement
+            <AreasOfInterest
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
             />

@@ -28,13 +28,13 @@ from rest_framework import routers
 from wildfire_assessment.views import (
     AIAnalysisFollowUpView,
     AIAnalysisView,
-    EcologicalReserveViewSet,
+    AreaOfInterestViewSet,
     UserMeView,
     health_status,
 )
 
 router = routers.DefaultRouter()
-router.register(r"ecological_reserve", EcologicalReserveViewSet)
+router.register(r"area_of_interest", AreaOfInterestViewSet)
 
 urlpatterns = [
     path("", health_status, name="health-status"),
