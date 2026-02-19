@@ -8,6 +8,8 @@ on:
       - "api/**"
       - ".github/workflows/ecs-workflow.yml"
       - "polygons/**"
+      - "requirements.txt"
+      - ".env.template"
 
 env:
   AWS_ACCOUNT_ID: "055213706289"
