@@ -168,12 +168,21 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(
-            errorData.detail ||
-              errorData.error ||
-              Object.values(errorData).flat().join(", ") ||
-              t("areas.errorCreating")
-          );
+          
+          // Format validation errors with field names
+          let errorMessage = errorData.detail || errorData.error;
+          
+          if (!errorMessage && typeof errorData === "object") {
+            const errorParts = [];
+            for (const [field, errors] of Object.entries(errorData)) {
+              const errorList = Array.isArray(errors) ? errors : [errors];
+              const fieldLabel = field === "geojson" ? t("areas.geojsonFile") : field;
+              errorParts.push(`${fieldLabel}: ${errorList.join(", ")}`);
+            }
+            errorMessage = errorParts.join("\n") || t("areas.errorCreating");
+          }
+          
+          throw new Error(errorMessage || t("areas.errorCreating"));
         }
 
         setSubmitSuccess(t("areas.createSuccess"));
@@ -272,7 +281,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
           className="alert alert-danger alert-dismissible fade show"
           role="alert"
         >
-          {submitError}
+          <div style={{ whiteSpace: "pre-wrap" }}>{submitError}</div>
           <button
             type="button"
             className="btn-close"

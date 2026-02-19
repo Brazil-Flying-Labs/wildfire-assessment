@@ -102,7 +102,7 @@
   "areas.selectCountry": "Selecione um país",
   "areas.noCountries": "Você não tem acesso a nenhum país. Contate um administrador.",
   "areas.geojsonFile": "Arquivo GeoJSON",
-  "areas.geojsonHint": "Carregue um arquivo .geojson ou .json com os limites da área",
+  "areas.geojsonHint": "Carregue um arquivo GeoJSON válido (Feature, FeatureCollection ou geometria Polygon)",
   "areas.create": "Criar Área",
   "areas.creating": "Criando...",
   "areas.reset": "Limpar",
