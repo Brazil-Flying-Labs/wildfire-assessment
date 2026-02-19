@@ -186,7 +186,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
         setSubmitting(false);
       }
     },
-    [authorizedFetch, baseUrl, formData, geojsonFile, loadData, resetForm, t]
+    [authorizedFetch, baseUrl, formData, geojsonFile, loadAreas, resetForm, searchTerm, t]
   );
 
   const handleDelete = useCallback(
@@ -216,7 +216,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
         setDeleting(false);
       }
     },
-    [authorizedFetch, baseUrl, loadData, t]
+    [authorizedFetch, baseUrl, currentPage, loadAreas, searchTerm, t]
   );
 
   const isFormValid = useMemo(() => {
