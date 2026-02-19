@@ -607,6 +607,74 @@
   }
 }
 
+/* Kebab menu */
+.kebab-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.kebab-trigger {
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.kebab-trigger:hover {
+  background-color: #e9ecef;
+}
+
+.kebab-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.kebab-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  min-width: 140px;
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  overflow: hidden;
+}
+
+.kebab-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 0.875rem;
+  color: #212529;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.kebab-item:hover {
+  background-color: #f8f9fa;
+}
+
+.kebab-item.text-danger {
+  color: #dc3545;
+}
+
+.kebab-item.text-danger:hover {
+  background-color: #fff5f5;
+}
+
+/* Areas table responsive */
+.areas-table td {
+  vertical-align: middle;
+}
+
 /* Placeholder card styling */
 .placeholder-card {
   background-color: #ffffff;
