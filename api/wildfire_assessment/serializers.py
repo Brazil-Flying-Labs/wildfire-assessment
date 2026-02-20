@@ -329,6 +329,9 @@ class UserMeSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
+        
+        # Theme is sent at top level since it's a SerializerMethodField
+        theme = getattr(self, 'initial_data', {}).get("theme")
 
         # Update first_name and last_name if provided
         if "first_name" in validated_data:
@@ -345,8 +348,8 @@ class UserMeSerializer(serializers.ModelSerializer):
             profile.default_language = profile_data["default_language"]
             update_fields.append("default_language")
 
-        if "theme" in profile_data:
-            profile.theme = profile_data["theme"]
+        if theme is not None:
+            profile.theme = theme
             update_fields.append("theme")
 
         if update_fields:
