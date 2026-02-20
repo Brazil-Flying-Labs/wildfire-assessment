@@ -1,5 +1,13 @@
-from django.test import TestCase
-from wildfire_assessment.translations import EMAIL_TRANSLATIONS, get_email_translation
+from django.contrib.auth.models import User
+from django.test import RequestFactory, TestCase
+from wildfire_assessment.models import UserProfile
+from wildfire_assessment.translations import (
+    EMAIL_TRANSLATIONS,
+    ERROR_TRANSLATIONS,
+    get_email_translation,
+    get_error_translation,
+    get_user_language,
+)
 
 
 class EmailTranslationsTestCase(TestCase):
@@ -63,3 +71,59 @@ class EmailTranslationsTestCase(TestCase):
             )
             self.assertIn("Test Reserve", formatted)
             self.assertIn("https://example.com/download", formatted)
+
+
+class ErrorTranslationsTestCase(TestCase):
+    """Tests for API error translation functionality."""
+
+    def test_get_error_translation_english(self):
+        msg = get_error_translation("en", "error.duplicate_name")
+        self.assertIn("already exists", msg)
+
+    def test_get_error_translation_portuguese(self):
+        msg = get_error_translation("pt-BR", "error.duplicate_name")
+        self.assertIn("Já existe", msg)
+
+    def test_get_error_translation_french(self):
+        msg = get_error_translation("fr", "error.duplicate_name")
+        self.assertIn("existe déjà", msg)
+
+    def test_get_error_translation_fallback(self):
+        msg = get_error_translation("de", "error.duplicate_name")
+        self.assertIn("already exists", msg)
+
+    def test_get_error_translation_unknown_key(self):
+        result = get_error_translation("en", "error.unknown_key")
+        self.assertEqual(result, "error.unknown_key")
+
+    def test_get_error_translation_with_kwargs(self):
+        msg = get_error_translation("en", "error.unsupported_geometry", geom_type="LineString")
+        self.assertIn("LineString", msg)
+
+    def test_all_error_languages_have_same_keys(self):
+        english_keys = set(ERROR_TRANSLATIONS["en"].keys())
+        for lang, translations in ERROR_TRANSLATIONS.items():
+            self.assertEqual(
+                set(translations.keys()),
+                english_keys,
+                f"Language '{lang}' has different error keys than English",
+            )
+
+    def test_get_user_language_with_profile(self):
+        user = User.objects.create_user(username="lang_test", password="pw")
+        user.profile.default_language = "pt-BR"
+        user.profile.save()
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+        self.assertEqual(get_user_language(request), "pt-BR")
+
+    def test_get_user_language_no_profile(self):
+        user = User.objects.create_user(username="lang_test2", password="pw")
+        factory = RequestFactory()
+        request = factory.get("/")
+        request.user = user
+        self.assertEqual(get_user_language(request), "en")
+
+    def test_get_user_language_no_request(self):
+        self.assertEqual(get_user_language(None), "en")

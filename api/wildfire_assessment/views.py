@@ -37,6 +37,7 @@ from wildfire_assessment.svc.processor import (
     process_fire_assessment,
     process_scientific_deliverable,
 )
+from wildfire_assessment.translations import get_error_translation, get_user_language
 
 LOG = logging.getLogger(__name__)
 
@@ -103,9 +104,10 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         Allows updating name, country, and optionally uploading a new GeoJSON file.
         """
         instance = self.get_object()
+        lang = get_user_language(request)
         if not user_can_access_area(request.user, instance):  # pragma: no cover
             return Response(
-                {"error": "You do not have permission to update this area."},
+                {"error": get_error_translation(lang, "error.no_permission_update")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().update(request, *args, **kwargs)
@@ -113,9 +115,10 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         """Partially update an AreaOfInterest."""
         instance = self.get_object()
+        lang = get_user_language(request)
         if not user_can_access_area(request.user, instance):  # pragma: no cover
             return Response(
-                {"error": "You do not have permission to update this area."},
+                {"error": get_error_translation(lang, "error.no_permission_update")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().partial_update(request, *args, **kwargs)
@@ -127,9 +130,10 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         Also deletes the associated GeoJSON file.
         """
         instance = self.get_object()
+        lang = get_user_language(request)
         if not user_can_access_area(request.user, instance):
             return Response(
-                {"error": "You do not have permission to delete this reserve."},
+                {"error": get_error_translation(lang, "error.no_permission_delete")},
                 status=status.HTTP_403_FORBIDDEN,
             )
         delete_polygon_file(instance.polygon_path)
@@ -254,7 +258,11 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         elif deliverable == "DNDVI":
             deliverable_enum = Deliverable.DNDVI
         else:
-            return Response({"error": "Invalid deliverable type"}, status=400)
+            lang = get_user_language(request)
+            return Response(
+                {"error": get_error_translation(lang, "error.invalid_deliverable")},
+                status=400,
+            )
 
         instance = self.get_object()
         task = process_scientific_deliverable.delay(
@@ -346,9 +354,7 @@ class AIAnalysisView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
-        language = getattr(
-            getattr(request.user, "profile", None), "default_language", "en"
-        )
+        language = get_user_language(request)
 
         try:
             stream, holder = generate_analysis_stream(
@@ -362,7 +368,7 @@ class AIAnalysisView(APIView):
             first_chunk = next(stream)
         except StopIteration:
             return Response(
-                {"error": "AI analysis returned empty response"},
+                {"error": get_error_translation(language, "error.ai_empty_response")},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         except ValueError as e:
@@ -372,7 +378,7 @@ class AIAnalysisView(APIView):
         except Exception as e:
             LOG.exception("Error generating AI analysis")
             return Response(
-                {"error": f"Failed to generate analysis: {str(e)}"},
+                {"error": get_error_translation(language, "error.ai_failed", detail=str(e))},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -390,9 +396,7 @@ class AIAnalysisFollowUpView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         data = serializer.validated_data
-        language = getattr(
-            getattr(request.user, "profile", None), "default_language", "en"
-        )
+        language = get_user_language(request)
 
         try:
             stream, holder = generate_followup_stream(
@@ -403,7 +407,7 @@ class AIAnalysisFollowUpView(APIView):
             first_chunk = next(stream)
         except StopIteration:
             return Response(
-                {"error": "AI returned empty response"},
+                {"error": get_error_translation(language, "error.ai_followup_empty")},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         except ValueError as e:
@@ -413,7 +417,7 @@ class AIAnalysisFollowUpView(APIView):
         except Exception as e:
             LOG.exception("Error generating AI follow-up")
             return Response(
-                {"error": f"Failed to generate response: {str(e)}"},
+                {"error": get_error_translation(language, "error.ai_followup_failed", detail=str(e))},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

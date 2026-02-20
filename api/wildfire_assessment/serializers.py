@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from wildfire_assessment.models import AreaOfInterest, Country, UserProfile
+from wildfire_assessment.translations import get_error_translation, get_user_language
 
 User = get_user_model()
 
@@ -45,6 +46,11 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
         model = AreaOfInterest
         fields = ["id", "name", "country", "geojson"]
 
+    def _t(self, key, **kwargs):
+        """Translate an error message based on the request user's language."""
+        lang = get_user_language(self.context.get("request"))
+        return get_error_translation(lang, key, **kwargs)
+
     def validate_country(self, value):
         """Ensure the user has access to the specified country."""
         request = self.context.get("request")
@@ -54,7 +60,7 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
             )
             if value.id not in user_countries:
                 raise serializers.ValidationError(
-                    "You do not have permission to create areas of interest in this country."
+                    self._t("error.no_permission_create")
                 )
         return value
 
@@ -65,7 +71,7 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
         if name and country:
             if AreaOfInterest.objects.filter(name=name, country=country).exists():
                 raise serializers.ValidationError(
-                    {"name": "An area of interest with this name already exists in the selected country."}
+                    {"name": self._t("error.duplicate_name")}
                 )
         return attrs
 
@@ -79,15 +85,12 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
         - Coordinate ranges (lon: -180 to 180, lat: -90 to 90)
         - Polygon validity (closed rings, no self-intersection)
         """
-        from shapely.geometry import shape
-        from shapely.validation import explain_validity
-
         if not isinstance(value, dict):
-            raise serializers.ValidationError("GeoJSON must be an object.")
+            raise serializers.ValidationError(self._t("error.geojson_not_object"))
 
         geojson_type = value.get("type")
         if not geojson_type:
-            raise serializers.ValidationError("GeoJSON must have a 'type' field.")
+            raise serializers.ValidationError(self._t("error.geojson_no_type"))
 
         # Extract geometry based on GeoJSON type
         geometry = None
@@ -95,19 +98,19 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
             geometry = value.get("geometry")
             if not geometry:
                 raise serializers.ValidationError(
-                    "Feature must have a 'geometry' field."
+                    self._t("error.feature_no_geometry")
                 )
         elif geojson_type == "FeatureCollection":
             features = value.get("features", [])
             if not features:
                 raise serializers.ValidationError(
-                    "FeatureCollection must have at least one feature."
+                    self._t("error.featurecollection_empty")
                 )
             # Validate each feature's geometry
             for i, feature in enumerate(features):
                 if not isinstance(feature, dict):
                     raise serializers.ValidationError(
-                        f"Feature at index {i} must be an object."
+                        self._t("error.feature_not_object", index=i)
                     )
                 feat_geom = feature.get("geometry")
                 if feat_geom:
@@ -117,13 +120,11 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
             geometry = value
         elif geojson_type in ["Point", "LineString", "MultiPoint", "MultiLineString"]:
             raise serializers.ValidationError(
-                f"Unsupported geometry type: '{geojson_type}'. "
-                "Only Polygon or MultiPolygon geometries are accepted."
+                self._t("error.unsupported_geometry", geom_type=geojson_type)
             )
         else:
             raise serializers.ValidationError(
-                f"Unsupported GeoJSON type: '{geojson_type}'. "
-                "Must be Feature, FeatureCollection, or a geometry type."
+                self._t("error.unsupported_geojson_type", geojson_type=geojson_type)
             )
 
         if geometry:
@@ -138,25 +139,24 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
 
         if not isinstance(geometry, dict):
             raise serializers.ValidationError(
-                f"{context}: Geometry must be an object."
+                self._t("error.geometry_not_object", context=context)
             )
 
         geom_type = geometry.get("type")
         if not geom_type:
             raise serializers.ValidationError(
-                f"{context}: Geometry must have a 'type' field."
+                self._t("error.geometry_no_type", context=context)
             )
 
         if geom_type not in ["Polygon", "MultiPolygon", "GeometryCollection"]:
             raise serializers.ValidationError(
-                f"{context}: Unsupported geometry type '{geom_type}'. "
-                "Only Polygon or MultiPolygon geometries are accepted."
+                self._t("error.geometry_unsupported", context=context, geom_type=geom_type)
             )
 
         coords = geometry.get("coordinates")
         if geom_type not in ["GeometryCollection"] and not coords:
             raise serializers.ValidationError(
-                f"{context}: Geometry must have 'coordinates' field."
+                self._t("error.geometry_no_coordinates", context=context)
             )
 
         # Validate coordinate ranges
@@ -168,20 +168,20 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
             geom = shape(geometry)
         except Exception as e:
             raise serializers.ValidationError(
-                f"{context}: Invalid geometry structure - {str(e)}"
+                self._t("error.geometry_invalid_structure", context=context, detail=str(e))
             )
 
         # Check if geometry is valid
         if not geom.is_valid:
             reason = explain_validity(geom)
             raise serializers.ValidationError(
-                f"{context}: Invalid geometry - {reason}"
+                self._t("error.geometry_invalid", context=context, detail=reason)
             )
 
         # Check if geometry is empty
         if geom.is_empty:
             raise serializers.ValidationError(
-                f"{context}: Geometry cannot be empty."
+                self._t("error.geometry_empty", context=context)
             )
 
     def _validate_coordinates(self, coords, context, depth=0):
@@ -198,11 +198,11 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
                 lon, lat = coords[0], coords[1]
                 if not (-180 <= lon <= 180):
                     raise serializers.ValidationError(
-                        f"{context}: Longitude {lon} is out of range [-180, 180]."
+                        self._t("error.longitude_out_of_range", context=context, value=lon)
                     )
                 if not (-90 <= lat <= 90):
                     raise serializers.ValidationError(
-                        f"{context}: Latitude {lat} is out of range [-90, 90]."
+                        self._t("error.latitude_out_of_range", context=context, value=lat)
                     )
             else:
                 # Nested array - recurse
@@ -243,6 +243,11 @@ class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
         model = AreaOfInterest
         fields = ["id", "name", "country", "geojson"]
 
+    def _t(self, key, **kwargs):
+        """Translate an error message based on the request user's language."""
+        lang = get_user_language(self.context.get("request"))
+        return get_error_translation(lang, key, **kwargs)
+
     def validate_country(self, value):
         """Ensure the user has access to the specified country."""
         request = self.context.get("request")
@@ -252,7 +257,7 @@ class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
             )
             if value.id not in user_countries:
                 raise serializers.ValidationError(
-                    "You do not have permission to move areas to this country."
+                    self._t("error.no_permission_move")
                 )
         return value
 
@@ -266,7 +271,7 @@ class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise serializers.ValidationError(
-                    {"name": "An area of interest with this name already exists in the selected country."}
+                    {"name": self._t("error.duplicate_name")}
                 )
         return attrs
 
