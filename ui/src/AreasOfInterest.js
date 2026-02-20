@@ -84,34 +84,32 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
 
   const loadData = useCallback(async () => {
     await loadAuthorizedCountries();
-    await loadAreas(1, searchTerm);
-  }, [loadAuthorizedCountries, loadAreas, searchTerm]);
+    await loadAreas(1, "");
+  }, [loadAuthorizedCountries, loadAreas]);
 
   useEffect(() => {
     loadAuthorizedCountries();
-  }, [loadAuthorizedCountries]);
-
-  useEffect(() => {
-    loadAreas(currentPage, searchTerm);
-  }, [loadAreas, currentPage, searchTerm]);
+    loadAreas(1, "");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounced search handler
   const handleSearchInput = useCallback((value) => {
     setSearchInput(value);
-    
+
     // Clear existing debounce timer
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
-    
+
     // Search if 2+ characters or empty (to show all)
     searchDebounceRef.current = setTimeout(() => {
       if (value.length >= 2 || value.length === 0) {
         setSearchTerm(value);
-        setCurrentPage(1);
+        loadAreas(1, value);
       }
     }, 300);
-  }, []);
+  }, [loadAreas]);
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
@@ -125,11 +123,11 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
   const handleClearSearch = useCallback(() => {
     setSearchInput("");
     setSearchTerm("");
-    setCurrentPage(1);
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
-  }, []);
+    loadAreas(1, "");
+  }, [loadAreas]);
 
   const totalPages = useMemo(() => {
     return Math.ceil(totalCount / pageSize);
@@ -589,7 +587,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
               <button
                 type="button"
                 className="areas-pagination-btn"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => loadAreas(currentPage - 1, searchTerm)}
                 disabled={currentPage === 1}
                 aria-label={t("areas.prevPage")}
               >
@@ -603,7 +601,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
               <button
                 type="button"
                 className="areas-pagination-btn"
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => loadAreas(currentPage + 1, searchTerm)}
                 disabled={currentPage === totalPages}
                 aria-label={t("areas.nextPage")}
               >
