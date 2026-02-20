@@ -297,9 +297,7 @@ class UserMeSerializer(serializers.ModelSerializer):
     default_language = serializers.CharField(
         source="profile.default_language", required=False
     )
-    theme = serializers.CharField(
-        source="profile.theme", required=False
-    )
+    theme = serializers.SerializerMethodField()
     authorized_countries = serializers.SerializerMethodField()
 
     class Meta:
@@ -319,6 +317,15 @@ class UserMeSerializer(serializers.ModelSerializer):
             authorized_users__user=obj
         ).values("id", "name", "code")
         return list(countries)
+
+    def get_theme(self, obj):
+        """Return theme preference, defaulting to 'light' if not available."""
+        try:
+            if hasattr(obj, 'profile') and obj.profile:
+                return getattr(obj.profile, 'theme', 'light') or 'light'
+        except Exception:
+            pass
+        return 'light'
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
