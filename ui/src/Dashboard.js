@@ -1,32 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-} from "chart.js";
-import { Doughnut, Bar } from "react-chartjs-2";
+import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "./LanguageContext";
-
-ChartJS.register(
-  ArcElement,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement
-);
-
-const SEVERITY_COLORS = {
-  Unburned: "#28a745",
-  "Low Severity": "#ffc107",
-  "Moderate Severity": "#fd7e14",
-  "High Severity": "#dc3545",
-  "Very High Severity": "#6f42c1",
-};
 
 function InfoTooltip({ text }) {
   return (
@@ -46,24 +19,6 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
-
-  // Dark mode detection for chart theming
-  const [isDark, setIsDark] = useState(
-    () => document.documentElement.getAttribute("data-theme") === "dark"
-  );
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDark(
-        document.documentElement.getAttribute("data-theme") === "dark"
-      );
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
-    return () => observer.disconnect();
-  }, []);
 
   const loadDashboard = useCallback(async () => {
     if (!baseUrl) return;
@@ -104,84 +59,6 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
       maximumFractionDigits: 2,
     });
   };
-
-  // Chart data for severity breakdown donut
-  const severityChartData = useMemo(() => {
-    const breakdown = stats?.severity_breakdown || [];
-    return {
-      labels: breakdown.map((d) => d.label),
-      datasets: [
-        {
-          data: breakdown.map((d) => Number(d.area_ha)),
-          backgroundColor: breakdown.map((d) => SEVERITY_COLORS[d.label]),
-          borderWidth: 0,
-        },
-      ],
-    };
-  }, [stats?.severity_breakdown]);
-
-  const doughnutOptions = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "bottom",
-          labels: { color: isDark ? "#e5e7eb" : "#212529", padding: 12 },
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.label}: ${formatNumber(ctx.raw)} ha`,
-          },
-        },
-      },
-    }),
-    [isDark]
-  );
-
-  // Chart data for area comparison bar
-  const areaComparisonData = useMemo(() => {
-    const comparison = stats?.area_comparison || [];
-    return {
-      labels: comparison.map((d) => d.area_name),
-      datasets: [
-        {
-          data: comparison.map((d) => Number(d.total_burned_ha)),
-          backgroundColor: "rgba(220, 53, 69, 0.7)",
-          borderColor: "#dc3545",
-          borderWidth: 1,
-          borderRadius: 4,
-        },
-      ],
-    };
-  }, [stats?.area_comparison]);
-
-  const barOptions = useMemo(
-    () => ({
-      indexAxis: "y",
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${formatNumber(ctx.raw)} ha`,
-          },
-        },
-      },
-      scales: {
-        x: {
-          ticks: { color: isDark ? "#9ca3af" : "#6c757d" },
-          grid: { color: isDark ? "#374151" : "#e9ecef" },
-        },
-        y: {
-          ticks: { color: isDark ? "#e5e7eb" : "#212529" },
-          grid: { display: false },
-        },
-      },
-    }),
-    [isDark]
-  );
 
   if (loading) {
     return (
@@ -308,47 +185,6 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                 {t("dashboard.analysesThisMonth")}
                 <InfoTooltip text={t("dashboard.tooltipThisMonth")} />
               </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Charts Row: Severity Breakdown + Area Comparison */}
-      <div className="row g-3 mb-4">
-        {/* Severity Breakdown Donut */}
-        <div className="col-md-6">
-          <div className="card h-100 shadow-sm">
-            <div className="card-header">
-              <h3 className="h5 mb-0">
-                {t("dashboard.severityBreakdown")}
-                <InfoTooltip text={t("dashboard.tooltipSeverity")} />
-              </h3>
-            </div>
-            <div className="card-body d-flex align-items-center justify-content-center" style={{ height: 300 }}>
-              {stats?.severity_breakdown?.length ? (
-                <Doughnut data={severityChartData} options={doughnutOptions} />
-              ) : (
-                <div className="text-center text-muted">{t("dashboard.noData")}</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Area Comparison Bar */}
-        <div className="col-md-6">
-          <div className="card h-100 shadow-sm">
-            <div className="card-header">
-              <h3 className="h5 mb-0">
-                {t("dashboard.areaComparison")}
-                <InfoTooltip text={t("dashboard.tooltipAreaComparison")} />
-              </h3>
-            </div>
-            <div className="card-body d-flex align-items-center justify-content-center" style={{ height: 300 }}>
-              {stats?.area_comparison?.length ? (
-                <Bar data={areaComparisonData} options={barOptions} />
-              ) : (
-                <div className="text-center text-muted">{t("dashboard.noData")}</div>
-              )}
             </div>
           </div>
         </div>
