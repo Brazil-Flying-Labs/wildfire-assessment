@@ -102,6 +102,7 @@
         <thead>
             <tr>
                 <th>Month</th>
+                <th>User</th>
                 <th>Analyses</th>
                 <th>Burned (ha)</th>
             </tr>
@@ -110,11 +111,12 @@
             {% for row in monthly_stats %}
             <tr class="{% cycle 'row1' 'row2' %}">
                 <td>{{ row.month|date:"Y-m" }}</td>
+                <td>{{ row.user__email }}</td>
                 <td>{{ row.analysis_count }}</td>
                 <td>{{ row.total_burned_ha|floatformat:1|default:"-" }}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="3">No data in the last 12 months.</td></tr>
+            <tr><td colspan="4">No data in the last 12 months.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -127,6 +129,7 @@
             <tr>
                 <th>Area</th>
                 <th>Country</th>
+                <th>User</th>
                 <th>Analyses</th>
                 <th>Burned (ha)</th>
                 <th>Last Analyzed</th>
@@ -137,12 +140,13 @@
             <tr class="{% cycle 'row1' 'row2' %}">
                 <td>{{ area.area_of_interest__name }}</td>
                 <td>{{ area.area_of_interest__country__name }}</td>
+                <td>{{ area.user__email }}</td>
                 <td>{{ area.analysis_count }}</td>
                 <td>{{ area.total_burned_ha|floatformat:1|default:"-" }}</td>
                 <td>{{ area.last_analyzed|date:"Y-m-d" }}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="5">No areas analyzed yet.</td></tr>
+            <tr><td colspan="6">No areas analyzed yet.</td></tr>
             {% endfor %}
         </tbody>
     </table>

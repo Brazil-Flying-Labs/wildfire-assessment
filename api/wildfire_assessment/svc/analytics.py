@@ -37,25 +37,25 @@ def get_user_stats():
 
 
 def get_monthly_stats():
-    """Return analysis counts and burned area grouped by month (last 12 months)."""
+    """Return analysis counts and burned area grouped by month and user (last 12 months)."""
     twelve_months_ago = timezone.now() - timezone.timedelta(days=365)
     return list(
         AnalysisRun.objects.filter(created_at__gte=twelve_months_ago)
         .annotate(month=TruncMonth("created_at"))
-        .values("month")
+        .values("month", "user__email")
         .annotate(
             analysis_count=Count("id"),
             total_burned_ha=Sum("total_burned_ha"),
         )
-        .order_by("-month")
+        .order_by("-month", "user__email")
     )
 
 
 def get_top_areas(limit=10):
-    """Return the most-analyzed areas of interest."""
+    """Return the most-analyzed areas of interest, broken down by user."""
     return list(
         AnalysisRun.objects.values(
-            "area_of_interest__name", "area_of_interest__country__name"
+            "area_of_interest__name", "area_of_interest__country__name", "user__email"
         )
         .annotate(
             analysis_count=Count("id"),

@@ -683,13 +683,15 @@ class AnalyticsServiceTests(TestCase):
     def test_get_monthly_stats(self):
         stats = analytics.get_monthly_stats()
         self.assertIsInstance(stats, list)
+        # Results are now per month+user
+        if stats:
+            self.assertIn("user__email", stats[0])
 
     def test_get_top_areas(self):
-        areas = analytics.get_top_areas(limit=5)
-        self.assertEqual(len(areas), 2)
-        # area has 2 analyses, area2 has 1
-        self.assertEqual(areas[0]["analysis_count"], 2)
-        self.assertEqual(areas[0]["area_of_interest__name"], "Analytics Area")
+        areas = analytics.get_top_areas(limit=10)
+        # Now grouped by area+user: user1 has area+area2, user2 has area = 3 rows
+        self.assertEqual(len(areas), 3)
+        self.assertIn("user__email", areas[0])
 
     def test_get_recent_analyses(self):
         recent = analytics.get_recent_analyses(limit=2)
