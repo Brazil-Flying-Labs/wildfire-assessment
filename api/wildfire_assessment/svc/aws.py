@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 
 import boto3
 from botocore.exceptions import ClientError, ProfileNotFound
@@ -66,6 +67,7 @@ def upload_polygon_to_s3(filename: str, geojson_data) -> None:
 
 def download_polygon_from_s3(filename: str) -> str:
     """Download a polygon GeoJSON file from S3 and return its content as a string."""
+    filename = os.path.basename(filename)
     session = get_boto3_session()
     client = session.client("s3")
     response = client.get_object(
@@ -100,6 +102,7 @@ def get_presigned_image_url(key: str, expiration: int = 3600) -> str:
 
 def delete_polygon_from_s3(filename: str) -> bool:
     """Delete a polygon GeoJSON file from S3. Returns True on success, False on failure."""
+    filename = os.path.basename(filename)
     try:
         session = get_boto3_session()
         client = session.client("s3")
