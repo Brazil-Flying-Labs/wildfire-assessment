@@ -245,7 +245,8 @@ function App() {
         }
 
         const data = await response.json();
-        setAreasOfInterest(data);
+        // Handle both paginated and non-paginated responses
+        setAreasOfInterest(data.results || data);
         setFetchState({ loading: false, error: null });
       } catch (error) {
         if (error.name === "AbortError") return;
