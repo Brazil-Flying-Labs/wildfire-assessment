@@ -72,8 +72,10 @@ class UserMeSerializerTests(TestCase):
     def test_read_only_fields(self):
         meta = UserMeSerializer.Meta
         self.assertIn("email", meta.read_only_fields)
-        self.assertIn("first_name", meta.read_only_fields)
-        self.assertIn("last_name", meta.read_only_fields)
+        self.assertIn("authorized_countries", meta.read_only_fields)
+        # first_name and last_name should be editable
+        self.assertNotIn("first_name", meta.read_only_fields)
+        self.assertNotIn("last_name", meta.read_only_fields)
 
     def test_serializes_profile_language(self):
         profile = self.user.profile
