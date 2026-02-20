@@ -5,8 +5,15 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from rest_framework.test import APIRequestFactory
-from wildfire_assessment.models import AreaOfInterest, Country, UserCountry, UserProfile
+from wildfire_assessment.models import (
+    AnalysisRun,
+    AreaOfInterest,
+    Country,
+    UserCountry,
+    UserProfile,
+)
 from wildfire_assessment.serializers import (
+    AnalysisRunSerializer,
     AreaOfInterestCreateSerializer,
     AreaOfInterestSerializer,
     AreaOfInterestUpdateSerializer,
@@ -663,3 +670,46 @@ class AreaOfInterestUpdateSerializerTests(TestCase):
             context={"request": request},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class AnalysisRunSerializerTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="imguser", email="img@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="Img Country", code="IC")
+        self.area = AreaOfInterest.objects.create(
+            name="Img Area", polygon_path="img.geojson", country=self.country
+        )
+
+    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    def test_serializer_generates_presigned_urls(self, mock_presign):
+        mock_presign.side_effect = lambda key, **kw: f"https://s3.example.com/{key}"
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            rgb_pre_fire_image="abc/pre.jpg",
+            rgb_post_fire_image="abc/post.jpg",
+            dndvi_image="abc/dndvi.jpg",
+            dnbr_image="abc/dnbr.jpg",
+            rbr_image="abc/rbr.jpg",
+        )
+        data = AnalysisRunSerializer(run).data
+        self.assertEqual(data["rgb_pre_fire_url"], "https://s3.example.com/abc/pre.jpg")
+        self.assertEqual(data["rgb_post_fire_url"], "https://s3.example.com/abc/post.jpg")
+        self.assertEqual(data["dndvi_url"], "https://s3.example.com/abc/dndvi.jpg")
+        self.assertEqual(data["dnbr_url"], "https://s3.example.com/abc/dnbr.jpg")
+        self.assertEqual(data["rbr_url"], "https://s3.example.com/abc/rbr.jpg")
+
+    def test_serializer_returns_none_for_missing_images(self):
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        data = AnalysisRunSerializer(run).data
+        self.assertIsNone(data["rgb_pre_fire_url"])
+        self.assertIsNone(data["dndvi_url"])

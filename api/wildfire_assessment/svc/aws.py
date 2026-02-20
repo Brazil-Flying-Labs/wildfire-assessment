@@ -75,6 +75,29 @@ def download_polygon_from_s3(filename: str) -> str:
     return response["Body"].read().decode("utf-8")
 
 
+def upload_image_to_s3(key: str, image_data: bytes, content_type: str = "image/jpeg") -> None:
+    """Upload image binary data to S3 under the images/ prefix."""
+    session = get_boto3_session()
+    client = session.client("s3")
+    client.put_object(
+        Bucket=settings.S3_BUCKET_NAME,
+        Key=f"images/{key}",
+        Body=image_data,
+        ContentType=content_type,
+    )
+
+
+def get_presigned_image_url(key: str, expiration: int = 3600) -> str:
+    """Generate a pre-signed URL for an image stored in S3."""
+    session = get_boto3_session()
+    client = session.client("s3")
+    return client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.S3_BUCKET_NAME, "Key": f"images/{key}"},
+        ExpiresIn=expiration,
+    )
+
+
 def delete_polygon_from_s3(filename: str) -> bool:
     """Delete a polygon GeoJSON file from S3. Returns True on success, False on failure."""
     try:

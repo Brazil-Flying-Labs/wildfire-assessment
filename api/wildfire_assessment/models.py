@@ -134,7 +134,14 @@ class AnalysisRun(models.Model):
     total_burned_ha = models.DecimalField(
         max_digits=15, decimal_places=3, null=True, blank=True
     )
-    
+
+    # S3 image keys from fire assessment visual deliverables
+    rgb_pre_fire_image = models.CharField(max_length=255, null=True, blank=True)
+    rgb_post_fire_image = models.CharField(max_length=255, null=True, blank=True)
+    dndvi_image = models.CharField(max_length=255, null=True, blank=True)
+    dnbr_image = models.CharField(max_length=255, null=True, blank=True)
+    rbr_image = models.CharField(max_length=255, null=True, blank=True)
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)

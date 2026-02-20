@@ -1,11 +1,13 @@
 import json
 import logging
+import uuid
 
+import requests
 from django.db import connection
 from django.db.models import Q
 from django.utils import timezone
 from wildfire_assessment.models import AnalysisRun, AreaOfInterest
-from wildfire_assessment.svc.aws import delete_polygon_from_s3
+from wildfire_assessment.svc.aws import delete_polygon_from_s3, upload_image_to_s3
 
 LOG = logging.getLogger(__name__)
 
@@ -53,6 +55,21 @@ def delete_polygon_file(polygon_path):
     return delete_polygon_from_s3(polygon_path)
 
 
+def _download_and_store_image(url, run_id, name):
+    """Download an image from a URL and upload it to S3. Returns the S3 key or None."""
+    if not url:
+        return None
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        key = f"{run_id}/{name}.jpg"
+        upload_image_to_s3(key, resp.content)
+        return key
+    except Exception:
+        LOG.warning("Failed to download/store image %s for run %s", name, run_id)
+        return None
+
+
 def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_result):
     """Extract severity data from an assessment result and persist an AnalysisRun."""
     severity_data = None
@@ -70,6 +87,20 @@ def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_resu
     except (json.JSONDecodeError, TypeError, KeyError):
         pass
 
+    run_id = uuid.uuid4().hex[:12]
+
+    image_fields = {
+        "rgb_pre_fire_image": ("rgb_pre_fire_visual_jpg", "pre_fire_rgb"),
+        "rgb_post_fire_image": ("rgb_post_fire_visual_jpg", "post_fire_rgb"),
+        "dndvi_image": ("dndvi_visual_jpg", "dndvi"),
+        "dnbr_image": ("dnbr_visual_jpg", "dnbr"),
+        "rbr_image": ("rbr_visual_jpg", "rbr"),
+    }
+    image_keys = {}
+    for field, (result_key, s3_name) in image_fields.items():
+        url = assessment_result.get(result_key)
+        image_keys[field] = _download_and_store_image(url, run_id, s3_name)
+
     return AnalysisRun.objects.create(
         user=user,
         area_of_interest=area,
@@ -79,6 +110,7 @@ def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_resu
         severity_data=severity_data,
         total_burned_ha=total_burned_ha,
         completed_at=timezone.now(),
+        **image_keys,
     )
 
 

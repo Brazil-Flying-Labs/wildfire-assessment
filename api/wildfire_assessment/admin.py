@@ -135,7 +135,55 @@ class AnalysisRunAdmin(admin.ModelAdmin):
         "total_burned_ha",
         "created_at",
         "completed_at",
+        "image_previews",
     )
+    fieldsets = (
+        ("Analysis Details", {
+            "fields": (
+                "user",
+                "area_of_interest",
+                "pre_fire_date",
+                "post_fire_date",
+                "status",
+                "severity_data",
+                "total_burned_ha",
+                "created_at",
+                "completed_at",
+            ),
+        }),
+        ("Image Previews", {
+            "fields": ("image_previews",),
+        }),
+    )
+
+    def image_previews(self, obj):
+        from django.utils.html import format_html
+        from wildfire_assessment.svc.aws import get_presigned_image_url
+
+        images = [
+            ("Pre-fire RGB", obj.rgb_pre_fire_image),
+            ("Post-fire RGB", obj.rgb_post_fire_image),
+            ("dNDVI", obj.dndvi_image),
+            ("dNBR", obj.dnbr_image),
+            ("RBR", obj.rbr_image),
+        ]
+        parts = []
+        for label, key in images:
+            if key:
+                url = get_presigned_image_url(key)
+                parts.append(format_html(
+                    '<div style="display:inline-block;margin:8px;text-align:center;">'
+                    '<div style="font-weight:bold;margin-bottom:4px;">{}</div>'
+                    '<a href="{}" target="_blank">'
+                    '<img src="{}" style="max-width:300px;max-height:300px;border:1px solid #ccc;" />'
+                    '</a></div>',
+                    label, url, url,
+                ))
+        if not parts:
+            return format_html("<em>No images available</em>")
+        return format_html("".join(str(p) for p in parts))
+
+    image_previews.short_description = "Images"
 
     def has_add_permission(self, request):
         return False

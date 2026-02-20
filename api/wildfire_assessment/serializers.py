@@ -340,11 +340,16 @@ class UserMeSerializer(serializers.ModelSerializer):
 
 class AnalysisRunSerializer(serializers.ModelSerializer):
     """Serializer for AnalysisRun model."""
-    
+
     area_name = serializers.CharField(source='area_of_interest.name', read_only=True)
     country_name = serializers.CharField(source='area_of_interest.country.name', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
-    
+    rgb_pre_fire_url = serializers.SerializerMethodField()
+    rgb_post_fire_url = serializers.SerializerMethodField()
+    dndvi_url = serializers.SerializerMethodField()
+    dnbr_url = serializers.SerializerMethodField()
+    rbr_url = serializers.SerializerMethodField()
+
     class Meta:
         from .models import AnalysisRun
         model = AnalysisRun
@@ -359,10 +364,37 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
             'status',
             'severity_data',
             'total_burned_ha',
+            'rgb_pre_fire_url',
+            'rgb_post_fire_url',
+            'dndvi_url',
+            'dnbr_url',
+            'rbr_url',
             'created_at',
             'completed_at',
         ]
         read_only_fields = ['id', 'created_at']
+
+    def _get_image_url(self, obj, field):
+        from wildfire_assessment.svc.aws import get_presigned_image_url
+        key = getattr(obj, field)
+        if not key:
+            return None
+        return get_presigned_image_url(key)
+
+    def get_rgb_pre_fire_url(self, obj):
+        return self._get_image_url(obj, 'rgb_pre_fire_image')
+
+    def get_rgb_post_fire_url(self, obj):
+        return self._get_image_url(obj, 'rgb_post_fire_image')
+
+    def get_dndvi_url(self, obj):
+        return self._get_image_url(obj, 'dndvi_image')
+
+    def get_dnbr_url(self, obj):
+        return self._get_image_url(obj, 'dnbr_image')
+
+    def get_rbr_url(self, obj):
+        return self._get_image_url(obj, 'rbr_image')
 
 
 class DashboardStatsSerializer(serializers.Serializer):

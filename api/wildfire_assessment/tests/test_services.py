@@ -537,6 +537,62 @@ class AreaOfInterestServiceTests(TestCase):
         self.assertEqual(run.severity_data, severity)
         self.assertIsNone(run.total_burned_ha)
 
+    # -- image storage ---------------------------------------------------------
+
+    @patch("wildfire_assessment.svc.area_of_interest.upload_image_to_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.requests.get")
+    def test_save_analysis_run_downloads_and_stores_images(self, mock_get, mock_upload):
+        mock_response = MagicMock()
+        mock_response.content = b"\xff\xd8image-data"
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        result = {
+            "severity_map": '{"Total Burned Area": {"area_ha": 42.5}}',
+            "rgb_pre_fire_visual_jpg": "http://example.com/pre.jpg",
+            "rgb_post_fire_visual_jpg": "http://example.com/post.jpg",
+            "dndvi_visual_jpg": "http://example.com/dndvi.jpg",
+            "dnbr_visual_jpg": "http://example.com/dnbr.jpg",
+            "rbr_visual_jpg": "http://example.com/rbr.jpg",
+        }
+
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+
+        self.assertEqual(mock_get.call_count, 5)
+        self.assertEqual(mock_upload.call_count, 5)
+        self.assertIsNotNone(run.rgb_pre_fire_image)
+        self.assertIsNotNone(run.rgb_post_fire_image)
+        self.assertTrue(run.rgb_pre_fire_image.endswith("/pre_fire_rgb.jpg"))
+
+    def test_save_analysis_run_without_image_urls(self):
+        result = {"severity_map": '{"Total Burned Area": {"area_ha": 10.0}}'}
+
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+
+        self.assertIsNone(run.rgb_pre_fire_image)
+        self.assertIsNone(run.rbr_image)
+
+    @patch("wildfire_assessment.svc.area_of_interest.upload_image_to_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.requests.get")
+    def test_save_analysis_run_image_download_failure(self, mock_get, mock_upload):
+        mock_get.side_effect = Exception("Network error")
+
+        result = {
+            "severity_map": '{"Total Burned Area": {"area_ha": 10.0}}',
+            "rgb_pre_fire_visual_jpg": "http://example.com/pre.jpg",
+        }
+
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+
+        self.assertIsNone(run.rgb_pre_fire_image)
+        mock_upload.assert_not_called()
+
     # -- delete_polygon_file with S3 ------------------------------------------
 
     @patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3")
@@ -616,6 +672,42 @@ class S3PolygonTests(TestCase):
         result = aws.delete_polygon_from_s3("test.geojson")
 
         self.assertFalse(result)
+
+
+class S3ImageTests(TestCase):
+    """Tests for S3 image upload and pre-signed URL functions."""
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_upload_image_to_s3(self, mock_session):
+        client = MagicMock()
+        mock_session.return_value.client.return_value = client
+
+        aws.upload_image_to_s3("run123/pre_fire_rgb.jpg", b"\xff\xd8image")
+
+        client.put_object.assert_called_once()
+        call_kwargs = client.put_object.call_args.kwargs
+        self.assertEqual(call_kwargs["Key"], "images/run123/pre_fire_rgb.jpg")
+        self.assertEqual(call_kwargs["ContentType"], "image/jpeg")
+        self.assertEqual(call_kwargs["Body"], b"\xff\xd8image")
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_get_presigned_image_url(self, mock_session):
+        client = MagicMock()
+        client.generate_presigned_url.return_value = "https://s3.example.com/signed"
+        mock_session.return_value.client.return_value = client
+
+        url = aws.get_presigned_image_url("run123/pre_fire_rgb.jpg")
+
+        self.assertEqual(url, "https://s3.example.com/signed")
+        client.generate_presigned_url.assert_called_once_with(
+            "get_object",
+            Params={
+                "Bucket": mock_session.return_value.client.return_value
+                and aws.settings.S3_BUCKET_NAME,
+                "Key": "images/run123/pre_fire_rgb.jpg",
+            },
+            ExpiresIn=3600,
+        )
 
 
 class AnalyticsServiceTests(TestCase):

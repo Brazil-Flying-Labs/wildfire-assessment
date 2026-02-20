@@ -112,3 +112,50 @@ class AnalyticsDashboardViewTests(TestCase):
     def test_anonymous_user_gets_redirect(self):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 302)
+
+
+class AnalysisRunAdminTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.superuser = User.objects.create_superuser(
+            username="runadmin", password="pw", email="runadmin@example.com"
+        )
+        self.country = Country.objects.create(name="Run Country", code="RC")
+        self.area = AreaOfInterest.objects.create(
+            name="Run Area", polygon_path="r.geojson", country=self.country
+        )
+        self.analysis = AnalysisRun.objects.create(
+            user=self.superuser,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            rgb_pre_fire_image="abc123/pre_fire_rgb.jpg",
+            rgb_post_fire_image="abc123/post_fire_rgb.jpg",
+            dndvi_image="abc123/dndvi.jpg",
+        )
+
+    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    def test_image_previews_renders_images(self, mock_presign):
+        mock_presign.side_effect = lambda key: f"https://s3.example.com/{key}"
+        from wildfire_assessment.admin import AnalysisRunAdmin
+
+        admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
+        html = str(admin_instance.image_previews(self.analysis))
+        self.assertIn("https://s3.example.com/abc123/pre_fire_rgb.jpg", html)
+        self.assertIn("https://s3.example.com/abc123/post_fire_rgb.jpg", html)
+        self.assertIn("Pre-fire RGB", html)
+        self.assertNotIn("dNBR", html)
+        self.assertNotIn("RBR", html)
+
+    def test_image_previews_no_images(self):
+        from wildfire_assessment.admin import AnalysisRunAdmin
+
+        analysis_empty = AnalysisRun.objects.create(
+            user=self.superuser,
+            area_of_interest=self.area,
+            pre_fire_date="2024-03-01",
+            post_fire_date="2024-03-15",
+        )
+        admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
+        html = str(admin_instance.image_previews(analysis_empty))
+        self.assertIn("No images available", html)
