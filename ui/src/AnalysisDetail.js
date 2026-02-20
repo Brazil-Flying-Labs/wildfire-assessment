@@ -128,32 +128,29 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
             {t("common.tryAgain")}
           </button>
         </div>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={onBack}
+        <a
+          href="#"
+          className="text-decoration-none"
+          onClick={(e) => { e.preventDefault(); onBack(); }}
         >
-          {t("analysisDetail.backToDashboard")}
-        </button>
+          ← {t("analysisDetail.backToDashboard")}
+        </a>
       </div>
     );
   }
 
   return (
     <div className="analysis-detail p-4">
-      {/* Header with back button */}
-      <div className="d-flex align-items-center gap-3 mb-4">
-        <button
-          type="button"
-          className="btn btn-outline-secondary"
-          onClick={onBack}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="19" y1="12" x2="5" y2="12" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
-        </button>
+      {/* Header with back link */}
+      <div className="d-flex align-items-center justify-content-between mb-4">
         <h2 className="h4 mb-0">{t("analysisDetail.title")}</h2>
+        <a
+          href="#"
+          className="text-decoration-none"
+          onClick={(e) => { e.preventDefault(); onBack(); }}
+        >
+          ← {t("analysisDetail.backToDashboard")}
+        </a>
       </div>
 
       {/* Analysis Info Card */}
