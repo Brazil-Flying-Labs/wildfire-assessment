@@ -1,0 +1,184 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+
+{% block content_title %}<h1>Analytics Dashboard</h1>{% endblock %}
+
+{% block content %}
+<style>
+    .analytics-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    .analytics-card {
+        background: var(--body-bg, #fff);
+        border: 1px solid var(--hairline-color, #ddd);
+        border-radius: 4px;
+        padding: 16px;
+        text-align: center;
+    }
+    .analytics-card .value {
+        font-size: 2em;
+        font-weight: bold;
+        color: var(--header-bg, #417690);
+    }
+    .analytics-card .label {
+        font-size: 0.85em;
+        color: var(--body-quiet-color, #666);
+        margin-top: 4px;
+    }
+    .analytics-section {
+        margin-bottom: 32px;
+    }
+    .analytics-section h2 {
+        margin-bottom: 8px;
+    }
+    #result_list th, #result_list td {
+        padding: 8px 12px;
+    }
+</style>
+
+<div class="analytics-cards">
+    <div class="analytics-card">
+        <div class="value">{{ summary.total_analyses }}</div>
+        <div class="label">Total Analyses</div>
+    </div>
+    <div class="analytics-card">
+        <div class="value">{{ summary.total_users }}</div>
+        <div class="label">Active Users</div>
+    </div>
+    <div class="analytics-card">
+        <div class="value">{{ summary.total_burned_ha|floatformat:1|default:"0" }}</div>
+        <div class="label">Total Burned (ha)</div>
+    </div>
+    <div class="analytics-card">
+        <div class="value">{{ summary.total_areas_analyzed }}</div>
+        <div class="label">Areas Analyzed</div>
+    </div>
+    <div class="analytics-card">
+        <div class="value">{{ summary.analyses_this_month }}</div>
+        <div class="label">This Month</div>
+    </div>
+</div>
+
+<div class="analytics-section module">
+    <h2>User Activity</h2>
+    <table id="result_list">
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Analyses</th>
+                <th>Areas</th>
+                <th>Burned (ha)</th>
+                <th>First Analysis</th>
+                <th>Last Analysis</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in user_stats %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td>{{ user.user__email }}</td>
+                <td>{{ user.user__first_name }} {{ user.user__last_name }}</td>
+                <td>{{ user.analysis_count }}</td>
+                <td>{{ user.areas_analyzed }}</td>
+                <td>{{ user.total_burned_ha|floatformat:1|default:"-" }}</td>
+                <td>{{ user.first_analysis_date|date:"Y-m-d" }}</td>
+                <td>{{ user.last_analysis_date|date:"Y-m-d" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7">No analysis data yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="analytics-section module">
+    <h2>Monthly Trend (Last 12 Months)</h2>
+    <table id="result_list">
+        <thead>
+            <tr>
+                <th>Month</th>
+                <th>Analyses</th>
+                <th>Burned (ha)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in monthly_stats %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td>{{ row.month|date:"Y-m" }}</td>
+                <td>{{ row.analysis_count }}</td>
+                <td>{{ row.total_burned_ha|floatformat:1|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3">No data in the last 12 months.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="analytics-section module">
+    <h2>Top Areas of Interest</h2>
+    <table id="result_list">
+        <thead>
+            <tr>
+                <th>Area</th>
+                <th>Country</th>
+                <th>Analyses</th>
+                <th>Burned (ha)</th>
+                <th>Last Analyzed</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for area in top_areas %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td>{{ area.area_of_interest__name }}</td>
+                <td>{{ area.area_of_interest__country__name }}</td>
+                <td>{{ area.analysis_count }}</td>
+                <td>{{ area.total_burned_ha|floatformat:1|default:"-" }}</td>
+                <td>{{ area.last_analyzed|date:"Y-m-d" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">No areas analyzed yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="analytics-section module">
+    <h2>Recent Analyses</h2>
+    <table id="result_list">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Area</th>
+                <th>Country</th>
+                <th>Pre-fire</th>
+                <th>Post-fire</th>
+                <th>Burned (ha)</th>
+                <th>Status</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for run in recent_analyses %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td>{{ run.user__email }}</td>
+                <td>{{ run.area_of_interest__name }}</td>
+                <td>{{ run.area_of_interest__country__name }}</td>
+                <td>{{ run.pre_fire_date }}</td>
+                <td>{{ run.post_fire_date }}</td>
+                <td>{{ run.total_burned_ha|floatformat:1|default:"-" }}</td>
+                <td>{{ run.status }}</td>
+                <td>{{ run.created_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8">No analyses yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

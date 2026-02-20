@@ -25,6 +25,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 from rest_framework import routers
+from wildfire_assessment.admin import analytics_dashboard_view
 from wildfire_assessment.views import (
     AIAnalysisFollowUpView,
     AIAnalysisView,
@@ -52,6 +53,11 @@ urlpatterns = [
         name="login",
     ),  #
     path("", include("social_django.urls", namespace="social")),
+    path(
+        "admin/analytics/",
+        admin.site.admin_view(analytics_dashboard_view),
+        name="admin-analytics",
+    ),
     path("admin/", admin.site.urls),
     # YOUR PATTERNS
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

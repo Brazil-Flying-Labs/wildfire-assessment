@@ -5,7 +5,22 @@ from django import forms
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from wildfire_assessment.models import AreaOfInterest, Country, UserCountry, UserProfile
+from django.http import HttpResponseForbidden
+from django.shortcuts import render
+from wildfire_assessment.models import (
+    AnalysisRun,
+    AreaOfInterest,
+    Country,
+    UserCountry,
+    UserProfile,
+)
+from wildfire_assessment.svc.analytics import (
+    get_analytics_summary,
+    get_monthly_stats,
+    get_recent_analyses,
+    get_top_areas,
+    get_user_stats,
+)
 from wildfire_assessment.svc.aws import delete_polygon_from_s3, upload_polygon_to_s3
 
 
@@ -93,3 +108,58 @@ except admin.sites.NotRegistered:
     pass
 
 admin.site.register(User, UserAdmin)
+
+
+class AnalysisRunAdmin(admin.ModelAdmin):
+    list_display = (
+        "area_of_interest",
+        "user",
+        "pre_fire_date",
+        "post_fire_date",
+        "total_burned_ha",
+        "status",
+        "created_at",
+    )
+    list_filter = ("status", "created_at")
+    search_fields = (
+        "area_of_interest__name",
+        "user__email",
+    )
+    readonly_fields = (
+        "user",
+        "area_of_interest",
+        "pre_fire_date",
+        "post_fire_date",
+        "status",
+        "severity_data",
+        "total_burned_ha",
+        "created_at",
+        "completed_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+admin.site.register(AnalysisRun, AnalysisRunAdmin)
+
+
+def analytics_dashboard_view(request):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("Superuser access required.")
+    context = {
+        **admin.site.each_context(request),
+        "title": "Analytics Dashboard",
+        "summary": get_analytics_summary(),
+        "user_stats": get_user_stats(),
+        "monthly_stats": get_monthly_stats(),
+        "top_areas": get_top_areas(),
+        "recent_analyses": get_recent_analyses(),
+    }
+    return render(request, "admin/analytics_dashboard.html", context)

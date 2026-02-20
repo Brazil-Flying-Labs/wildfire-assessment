@@ -11,6 +11,7 @@ from wildfire_assessment.models import (
     UserCountry,
     UserProfile,
 )
+from wildfire_assessment.svc import analytics
 from wildfire_assessment.svc import area_of_interest as aoi_service
 from wildfire_assessment.svc import aws
 from wildfire_assessment.svc import dashboard as dashboard_service
@@ -615,3 +616,83 @@ class S3PolygonTests(TestCase):
         result = aws.delete_polygon_from_s3("test.geojson")
 
         self.assertFalse(result)
+
+
+class AnalyticsServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="analyst", email="analyst@example.com", password="pw"
+        )
+        self.user2 = User.objects.create_user(
+            username="analyst2", email="analyst2@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="Analytics Country", code="AN")
+        self.area = AreaOfInterest.objects.create(
+            name="Analytics Area", polygon_path="a.geojson", country=self.country
+        )
+        self.area2 = AreaOfInterest.objects.create(
+            name="Analytics Area 2", polygon_path="b.geojson", country=self.country
+        )
+        self.run1 = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-06-01",
+            post_fire_date="2024-06-15",
+            total_burned_ha=100.0,
+            status="completed",
+        )
+        self.run2 = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area2,
+            pre_fire_date="2024-07-01",
+            post_fire_date="2024-07-15",
+            total_burned_ha=50.5,
+            status="completed",
+        )
+        self.run3 = AnalysisRun.objects.create(
+            user=self.user2,
+            area_of_interest=self.area,
+            pre_fire_date="2024-08-01",
+            post_fire_date="2024-08-15",
+            total_burned_ha=200.0,
+            status="completed",
+        )
+
+    def test_get_analytics_summary(self):
+        summary = analytics.get_analytics_summary()
+        self.assertEqual(summary["total_analyses"], 3)
+        self.assertEqual(summary["total_users"], 2)
+        self.assertEqual(float(summary["total_burned_ha"]), 350.5)
+        self.assertEqual(summary["total_areas_analyzed"], 2)
+
+    def test_get_analytics_summary_empty(self):
+        AnalysisRun.objects.all().delete()
+        summary = analytics.get_analytics_summary()
+        self.assertEqual(summary["total_analyses"], 0)
+        self.assertEqual(summary["total_users"], 0)
+        self.assertIsNone(summary["total_burned_ha"])
+
+    def test_get_user_stats(self):
+        stats = analytics.get_user_stats()
+        self.assertEqual(len(stats), 2)
+        # First user has 2 analyses (ordered by -analysis_count)
+        top_user = stats[0]
+        self.assertEqual(top_user["analysis_count"], 2)
+        self.assertEqual(top_user["areas_analyzed"], 2)
+
+    def test_get_monthly_stats(self):
+        stats = analytics.get_monthly_stats()
+        self.assertIsInstance(stats, list)
+
+    def test_get_top_areas(self):
+        areas = analytics.get_top_areas(limit=5)
+        self.assertEqual(len(areas), 2)
+        # area has 2 analyses, area2 has 1
+        self.assertEqual(areas[0]["analysis_count"], 2)
+        self.assertEqual(areas[0]["area_of_interest__name"], "Analytics Area")
+
+    def test_get_recent_analyses(self):
+        recent = analytics.get_recent_analyses(limit=2)
+        self.assertEqual(len(recent), 2)
+        # Most recent first
+        self.assertEqual(recent[0]["user__email"], "analyst2@example.com")

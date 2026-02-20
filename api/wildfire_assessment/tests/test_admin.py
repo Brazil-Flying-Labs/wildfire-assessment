@@ -6,20 +6,22 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.urls import reverse
+from rest_framework.test import APITestCase
 from wildfire_assessment.admin import AreaOfInterestAdminForm
-from wildfire_assessment.models import AreaOfInterest, Country
+from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
 
 class AdminTests(TestCase):
     def test_unregister_user_not_registered(self):
         User = get_user_model()
-        for model in (User, Country, AreaOfInterest):
+        for model in (User, Country, AreaOfInterest, AnalysisRun):
             if admin.site.is_registered(model):
                 admin.site.unregister(model)
 
         importlib.reload(admin_module)
 
-        for model in (User, Country, AreaOfInterest):
+        for model in (User, Country, AreaOfInterest, AnalysisRun):
             self.assertTrue(admin.site.is_registered(model))
 
 
@@ -82,3 +84,31 @@ class AreaOfInterestAdminFormTests(TestCase):
         mock_delete.assert_called_once_with("old.geojson")
         mock_upload.assert_called_once()
         self.assertNotEqual(instance.polygon_path, "old.geojson")
+
+
+class AnalyticsDashboardViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.superuser = User.objects.create_superuser(
+            username="superadmin", password="pw", email="super@example.com"
+        )
+        self.regular_user = User.objects.create_user(
+            username="regular", password="pw", email="regular@example.com",
+            is_staff=True,
+        )
+        self.url = reverse("admin-analytics")
+
+    def test_superuser_can_access_dashboard(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Analytics Dashboard")
+
+    def test_non_superuser_gets_forbidden(self):
+        self.client.force_login(self.regular_user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_user_gets_redirect(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
