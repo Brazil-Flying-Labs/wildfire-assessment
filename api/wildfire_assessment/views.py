@@ -344,6 +344,30 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         return Response({"task_id": task.id})
 
 
+class AnalysisRunViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for AnalysisRun read operations.
+
+    Supports list and retrieve operations.
+    Users can only access analyses for areas in countries they are authorized for.
+    """
+
+    queryset = AnalysisRun.objects.all().order_by("-created_at")
+    serializer_class = AnalysisRunSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """Filter queryset to only show analyses the user has access to."""
+        queryset = super().get_queryset()
+        user = self.request.user
+        country_ids = user.country_permissions.values_list("country_id", flat=True)
+        if country_ids:
+            queryset = queryset.filter(area_of_interest__country_id__in=country_ids)
+        else:
+            return queryset.none()
+        return queryset
+
+
 class UserMeView(generics.RetrieveUpdateAPIView):
     """Return or update the authenticated user's profile."""
 

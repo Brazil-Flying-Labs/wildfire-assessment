@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "./LanguageContext";
 
-function Dashboard({ authorizedFetch, baseUrl }) {
+function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -186,7 +186,19 @@ function Dashboard({ authorizedFetch, baseUrl }) {
                 </thead>
                 <tbody>
                   {stats.recent_analyses.map((analysis) => (
-                    <tr key={analysis.id}>
+                    <tr
+                      key={analysis.id}
+                      onClick={() => onAnalysisClick?.(analysis.id)}
+                      style={{ cursor: onAnalysisClick ? 'pointer' : 'default' }}
+                      role={onAnalysisClick ? 'button' : undefined}
+                      tabIndex={onAnalysisClick ? 0 : undefined}
+                      onKeyDown={(e) => {
+                        if (onAnalysisClick && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          onAnalysisClick(analysis.id);
+                        }
+                      }}
+                    >
                       <td>
                         {analysis.area_name}
                         <div className="d-md-none text-muted small">

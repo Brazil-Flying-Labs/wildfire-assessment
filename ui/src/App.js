@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import "./App.css";
 import AIAnalysisModal from "./AIAnalysisModal";
+import AnalysisDetail from "./AnalysisDetail";
 import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
@@ -51,8 +52,9 @@ function App() {
     }
   }, []);
 
-  // Page navigation state: "home", "analysis", or "areas"
+  // Page navigation state: "home", "analysis", "areas", or "analysis-detail"
   const [currentPage, setCurrentPage] = useState("dashboard");
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
 
   const toggleNav = useCallback(() => {
     setIsNavOpen((previous) => !previous);
@@ -64,7 +66,18 @@ function App() {
 
   const navigateTo = useCallback((page) => {
     setCurrentPage(page);
+    setSelectedAnalysisId(null);
     setIsNavOpen(false);
+  }, []);
+
+  const handleAnalysisClick = useCallback((analysisId) => {
+    setSelectedAnalysisId(analysisId);
+    setCurrentPage("analysis-detail");
+  }, []);
+
+  const handleBackFromAnalysisDetail = useCallback(() => {
+    setSelectedAnalysisId(null);
+    setCurrentPage("dashboard");
   }, []);
 
   const [backendAuthorizationError, setBackendAuthorizationError] = useState(false);
@@ -979,6 +992,14 @@ function App() {
             <Dashboard
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
+              onAnalysisClick={handleAnalysisClick}
+            />
+          ) : currentPage === "analysis-detail" && selectedAnalysisId ? (
+            <AnalysisDetail
+              authorizedFetch={authorizedFetch}
+              baseUrl={baseUrl}
+              analysisId={selectedAnalysisId}
+              onBack={handleBackFromAnalysisDetail}
             />
           ) : currentPage === "areas" ? (
             <AreasOfInterest
