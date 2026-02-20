@@ -102,8 +102,13 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
                 if feat_geom:
                     self._validate_geometry(feat_geom, f"Feature[{i}]")
             return value
-        elif geojson_type in ["Polygon", "MultiPolygon", "Point", "LineString", "MultiPoint", "MultiLineString"]:
+        elif geojson_type in ["Polygon", "MultiPolygon"]:
             geometry = value
+        elif geojson_type in ["Point", "LineString", "MultiPoint", "MultiLineString"]:
+            raise serializers.ValidationError(
+                f"Unsupported geometry type: '{geojson_type}'. "
+                "Only Polygon or MultiPolygon geometries are accepted."
+            )
         else:
             raise serializers.ValidationError(
                 f"Unsupported GeoJSON type: '{geojson_type}'. "
@@ -129,6 +134,12 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
         if not geom_type:
             raise serializers.ValidationError(
                 f"{context}: Geometry must have a 'type' field."
+            )
+
+        if geom_type not in ["Polygon", "MultiPolygon", "GeometryCollection"]:
+            raise serializers.ValidationError(
+                f"{context}: Unsupported geometry type '{geom_type}'. "
+                "Only Polygon or MultiPolygon geometries are accepted."
             )
 
         coords = geometry.get("coordinates")

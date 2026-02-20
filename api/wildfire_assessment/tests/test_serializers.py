@@ -482,8 +482,8 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("geojson", serializer.errors)
 
-    def test_validate_geojson_valid_point(self):
-        """Test valid Point geometry."""
+    def test_validate_geojson_rejects_point(self):
+        """Test that Point geometry is rejected."""
         request = self.factory.post("/")
         request.user = self.user
         serializer = AreaOfInterestCreateSerializer(
@@ -497,10 +497,11 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             },
             context={"request": request},
         )
-        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
 
-    def test_validate_geojson_valid_linestring(self):
-        """Test valid LineString geometry."""
+    def test_validate_geojson_rejects_linestring(self):
+        """Test that LineString geometry is rejected."""
         request = self.factory.post("/")
         request.user = self.user
         serializer = AreaOfInterestCreateSerializer(
@@ -514,7 +515,30 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             },
             context={"request": request},
         )
-        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_geojson_rejects_feature_with_linestring(self):
+        """Test that a Feature wrapping a LineString is rejected."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [[0, 0], [1, 1], [2, 2]]
+                    },
+                    "properties": {}
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
 
     def test_validate_coordinates_depth_limit(self):
         """Test that deeply nested coordinates don't cause infinite recursion."""

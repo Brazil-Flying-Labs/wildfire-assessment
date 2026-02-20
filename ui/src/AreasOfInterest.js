@@ -150,6 +150,23 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
     return errorMessage;
   }, [t]);
 
+  const validatePolygonGeometry = useCallback((geojson) => {
+    const allowed = ["Polygon", "MultiPolygon"];
+    const type = geojson.type;
+    if (type === "Feature") {
+      const geomType = geojson.geometry?.type;
+      if (!allowed.includes(geomType)) return false;
+    } else if (type === "FeatureCollection") {
+      for (const feat of geojson.features || []) {
+        const geomType = feat.geometry?.type;
+        if (!allowed.includes(geomType)) return false;
+      }
+    } else if (!allowed.includes(type)) {
+      return false;
+    }
+    return true;
+  }, []);
+
   const handleDelete = useCallback(
     async (areaId) => {
       setDeleting(true);
@@ -242,6 +259,10 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
           geojsonData = JSON.parse(fileContent);
         } catch (parseError) {
           throw new Error(t("areas.invalidGeojson"));
+        }
+
+        if (!validatePolygonGeometry(geojsonData)) {
+          throw new Error(t("areas.polygonRequired"));
         }
 
         const payload = {
@@ -341,6 +362,10 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
             geojsonData = JSON.parse(fileContent);
           } catch (parseError) {
             throw new Error(t("areas.invalidGeojson"));
+          }
+
+          if (!validatePolygonGeometry(geojsonData)) {
+            throw new Error(t("areas.polygonRequired"));
           }
           payload.geojson = geojsonData;
         }

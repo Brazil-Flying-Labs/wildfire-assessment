@@ -37,13 +37,46 @@ class AreaOfInterestAdminForm(forms.ModelForm):
         self.fields["polygon_path"].required = False
         self.fields["polygon_path"].disabled = True
 
+    def clean_geojson_file(self):
+        geojson_file = self.cleaned_data.get("geojson_file")
+        if not geojson_file:
+            return geojson_file
+        content = geojson_file.read().decode("utf-8")
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            raise forms.ValidationError("Invalid JSON file.")
+        geojson_type = data.get("type", "")
+        if geojson_type == "Feature":
+            geom_type = (data.get("geometry") or {}).get("type", "")
+            if geom_type not in ("Polygon", "MultiPolygon"):
+                raise forms.ValidationError(
+                    f"Unsupported geometry type '{geom_type}'. "
+                    "Only Polygon or MultiPolygon geometries are accepted."
+                )
+        elif geojson_type == "FeatureCollection":
+            for i, feat in enumerate(data.get("features", [])):
+                geom_type = (feat.get("geometry") or {}).get("type", "")
+                if geom_type not in ("Polygon", "MultiPolygon"):
+                    raise forms.ValidationError(
+                        f"Feature[{i}] has unsupported geometry type '{geom_type}'. "
+                        "Only Polygon or MultiPolygon geometries are accepted."
+                    )
+        elif geojson_type not in ("Polygon", "MultiPolygon"):
+            raise forms.ValidationError(
+                f"Unsupported GeoJSON type '{geojson_type}'. "
+                "Only Polygon or MultiPolygon geometries are accepted."
+            )
+        # Reset file position so save() can read it again
+        geojson_file.seek(0)
+        return geojson_file
+
     def save(self, commit=True):
         instance = super().save(commit=False)
         geojson_file = self.cleaned_data.get("geojson_file")
 
         if geojson_file:
             content = geojson_file.read().decode("utf-8")
-            # Validate JSON
             json.loads(content)
 
             safe_name = "".join(
