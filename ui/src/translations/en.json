@@ -110,6 +110,7 @@
   "dashboard.area": "Area",
   "dashboard.country": "Country",
   "dashboard.dates": "Period",
+  "dashboard.areaHa": "Area (ha)",
   "dashboard.burnedHa": "Burned (ha)",
   "dashboard.runDate": "Run Date",
   "dashboard.errorLoading": "Error loading dashboard",

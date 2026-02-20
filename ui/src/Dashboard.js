@@ -180,6 +180,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                     <th scope="col">{t("dashboard.area")}</th>
                     <th scope="col" className="d-none d-md-table-cell">{t("dashboard.country")}</th>
                     <th scope="col">{t("dashboard.dates")}</th>
+                    <th scope="col" className="d-none d-md-table-cell">{t("dashboard.areaHa")}</th>
                     <th scope="col" className="d-none d-md-table-cell">{t("dashboard.burnedHa")}</th>
                     <th scope="col" className="d-none d-lg-table-cell">{t("dashboard.runDate")}</th>
                   </tr>
@@ -210,6 +211,9 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                         <small>
                           {formatDate(analysis.pre_fire_date)} → {formatDate(analysis.post_fire_date)}
                         </small>
+                      </td>
+                      <td className="d-none d-md-table-cell">
+                        {formatNumber(analysis.severity_data?.["Total Area"]?.area_ha)} ha
                       </td>
                       <td className="d-none d-md-table-cell">
                         {formatNumber(analysis.total_burned_ha)} ha

@@ -110,6 +110,7 @@
   "dashboard.area": "Zone",
   "dashboard.country": "Pays",
   "dashboard.dates": "Période",
+  "dashboard.areaHa": "Surface (ha)",
   "dashboard.burnedHa": "Brûlé (ha)",
   "dashboard.runDate": "Date d'exécution",
   "dashboard.errorLoading": "Erreur de chargement du tableau de bord",
