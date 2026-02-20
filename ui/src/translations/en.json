@@ -111,6 +111,8 @@
   "profile.errorSaving": "Error saving profile",
   "profile.language": "Preferred Language",
   "profile.languageHint": "Changes are saved automatically",
+  "profile.theme": "Theme",
+  "profile.themeHint": "Changes are saved automatically",
   "areas.title": "Areas of Interest Management",
   "areas.createNew": "Create New Area",
   "areas.addNew": "Add Area",

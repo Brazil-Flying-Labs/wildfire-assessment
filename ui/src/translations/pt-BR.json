@@ -111,6 +111,8 @@
   "profile.errorSaving": "Erro ao salvar perfil",
   "profile.language": "Idioma Preferido",
   "profile.languageHint": "As alterações são salvas automaticamente",
+  "profile.theme": "Tema",
+  "profile.themeHint": "As alterações são salvas automaticamente",
   "areas.title": "Gestão de Áreas de Interesse",
   "areas.createNew": "Criar Nova Área",
   "areas.addNew": "Adicionar Área",

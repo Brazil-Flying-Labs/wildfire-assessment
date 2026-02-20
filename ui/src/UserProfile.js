@@ -7,7 +7,12 @@ const LANGUAGE_LABELS = {
   fr: "Français",
 };
 
-function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate }) {
+const THEME_LABELS = {
+  light: { en: "Light", "pt-BR": "Claro", fr: "Clair" },
+  dark: { en: "Dark", "pt-BR": "Escuro", fr: "Sombre" },
+};
+
+function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate, onThemeChange }) {
   const { t, language, setLanguage } = useLanguage();
   const [loading, setLoading] = useState(!backendProfile);
   const [saving, setSaving] = useState(false);
@@ -212,6 +217,22 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
                 ))}
               </select>
               <div className="form-text">{t("profile.languageHint")}</div>
+            </div>
+
+            <div className="mb-3">
+              <label htmlFor="profileTheme" className="form-label">
+                {t("profile.theme")}
+              </label>
+              <select
+                className="form-select"
+                id="profileTheme"
+                value={backendProfile?.theme || "light"}
+                onChange={(e) => onThemeChange(e.target.value)}
+              >
+                <option value="light">{THEME_LABELS.light[language] || "Light"}</option>
+                <option value="dark">{THEME_LABELS.dark[language] || "Dark"}</option>
+              </select>
+              <div className="form-text">{t("profile.themeHint")}</div>
             </div>
 
             <button

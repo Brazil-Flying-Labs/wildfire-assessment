@@ -71,6 +71,11 @@ LANGUAGE_CHOICES = [
     ("fr", "Français"),
 ]
 
+THEME_CHOICES = [
+    ("light", "Light"),
+    ("dark", "Dark"),
+]
+
 
 class UserProfile(models.Model):
     user = models.OneToOneField(
@@ -82,6 +87,11 @@ class UserProfile(models.Model):
         max_length=5,
         choices=LANGUAGE_CHOICES,
         default="en",
+    )
+    theme = models.CharField(
+        max_length=10,
+        choices=THEME_CHOICES,
+        default="light",
     )
 
     def __str__(self):

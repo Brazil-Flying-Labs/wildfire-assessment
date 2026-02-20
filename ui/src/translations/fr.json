@@ -111,6 +111,8 @@
   "profile.errorSaving": "Erreur lors de l'enregistrement du profil",
   "profile.language": "Langue préférée",
   "profile.languageHint": "Les modifications sont enregistrées automatiquement",
+  "profile.theme": "Thème",
+  "profile.themeHint": "Les modifications sont enregistrées automatiquement",
   "areas.title": "Gestion des Zones d'Intérêt",
   "areas.createNew": "Créer une Nouvelle Zone",
   "areas.addNew": "Ajouter une Zone",

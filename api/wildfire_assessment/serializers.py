@@ -297,6 +297,9 @@ class UserMeSerializer(serializers.ModelSerializer):
     default_language = serializers.CharField(
         source="profile.default_language", required=False
     )
+    theme = serializers.CharField(
+        source="profile.theme", required=False
+    )
     authorized_countries = serializers.SerializerMethodField()
 
     class Meta:
@@ -306,6 +309,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "default_language",
+            "theme",
             "authorized_countries",
         ]
         read_only_fields = ["email", "authorized_countries"]
@@ -326,11 +330,20 @@ class UserMeSerializer(serializers.ModelSerializer):
             instance.last_name = validated_data["last_name"]
         instance.save()
 
-        # Update language preference
+        # Update profile preferences
+        profile, _ = UserProfile.objects.get_or_create(user=instance)
+        update_fields = []
+
         if "default_language" in profile_data:
-            profile, _ = UserProfile.objects.get_or_create(user=instance)
             profile.default_language = profile_data["default_language"]
-            profile.save(update_fields=["default_language"])
+            update_fields.append("default_language")
+
+        if "theme" in profile_data:
+            profile.theme = profile_data["theme"]
+            update_fields.append("theme")
+
+        if update_fields:
+            profile.save(update_fields=update_fields)
 
         return instance
 

@@ -66,7 +66,7 @@ class UserMeSerializerTests(TestCase):
         serializer = UserMeSerializer(self.user)
         self.assertEqual(
             set(serializer.data.keys()),
-            {"email", "first_name", "last_name", "default_language", "authorized_countries"},
+            {"email", "first_name", "last_name", "default_language", "theme", "authorized_countries"},
         )
 
     def test_read_only_fields(self):

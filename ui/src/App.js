@@ -152,6 +152,27 @@ function App() {
     return null;
   }, [authorizedFetch, baseUrl]);
 
+  // Apply theme to document
+  useEffect(() => {
+    const theme = backendProfile?.theme || "light";
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [backendProfile?.theme]);
+
+  // Update theme preference
+  const updateTheme = useCallback(async (newTheme) => {
+    if (!baseUrl) return;
+    try {
+      await authorizedFetch(`${baseUrl}/me/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: newTheme }),
+      });
+      await fetchBackendProfile();
+    } catch (error) {
+      console.error("Failed to update theme:", error);
+    }
+  }, [authorizedFetch, baseUrl, fetchBackendProfile]);
+
   useEffect(() => {
     if (!authReady || !baseUrl) return;
 
@@ -949,6 +970,7 @@ function App() {
               user={user}
               backendProfile={backendProfile}
               onProfileUpdate={fetchBackendProfile}
+              onThemeChange={updateTheme}
             />
           ) : !backendAuthorizationError ? (
             <section className="app-main-content p-4 flex-grow-1">
