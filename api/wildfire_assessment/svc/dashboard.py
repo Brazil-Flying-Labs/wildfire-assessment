@@ -1,9 +1,7 @@
 from decimal import Decimal
 
-from django.db.models import Sum
 from django.utils import timezone
-from wildfire_assessment.models import AnalysisRun, AreaOfInterest
-from wildfire_assessment.svc.area_of_interest import get_user_country_ids
+from wildfire_assessment.models import AnalysisRun
 
 
 def _sum_distinct_severity_totals(analyses_qs, severity_key):
@@ -31,30 +29,27 @@ def _sum_distinct_severity_totals(analyses_qs, severity_key):
 
 def get_dashboard_stats(user):
     """Compute dashboard statistics for the authenticated user."""
-    country_ids = get_user_country_ids(user)
-
-    accessible_areas = AreaOfInterest.objects.filter(country_id__in=country_ids)
-    accessible_analyses = AnalysisRun.objects.filter(
-        area_of_interest__country_id__in=country_ids
-    )
+    user_analyses = AnalysisRun.objects.filter(user=user)
 
     now = timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    total_analyses = accessible_analyses.count()
-    total_areas = accessible_areas.count()
+    total_analyses = user_analyses.count()
+    total_areas = (
+        user_analyses.values("area_of_interest").distinct().count()
+    )
 
     total_analyzed_ha = _sum_distinct_severity_totals(
-        accessible_analyses, "Total Area"
+        user_analyses, "Total Area"
     )
     total_burned_ha = _sum_distinct_severity_totals(
-        accessible_analyses, "Total Burned Area"
+        user_analyses, "Total Burned Area"
     )
-    analyses_this_month = accessible_analyses.filter(
+    analyses_this_month = user_analyses.filter(
         created_at__gte=month_start
     ).count()
 
-    recent_analyses = accessible_analyses.select_related(
+    recent_analyses = user_analyses.select_related(
         "area_of_interest", "area_of_interest__country", "user"
     )[:10]
 

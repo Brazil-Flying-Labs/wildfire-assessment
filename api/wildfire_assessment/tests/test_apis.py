@@ -695,7 +695,6 @@ class DashboardViewTests(APITestCase):
         )
 
     def test_dashboard_returns_stats_for_authenticated_user(self):
-        UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -704,8 +703,11 @@ class DashboardViewTests(APITestCase):
         self.assertEqual(data["total_areas"], 1)
         self.assertIn("recent_analyses", data)
 
-    def test_dashboard_returns_empty_without_permissions(self):
-        self.client.force_authenticate(user=self.user)
+    def test_dashboard_returns_empty_for_user_without_runs(self):
+        other_user = User.objects.create_user(
+            username="other", email="other@example.com", password="password"
+        )
+        self.client.force_authenticate(user=other_user)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -713,7 +715,6 @@ class DashboardViewTests(APITestCase):
         self.assertEqual(data["total_areas"], 0)
 
     def test_dashboard_includes_total_analyzed_ha(self):
-        UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
