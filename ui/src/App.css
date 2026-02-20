@@ -1389,3 +1389,18 @@
 [data-theme="dark"] .ai-analysis-cursor {
   color: #818cf8;
 }
+
+/* Ensure areas management fills available space */
+.areas-management {
+  min-height: 100%;
+  flex: 1;
+}
+
+[data-theme="dark"] .app-main {
+  background-color: var(--bg-primary);
+}
+
+[data-theme="dark"] .app-main-content {
+  background-color: var(--bg-primary);
+  min-height: 100%;
+}
