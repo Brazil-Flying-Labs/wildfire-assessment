@@ -92,17 +92,16 @@ function App() {
     const handlePopState = (event) => {
       const state = event.state;
       if (!state) {
-        // No state means initial page load — show landing
-        setShowLandingPageState(true);
+        // No state — push current page into history to prevent leaving the app
+        window.history.pushState(
+          { page: "dashboard", analysisId: null, landing: false },
+          ""
+        );
         return;
       }
-      if (state.landing) {
-        setShowLandingPageState(true);
-      } else {
-        setShowLandingPageState(false);
-        setCurrentPage(state.page || "dashboard");
-        setSelectedAnalysisId(state.analysisId || null);
-      }
+      setShowLandingPageState(false);
+      setCurrentPage(state.page || "dashboard");
+      setSelectedAnalysisId(state.analysisId || null);
       setIsNavOpen(false);
     };
 
@@ -853,7 +852,7 @@ function App() {
         isAuthenticated
         onLogin={() => {
           setShowLandingPage(false);
-          window.history.pushState(
+          window.history.replaceState(
             { page: "dashboard", analysisId: null, landing: false },
             ""
           );
