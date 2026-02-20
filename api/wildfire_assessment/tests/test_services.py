@@ -785,6 +785,19 @@ class AnalyticsServiceTests(TestCase):
         self.assertEqual(len(areas), 3)
         self.assertIn("user__email", areas[0])
 
+    def test_get_daily_run_counts(self):
+        counts = analytics.get_daily_run_counts()
+        self.assertIsInstance(counts, list)
+        # All 3 runs were created today so expect 1 day entry
+        self.assertEqual(len(counts), 1)
+        self.assertEqual(counts[0]["count"], 3)
+        self.assertIn("day", counts[0])
+
+    def test_get_daily_run_counts_empty(self):
+        AnalysisRun.objects.all().delete()
+        counts = analytics.get_daily_run_counts()
+        self.assertEqual(counts, [])
+
     def test_get_recent_analyses(self):
         recent = analytics.get_recent_analyses(limit=2)
         self.assertEqual(len(recent), 2)

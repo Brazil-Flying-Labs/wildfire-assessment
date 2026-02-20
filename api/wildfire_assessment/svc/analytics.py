@@ -1,5 +1,5 @@
 from django.db.models import Count, Max, Min, Sum
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import TruncDate, TruncMonth
 from django.utils import timezone
 from wildfire_assessment.models import AnalysisRun
 
@@ -63,6 +63,18 @@ def get_top_areas(limit=10):
             last_analyzed=Max("created_at"),
         )
         .order_by("user__email", "-analysis_count")[:limit]
+    )
+
+
+def get_daily_run_counts(days=90):
+    """Return analysis counts per day for the last N days."""
+    cutoff = timezone.now() - timezone.timedelta(days=days)
+    return list(
+        AnalysisRun.objects.filter(created_at__gte=cutoff)
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(count=Count("id"))
+        .order_by("day")
     )
 
 

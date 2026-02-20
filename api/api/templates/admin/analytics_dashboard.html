@@ -187,4 +187,41 @@
         </tbody>
     </table>
 </div>
+
+<div class="analytics-section module">
+    <h2>Daily Runs (Last 90 Days)</h2>
+    <div style="width:100%;overflow-x:auto;">
+        <canvas id="dailyRunsChart" style="width:100%;height:180px;"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const labels = {{ chart_labels|safe }};
+    const data = {{ chart_data|safe }};
+    new Chart(document.getElementById('dailyRunsChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Analyses',
+                data: data,
+                backgroundColor: 'rgba(65, 118, 144, 0.7)',
+                borderColor: 'rgba(65, 118, 144, 1)',
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: 20 } },
+                y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } }
+            }
+        }
+    });
+})();
+</script>
 {% endblock %}

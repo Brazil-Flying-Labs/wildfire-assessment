@@ -103,6 +103,7 @@ class AnalyticsDashboardViewTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Analytics Dashboard")
+        self.assertContains(response, "dailyRunsChart")
 
     def test_non_superuser_gets_forbidden(self):
         self.client.force_login(self.regular_user)

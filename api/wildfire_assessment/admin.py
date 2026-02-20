@@ -16,6 +16,7 @@ from wildfire_assessment.models import (
 )
 from wildfire_assessment.svc.analytics import (
     get_analytics_summary,
+    get_daily_run_counts,
     get_monthly_stats,
     get_recent_analyses,
     get_top_areas,
@@ -201,6 +202,9 @@ admin.site.register(AnalysisRun, AnalysisRunAdmin)
 def analytics_dashboard_view(request):
     if not request.user.is_superuser:
         return HttpResponseForbidden("Superuser access required.")
+    daily_runs = get_daily_run_counts()
+    chart_labels = json.dumps([row["day"].strftime("%Y-%m-%d") for row in daily_runs])
+    chart_data = json.dumps([row["count"] for row in daily_runs])
     context = {
         **admin.site.each_context(request),
         "title": "Analytics Dashboard",
@@ -209,5 +213,7 @@ def analytics_dashboard_view(request):
         "monthly_stats": get_monthly_stats(),
         "top_areas": get_top_areas(),
         "recent_analyses": get_recent_analyses(),
+        "chart_labels": chart_labels,
+        "chart_data": chart_data,
     }
     return render(request, "admin/analytics_dashboard.html", context)
