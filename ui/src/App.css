@@ -768,6 +768,17 @@
 .user-profile {
   max-width: 600px;
   margin: 0 auto;
+  width: 100%;
+}
+
+@media (max-width: 767.98px) {
+  .user-profile {
+    max-width: none;
+  }
+  
+  .user-profile .card {
+    max-width: none !important;
+  }
 }
 
 /* Placeholder card styling */
