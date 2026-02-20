@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguage } from "./LanguageContext";
 
 function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate }) {
@@ -11,6 +11,7 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
     firstName: "",
     lastName: "",
   });
+  const initializedRef = useRef(false);
 
   // Get Auth0 name parts for prefill fallback
   const getAuth0NameParts = useCallback(() => {
@@ -35,9 +36,10 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
     return { firstName: "", lastName: "" };
   }, [user]);
 
-  // Initialize form data from backend profile or Auth0 fallback
+  // Initialize form data from backend profile (only on first load)
   useEffect(() => {
-    if (backendProfile) {
+    if (backendProfile && !initializedRef.current) {
+      initializedRef.current = true;
       const backendFirstName = backendProfile.first_name || "";
       const backendLastName = backendProfile.last_name || "";
       
