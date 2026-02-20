@@ -680,6 +680,10 @@ class DashboardViewTests(APITestCase):
             pre_fire_date="2024-01-01",
             post_fire_date="2024-01-15",
             total_burned_ha=100.5,
+            severity_data={
+                "Total Area": {"area_ha": 1000.0, "ratio_percent": 100.0},
+                "Total Burned Area": {"area_ha": 100.5, "ratio_percent": 10.05},
+            },
         )
         self.url = reverse("dashboard")
 
@@ -714,7 +718,7 @@ class DashboardViewTests(APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
-        # total_analyzed_ha should be the sum of area_ha for analyzed areas
+        # total_analyzed_ha comes from severity_data "Total Area" per distinct combo
         self.assertEqual(float(data["total_analyzed_ha"]), 1000.0)
 
 

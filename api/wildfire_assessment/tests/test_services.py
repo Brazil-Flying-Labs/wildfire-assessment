@@ -803,3 +803,68 @@ class AnalyticsServiceTests(TestCase):
         self.assertEqual(len(recent), 2)
         # Most recent first
         self.assertEqual(recent[0]["user__email"], "analyst2@example.com")
+
+
+class DashboardServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="dashuser", email="dash@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="Dash Country", code="DC")
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.area = AreaOfInterest.objects.create(
+            name="Dash Area", polygon_path="d.geojson", country=self.country
+        )
+
+    def test_distinct_totals_deduplicates_same_combo(self):
+        """Duplicate (area, pre, post) should only count once using the latest run."""
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={
+                "Total Area": {"area_ha": 500.0},
+                "Total Burned Area": {"area_ha": 50.0},
+            },
+        )
+        # Same combo again — should be ignored (earlier created_at)
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={
+                "Total Area": {"area_ha": 999.0},
+                "Total Burned Area": {"area_ha": 999.0},
+            },
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        # Should use only the latest run (999), not sum both
+        self.assertEqual(float(stats["total_analyzed_ha"]), 999.0)
+        self.assertEqual(float(stats["total_burned_ha"]), 999.0)
+
+    def test_distinct_totals_missing_severity_key(self):
+        """Run with severity_data that lacks the expected key."""
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+            severity_data={"Unburned": {"area_ha": 100.0}},
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertIsNone(stats["total_analyzed_ha"])
+        self.assertIsNone(stats["total_burned_ha"])
+
+    def test_distinct_totals_non_dict_severity(self):
+        """Run with non-dict severity_data."""
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-03-01",
+            post_fire_date="2024-03-15",
+            severity_data="not a dict",
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertIsNone(stats["total_analyzed_ha"])

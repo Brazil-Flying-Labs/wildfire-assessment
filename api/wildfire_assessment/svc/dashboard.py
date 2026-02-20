@@ -1,7 +1,32 @@
+from decimal import Decimal
+
 from django.db.models import Sum
 from django.utils import timezone
 from wildfire_assessment.models import AnalysisRun, AreaOfInterest
 from wildfire_assessment.svc.area_of_interest import get_user_country_ids
+
+
+def _sum_distinct_severity_totals(analyses_qs, severity_key):
+    """Sum a severity_data value across distinct (area, pre_fire_date, post_fire_date) combos.
+
+    For each unique combination, uses the most recent run's severity_data.
+    """
+    seen = {}
+    for run in analyses_qs.filter(severity_data__isnull=False).order_by("-created_at"):
+        combo = (run.area_of_interest_id, run.pre_fire_date, run.post_fire_date)
+        if combo in seen:
+            continue
+        data = run.severity_data
+        if isinstance(data, dict):
+            val = data.get(severity_key, {}).get("area_ha")
+            if val is not None:
+                seen[combo] = Decimal(str(val))
+            else:
+                seen[combo] = None
+        else:
+            seen[combo] = None
+    values = [v for v in seen.values() if v is not None]
+    return sum(values) if values else None
 
 
 def get_dashboard_stats(user):
@@ -19,16 +44,12 @@ def get_dashboard_stats(user):
     total_analyses = accessible_analyses.count()
     total_areas = accessible_areas.count()
 
-    analyzed_area_ids = accessible_analyses.values_list(
-        "area_of_interest_id", flat=True
-    ).distinct()
-    total_analyzed_ha = accessible_areas.filter(id__in=analyzed_area_ids).aggregate(
-        total=Sum("area_ha")
-    )["total"]
-
-    total_burned_ha = accessible_analyses.aggregate(total=Sum("total_burned_ha"))[
-        "total"
-    ]
+    total_analyzed_ha = _sum_distinct_severity_totals(
+        accessible_analyses, "Total Area"
+    )
+    total_burned_ha = _sum_distinct_severity_totals(
+        accessible_analyses, "Total Burned Area"
+    )
     analyses_this_month = accessible_analyses.filter(
         created_at__gte=month_start
     ).count()
