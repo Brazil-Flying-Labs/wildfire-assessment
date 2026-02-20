@@ -84,7 +84,15 @@ function App() {
   const authReady = !authLoading && isAuthenticated;
 
   const login = useCallback(
-    () => loginWithRedirect({ authorizationParams: { ui_locales: language } }),
+    () => {
+      const theme = document.documentElement.getAttribute("data-theme") || "light";
+      loginWithRedirect({
+        authorizationParams: {
+          ui_locales: language,
+          color_scheme: theme,
+        },
+      });
+    },
     [loginWithRedirect, language]
   );
 
