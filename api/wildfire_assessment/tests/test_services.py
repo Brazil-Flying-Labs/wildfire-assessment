@@ -816,8 +816,8 @@ class DashboardServiceTests(TestCase):
             name="Dash Area", polygon_path="d.geojson", country=self.country
         )
 
-    def test_distinct_totals_deduplicates_same_combo(self):
-        """Duplicate (area, pre, post) should only count once using the latest run."""
+    def test_totals_sum_all_user_runs(self):
+        """All runs by the user should be summed."""
         AnalysisRun.objects.create(
             user=self.user,
             area_of_interest=self.area,
@@ -828,7 +828,6 @@ class DashboardServiceTests(TestCase):
                 "Total Burned Area": {"area_ha": 50.0},
             },
         )
-        # Same combo again — should be ignored (earlier created_at)
         AnalysisRun.objects.create(
             user=self.user,
             area_of_interest=self.area,
@@ -840,11 +839,10 @@ class DashboardServiceTests(TestCase):
             },
         )
         stats = dashboard_service.get_dashboard_stats(self.user)
-        # Should use only the latest run (999), not sum both
-        self.assertEqual(float(stats["total_analyzed_ha"]), 999.0)
-        self.assertEqual(float(stats["total_burned_ha"]), 999.0)
+        self.assertEqual(float(stats["total_analyzed_ha"]), 1499.0)
+        self.assertEqual(float(stats["total_burned_ha"]), 1049.0)
 
-    def test_distinct_totals_missing_severity_key(self):
+    def test_totals_missing_severity_key(self):
         """Run with severity_data that lacks the expected key."""
         AnalysisRun.objects.create(
             user=self.user,
@@ -857,7 +855,7 @@ class DashboardServiceTests(TestCase):
         self.assertIsNone(stats["total_analyzed_ha"])
         self.assertIsNone(stats["total_burned_ha"])
 
-    def test_distinct_totals_non_dict_severity(self):
+    def test_totals_non_dict_severity(self):
         """Run with non-dict severity_data."""
         AnalysisRun.objects.create(
             user=self.user,
