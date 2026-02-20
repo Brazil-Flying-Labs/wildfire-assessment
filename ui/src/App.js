@@ -57,20 +57,57 @@ function App() {
     setIsNavOpen(false);
   }, []);
 
-  const navigateTo = useCallback((page) => {
+  const navigateTo = useCallback((page, { replace = false } = {}) => {
     setCurrentPage(page);
     setSelectedAnalysisId(null);
     setIsNavOpen(false);
+    const state = { page, analysisId: null, landing: false };
+    if (replace) {
+      window.history.replaceState(state, "");
+    } else {
+      window.history.pushState(state, "");
+    }
   }, []);
 
   const handleAnalysisClick = useCallback((analysisId) => {
     setSelectedAnalysisId(analysisId);
     setCurrentPage("analysis-detail");
+    window.history.pushState(
+      { page: "analysis-detail", analysisId, landing: false },
+      ""
+    );
   }, []);
 
   const handleBackFromAnalysisDetail = useCallback(() => {
     setSelectedAnalysisId(null);
     setCurrentPage("dashboard");
+    window.history.pushState(
+      { page: "dashboard", analysisId: null, landing: false },
+      ""
+    );
+  }, []);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = (event) => {
+      const state = event.state;
+      if (!state) {
+        // No state means initial page load — show landing
+        setShowLandingPageState(true);
+        return;
+      }
+      if (state.landing) {
+        setShowLandingPageState(true);
+      } else {
+        setShowLandingPageState(false);
+        setCurrentPage(state.page || "dashboard");
+        setSelectedAnalysisId(state.analysisId || null);
+      }
+      setIsNavOpen(false);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   const [backendAuthorizationError, setBackendAuthorizationError] = useState(false);
@@ -814,7 +851,13 @@ function App() {
     return (
       <LandingPage
         isAuthenticated
-        onLogin={() => setShowLandingPage(false)}
+        onLogin={() => {
+          setShowLandingPage(false);
+          window.history.pushState(
+            { page: "dashboard", analysisId: null, landing: false },
+            ""
+          );
+        }}
       />
     );
   }
