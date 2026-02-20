@@ -1306,3 +1306,16 @@
 [data-theme="dark"] .kebab-trigger:hover {
   background-color: var(--bg-secondary);
 }
+
+/* Dark mode placeholder visibility */
+[data-theme="dark"] .form-control::placeholder,
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+[data-theme="dark"] .date-input-text::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
