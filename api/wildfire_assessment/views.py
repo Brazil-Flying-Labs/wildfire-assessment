@@ -81,9 +81,17 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         # Search by name or country name (case and accent insensitive)
         search = self.request.query_params.get("search")
         if search:
-            queryset = queryset.filter(
-                Q(name__unaccent__icontains=search) | Q(country__name__unaccent__icontains=search)
-            )
+            from django.db import connection
+
+            # Use UNACCENT for PostgreSQL, fall back to icontains for other backends
+            if connection.vendor == "postgresql":
+                queryset = queryset.filter(
+                    Q(name__unaccent__icontains=search) | Q(country__name__unaccent__icontains=search)
+                )
+            else:
+                queryset = queryset.filter(
+                    Q(name__icontains=search) | Q(country__name__icontains=search)
+                )
 
         return queryset
 

@@ -1,6 +1,12 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
-from wildfire_assessment.models import Country, UserCountry, UserProfile
+from wildfire_assessment.models import (
+    AnalysisRun,
+    AreaOfInterest,
+    Country,
+    UserCountry,
+    UserProfile,
+)
 
 
 class CountryModelTests(TestCase):
@@ -43,3 +49,24 @@ class UserProfileModelTests(TestCase):
         profile.save()
         profile.refresh_from_db()
         self.assertEqual(profile.default_language, "pt-BR")
+
+
+class AnalysisRunModelTests(TestCase):
+    def test_str_representation(self):
+        user = get_user_model().objects.create(username="analyst")
+        country = Country.objects.create(name="Brazil", code="BR")
+        area = AreaOfInterest.objects.create(
+            name="Amazon Reserve",
+            polygon_path="amazon.geojson",
+            country=country,
+        )
+        analysis = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        self.assertEqual(
+            str(analysis),
+            "Amazon Reserve - 2024-01-01 to 2024-01-15"
+        )

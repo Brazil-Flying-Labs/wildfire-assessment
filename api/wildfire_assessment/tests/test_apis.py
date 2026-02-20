@@ -571,3 +571,279 @@ class AIAnalysisFollowUpViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertIn("connection failed", response.json()["error"])
+
+
+class AnalysisRunViewSetTests(APITestCase):
+    """Tests for the AnalysisRun ViewSet."""
+
+    def setUp(self):
+        from wildfire_assessment.models import AnalysisRun
+
+        self.country = Country.objects.create(name="Test Country", code="TC")
+        self.other_country = Country.objects.create(name="Other Country", code="OC")
+        self.area = AreaOfInterest.objects.create(
+            name="Test Area",
+            polygon_path="polygon.json",
+            country=self.country,
+        )
+        self.other_area = AreaOfInterest.objects.create(
+            name="Other Area",
+            polygon_path="polygon2.json",
+            country=self.other_country,
+        )
+        self.user = User.objects.create_user(
+            username="tester", email="tester@example.com", password="password"
+        )
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            total_burned_ha=100.5,
+        )
+        self.other_analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.other_area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+            total_burned_ha=50.0,
+        )
+
+    def test_list_requires_authentication(self):
+        url = reverse("analysisrun-list")
+        response = self.client.get(url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_retrieve_requires_authentication(self):
+        url = reverse("analysisrun-detail", args=[self.analysis.id])
+        response = self.client.get(url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_list_returns_empty_without_country_permissions(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["count"], 0)
+
+    def test_list_returns_only_authorized_analyses(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["id"], self.analysis.id)
+
+    def test_retrieve_returns_analysis_for_authorized_user(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-detail", args=[self.analysis.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["id"], self.analysis.id)
+        self.assertEqual(data["area_name"], "Test Area")
+
+    def test_retrieve_returns_404_for_unauthorized_analysis(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-detail", args=[self.other_analysis.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class DashboardViewTests(APITestCase):
+    """Tests for the Dashboard View."""
+
+    def setUp(self):
+        from wildfire_assessment.models import AnalysisRun
+
+        self.country = Country.objects.create(name="Test Country", code="TC")
+        self.area = AreaOfInterest.objects.create(
+            name="Test Area",
+            polygon_path="polygon.json",
+            country=self.country,
+            area_ha=1000.0,
+        )
+        self.user = User.objects.create_user(
+            username="tester", email="tester@example.com", password="password"
+        )
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            total_burned_ha=100.5,
+        )
+        self.url = reverse("dashboard")
+
+    def test_dashboard_requires_authentication(self):
+        response = self.client.get(self.url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_dashboard_returns_stats_for_authenticated_user(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["total_analyses"], 1)
+        self.assertEqual(data["total_areas"], 1)
+        self.assertIn("recent_analyses", data)
+
+    def test_dashboard_returns_empty_without_permissions(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["total_analyses"], 0)
+        self.assertEqual(data["total_areas"], 0)
+
+    def test_dashboard_includes_total_analyzed_ha(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        # total_analyzed_ha should be the sum of area_ha for analyzed areas
+        self.assertEqual(float(data["total_analyzed_ha"]), 1000.0)
+
+
+class AreaOfInterestUpdateTests(APITestCase):
+    """Tests for updating areas of interest."""
+
+    def setUp(self):
+        self.country = Country.objects.create(name="Test Country", code="TC")
+        self.other_country = Country.objects.create(name="Other Country", code="OC")
+        self.area = AreaOfInterest.objects.create(
+            name="Original Name",
+            polygon_path="polygon.json",
+            country=self.country,
+        )
+        self.user = User.objects.create_user(
+            username="tester", email="tester@example.com", password="password"
+        )
+
+    def test_update_requires_authentication(self):
+        url = reverse("areaofinterest-detail", args=[self.area.id])
+        response = self.client.put(url, {"name": "New Name"}, format="json")
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_update_requires_country_permission(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-detail", args=[self.area.id])
+        response = self.client.put(
+            url,
+            {"name": "New Name", "country": self.country.id},
+            format="json",
+        )
+        # Without country permission, should get 404 (filtered by queryset)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_success(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-detail", args=[self.area.id])
+        response = self.client.put(
+            url,
+            {"name": "Updated Name", "country": self.country.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.area.refresh_from_db()
+        self.assertEqual(self.area.name, "Updated Name")
+
+    def test_partial_update_success(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-detail", args=[self.area.id])
+        response = self.client.patch(url, {"name": "Patched Name"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.area.refresh_from_db()
+        self.assertEqual(self.area.name, "Patched Name")
+
+    def test_update_forbidden_for_wrong_country(self):
+        # User has permission for other_country but not the area's country
+        UserCountry.objects.create(user=self.user, country=self.other_country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-detail", args=[self.area.id])
+        response = self.client.put(
+            url,
+            {"name": "New Name", "country": self.country.id},
+            format="json",
+        )
+        # Should get 404 because queryset filters by country permission
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_partial_update_forbidden_for_wrong_country(self):
+        UserCountry.objects.create(user=self.user, country=self.other_country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-detail", args=[self.area.id])
+        response = self.client.patch(url, {"name": "Patched"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class UserMeViewExtendedTests(APITestCase):
+    """Extended tests for UserMe View covering profile updates."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="tester",
+            email="tester@example.com",
+            password="password",
+        )
+        self.url = reverse("user-me")
+
+    def test_patch_first_name(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            self.url,
+            {"first_name": "NewFirst"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "NewFirst")
+
+    def test_patch_last_name(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            self.url,
+            {"last_name": "NewLast"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.last_name, "NewLast")
+
+    def test_patch_theme(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            self.url,
+            {"theme": "dark"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.theme, "dark")
+
+    def test_get_theme_returns_default(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["theme"], "light")

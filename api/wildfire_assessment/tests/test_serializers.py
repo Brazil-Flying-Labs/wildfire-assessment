@@ -603,39 +603,50 @@ class AreaOfInterestUpdateSerializerTests(TestCase):
         self.assertEqual(updated.name, "Updated Name")
         self.assertEqual(updated.polygon_path, "test.geojson")  # unchanged
 
-    @override_settings(BASE_DIR=tempfile.gettempdir())
     def test_update_with_new_geojson(self):
         """Test updating with a new GeoJSON file."""
-        # Create polygons dir
-        polygons_dir = os.path.join(tempfile.gettempdir(), "..", "..", "polygons")
-        os.makedirs(polygons_dir, exist_ok=True)
-        
-        # Create old file
-        old_path = os.path.join(polygons_dir, "old_file.geojson")
-        with open(old_path, "w") as f:
-            f.write("{}")
+        import shutil
 
-        area = AreaOfInterest.objects.create(
-            name="Test Area",
-            polygon_path="old_file.geojson",
-            country=self.country,
-        )
+        # Create a proper temp directory structure
+        test_base = tempfile.mkdtemp()
+        try:
+            # The serializer expects polygons at BASE_DIR/../../polygons
+            # So we create: test_base/api/api (as BASE_DIR) and test_base/polygons
+            api_dir = os.path.join(test_base, "api", "api")
+            polygons_dir = os.path.join(test_base, "polygons")
+            os.makedirs(api_dir, exist_ok=True)
+            os.makedirs(polygons_dir, exist_ok=True)
 
-        request = self.factory.patch("/")
-        request.user = self.user
-        serializer = AreaOfInterestUpdateSerializer(
-            area,
-            data={
-                "name": "Test Area",
-                "geojson": self.valid_polygon,
-            },
-            partial=True,
-            context={"request": request},
-        )
-        self.assertTrue(serializer.is_valid(), serializer.errors)
-        updated = serializer.save()
-        self.assertNotEqual(updated.polygon_path, "old_file.geojson")
-        self.assertTrue(updated.polygon_path.endswith(".geojson"))
+            # Create old file
+            old_path = os.path.join(polygons_dir, "old_file.geojson")
+            with open(old_path, "w") as f:
+                f.write("{}")
+
+            area = AreaOfInterest.objects.create(
+                name="Test Area",
+                polygon_path="old_file.geojson",
+                country=self.country,
+            )
+
+            request = self.factory.patch("/")
+            request.user = self.user
+
+            with override_settings(BASE_DIR=api_dir):
+                serializer = AreaOfInterestUpdateSerializer(
+                    area,
+                    data={
+                        "name": "Test Area",
+                        "geojson": self.valid_polygon,
+                    },
+                    partial=True,
+                    context={"request": request},
+                )
+                self.assertTrue(serializer.is_valid(), serializer.errors)
+                updated = serializer.save()
+                self.assertNotEqual(updated.polygon_path, "old_file.geojson")
+                self.assertTrue(updated.polygon_path.endswith(".geojson"))
+        finally:
+            shutil.rmtree(test_base, ignore_errors=True)
 
     def test_update_country_unauthorized(self):
         """Test that updating to unauthorized country fails."""
