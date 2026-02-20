@@ -1419,6 +1419,10 @@
   flex: 1;
 }
 
+.dashboard .card {
+  overflow: visible;
+}
+
 .stat-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
