@@ -6,6 +6,7 @@ import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
 import AreasOfInterest from "./AreasOfInterest";
+import Dashboard from "./Dashboard";
 import UserProfile from "./UserProfile";
 
 const UI_VERSION = "1.3.0";
@@ -51,7 +52,7 @@ function App() {
   }, []);
 
   // Page navigation state: "home", "analysis", or "areas"
-  const [currentPage, setCurrentPage] = useState("home");
+  const [currentPage, setCurrentPage] = useState("dashboard");
 
   const toggleNav = useCallback(() => {
     setIsNavOpen((previous) => !previous);
@@ -918,6 +919,21 @@ function App() {
             <li>
               <button
                 type="button"
+                className={`nav-sidebar-item ${currentPage === "dashboard" ? "active" : ""}`}
+                onClick={() => navigateTo("dashboard")}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" />
+                  <rect x="14" y="3" width="7" height="7" />
+                  <rect x="14" y="14" width="7" height="7" />
+                  <rect x="3" y="14" width="7" height="7" />
+                </svg>
+                <span>{t("nav.dashboard")}</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
                 className={`nav-sidebar-item ${currentPage === "analysis" ? "active" : ""}`}
                 onClick={() => navigateTo("analysis")}
               >
@@ -959,18 +975,11 @@ function App() {
 
         {/* Main Content */}
         <main className="app-main flex-grow-1 d-flex flex-column">
-          {currentPage === "home" ? (
-            <section className="app-main-content p-4 flex-grow-1 d-flex align-items-center justify-content-center">
-              <div className="text-center">
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#6c757d" strokeWidth="1.5" className="mb-4">
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-                <h2 className="h4 text-muted mb-3">{t("app.welcomeTitle")}</h2>
-                <p className="text-muted mb-0">{t("app.welcomeMessage")}</p>
-              </div>
-            </section>
+          {currentPage === "dashboard" ? (
+            <Dashboard
+              authorizedFetch={authorizedFetch}
+              baseUrl={baseUrl}
+            />
           ) : currentPage === "areas" ? (
             <AreasOfInterest
               authorizedFetch={authorizedFetch}

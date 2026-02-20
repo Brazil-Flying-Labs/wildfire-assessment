@@ -1404,3 +1404,54 @@
   background-color: var(--bg-primary);
   min-height: 100%;
 }
+
+/* Dashboard styles */
+.dashboard {
+  min-height: 100%;
+  flex: 1;
+}
+
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.stat-icon {
+  color: #6366f1;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: inherit;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+}
+
+/* Dark mode for dashboard */
+[data-theme="dark"] .dashboard {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .stat-card {
+  background-color: var(--bg-card);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .stat-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .stat-icon {
+  color: #818cf8;
+}
+
+[data-theme="dark"] .stat-value {
+  color: var(--text-primary);
+}

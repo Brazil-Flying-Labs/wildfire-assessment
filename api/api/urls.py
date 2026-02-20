@@ -29,6 +29,7 @@ from wildfire_assessment.views import (
     AIAnalysisFollowUpView,
     AIAnalysisView,
     AreaOfInterestViewSet,
+    DashboardView,
     UserMeView,
     health_status,
 )
@@ -39,6 +40,7 @@ router.register(r"area_of_interest", AreaOfInterestViewSet)
 urlpatterns = [
     path("", health_status, name="health-status"),
     path("me/", UserMeView.as_view(), name="user-me"),
+    path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("analysis/", AIAnalysisView.as_view(), name="ai-analysis"),
     path("analysis/followup/", AIAnalysisFollowUpView.as_view(), name="ai-analysis-followup"),
     path("", include(router.urls)),

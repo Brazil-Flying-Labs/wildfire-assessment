@@ -96,3 +96,53 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.default_language}"
+
+
+class AnalysisRun(models.Model):
+    """Stores information about each wildfire analysis run."""
+    
+    STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("running", "Running"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="analysis_runs",
+    )
+    area_of_interest = models.ForeignKey(
+        AreaOfInterest,
+        on_delete=models.CASCADE,
+        related_name="analysis_runs",
+    )
+    pre_fire_date = models.DateField()
+    post_fire_date = models.DateField()
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="completed",
+    )
+    
+    # Severity data stored as JSON
+    severity_data = models.JSONField(null=True, blank=True)
+    
+    # Total burned area in hectares
+    total_burned_ha = models.DecimalField(
+        max_digits=15, decimal_places=3, null=True, blank=True
+    )
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Analysis Run"
+        verbose_name_plural = "Analysis Runs"
+    
+    def __str__(self):
+        return f"{self.area_of_interest.name} - {self.pre_fire_date} to {self.post_fire_date}"

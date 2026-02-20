@@ -4,8 +4,9 @@ import os
 import uuid
 from datetime import datetime
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.http import JsonResponse, StreamingHttpResponse
+from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, permissions, status, viewsets
@@ -14,13 +15,15 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
-from wildfire_assessment.models import AreaOfInterest
+from wildfire_assessment.models import AnalysisRun, AreaOfInterest
 from wildfire_assessment.serializers import (
     AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
+    AnalysisRunSerializer,
     AreaOfInterestCreateSerializer,
     AreaOfInterestSerializer,
     AreaOfInterestUpdateSerializer,
+    DashboardStatsSerializer,
     UserMeSerializer,
 )
 from wildfire_assessment.svc.ai_analysis import (
@@ -232,6 +235,34 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             polygon_path=polygon_path,
         )
 
+        # Extract severity data and total burned area
+        severity_data = None
+        total_burned_ha = None
+        try:
+            severity_map = assessment_result.get("severity_map")
+            if severity_map:
+                if isinstance(severity_map, str):
+                    severity_data = json.loads(severity_map)
+                else:
+                    severity_data = severity_map
+                # Get total burned area from severity data
+                if severity_data and "Total Burned Area" in severity_data:
+                    total_burned_ha = severity_data["Total Burned Area"].get("area_ha")
+        except (json.JSONDecodeError, TypeError, KeyError):
+            pass
+
+        # Save the analysis run
+        AnalysisRun.objects.create(
+            user=request.user,
+            area_of_interest=instance,
+            pre_fire_date=pre_fire_date,
+            post_fire_date=post_fire_date,
+            status="completed",
+            severity_data=severity_data,
+            total_burned_ha=total_burned_ha,
+            completed_at=timezone.now(),
+        )
+
         return Response(
             {
                 "execution_id": str(execution_id),
@@ -322,6 +353,56 @@ class UserMeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class DashboardView(APIView):
+    """Return dashboard statistics for the authenticated user."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        responses={200: DashboardStatsSerializer},
+    )
+    def get(self, request):
+        user = request.user
+        
+        # Get country IDs the user has access to
+        country_ids = user.country_permissions.values_list("country_id", flat=True)
+        
+        # Filter areas and analyses by user's country permissions
+        accessible_areas = AreaOfInterest.objects.filter(country_id__in=country_ids)
+        accessible_analyses = AnalysisRun.objects.filter(
+            area_of_interest__country_id__in=country_ids
+        )
+        
+        # Get current month start
+        now = timezone.now()
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Calculate statistics
+        total_analyses = accessible_analyses.count()
+        total_areas = accessible_areas.count()
+        total_burned_ha = accessible_analyses.aggregate(
+            total=Sum('total_burned_ha')
+        )['total']
+        analyses_this_month = accessible_analyses.filter(
+            created_at__gte=month_start
+        ).count()
+        
+        # Get recent analyses (last 10)
+        recent_analyses = accessible_analyses.select_related(
+            'area_of_interest', 'area_of_interest__country', 'user'
+        )[:10]
+        
+        data = {
+            'total_analyses': total_analyses,
+            'total_areas': total_areas,
+            'total_burned_ha': total_burned_ha,
+            'analyses_this_month': analyses_this_month,
+            'recent_analyses': AnalysisRunSerializer(recent_analyses, many=True).data,
+        }
+        
+        return Response(data)
 
 
 class AIAnalysisView(APIView):

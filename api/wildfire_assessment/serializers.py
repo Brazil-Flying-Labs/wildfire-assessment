@@ -358,6 +358,43 @@ class UserMeSerializer(serializers.ModelSerializer):
         return instance
 
 
+class AnalysisRunSerializer(serializers.ModelSerializer):
+    """Serializer for AnalysisRun model."""
+    
+    area_name = serializers.CharField(source='area_of_interest.name', read_only=True)
+    country_name = serializers.CharField(source='area_of_interest.country.name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    
+    class Meta:
+        from .models import AnalysisRun
+        model = AnalysisRun
+        fields = [
+            'id',
+            'area_of_interest',
+            'area_name',
+            'country_name',
+            'user_email',
+            'pre_fire_date',
+            'post_fire_date',
+            'status',
+            'severity_data',
+            'total_burned_ha',
+            'created_at',
+            'completed_at',
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class DashboardStatsSerializer(serializers.Serializer):
+    """Serializer for dashboard statistics."""
+    
+    total_analyses = serializers.IntegerField()
+    total_areas = serializers.IntegerField()
+    total_burned_ha = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    analyses_this_month = serializers.IntegerField()
+    recent_analyses = AnalysisRunSerializer(many=True)
+
+
 class AnalysisRequestSerializer(serializers.Serializer):
     """Serializer for the AI analysis request."""
 
