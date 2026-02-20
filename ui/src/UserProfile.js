@@ -147,7 +147,7 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
         </div>
       )}
 
-      <div className="card shadow-sm" style={{ maxWidth: "500px" }}>
+      <div className="card shadow-sm" style={{ maxWidth: "500px", width: "100%" }}>
         <div className="card-body">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
