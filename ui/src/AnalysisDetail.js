@@ -128,13 +128,13 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
             {t("common.tryAgain")}
           </button>
         </div>
-        <a
-          href="#"
-          className="text-decoration-none"
-          onClick={(e) => { e.preventDefault(); onBack(); }}
+        <button
+          type="button"
+          className="btn btn-link text-decoration-none p-0"
+          onClick={onBack}
         >
           ← {t("analysisDetail.backToDashboard")}
-        </a>
+        </button>
       </div>
     );
   }
@@ -144,13 +144,13 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
       {/* Header with back link */}
       <div className="d-flex align-items-center justify-content-between mb-4">
         <h2 className="h4 mb-0">{t("analysisDetail.title")}</h2>
-        <a
-          href="#"
-          className="text-decoration-none"
-          onClick={(e) => { e.preventDefault(); onBack(); }}
+        <button
+          type="button"
+          className="btn btn-link text-decoration-none p-0"
+          onClick={onBack}
         >
           ← {t("analysisDetail.backToDashboard")}
-        </a>
+        </button>
       </div>
 
       {/* Analysis Info Card */}
