@@ -123,33 +123,35 @@
 </div>
 
 <div class="analytics-section module">
-    <h2>Top Areas of Interest</h2>
+    <h2>Areas of Interest by User</h2>
+    {% regroup top_areas by user__email as user_areas %}
+    {% for user_group in user_areas %}
+    <h3 style="margin-top: 16px; margin-bottom: 4px;">{{ user_group.grouper }}</h3>
     <table id="result_list">
         <thead>
             <tr>
                 <th>Area</th>
                 <th>Country</th>
-                <th>User</th>
                 <th>Analyses</th>
                 <th>Burned (ha)</th>
                 <th>Last Analyzed</th>
             </tr>
         </thead>
         <tbody>
-            {% for area in top_areas %}
+            {% for area in user_group.list %}
             <tr class="{% cycle 'row1' 'row2' %}">
                 <td>{{ area.area_of_interest__name }}</td>
                 <td>{{ area.area_of_interest__country__name }}</td>
-                <td>{{ area.user__email }}</td>
                 <td>{{ area.analysis_count }}</td>
                 <td>{{ area.total_burned_ha|floatformat:1|default:"-" }}</td>
                 <td>{{ area.last_analyzed|date:"Y-m-d" }}</td>
             </tr>
-            {% empty %}
-            <tr><td colspan="6">No areas analyzed yet.</td></tr>
             {% endfor %}
         </tbody>
     </table>
+    {% empty %}
+    <p>No areas analyzed yet.</p>
+    {% endfor %}
 </div>
 
 <div class="analytics-section module">

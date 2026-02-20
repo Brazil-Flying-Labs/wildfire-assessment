@@ -52,17 +52,17 @@ def get_monthly_stats():
 
 
 def get_top_areas(limit=10):
-    """Return the most-analyzed areas of interest, broken down by user."""
+    """Return areas of interest grouped by user, ordered by user then analysis count."""
     return list(
         AnalysisRun.objects.values(
-            "area_of_interest__name", "area_of_interest__country__name", "user__email"
+            "user__email", "area_of_interest__name", "area_of_interest__country__name"
         )
         .annotate(
             analysis_count=Count("id"),
             total_burned_ha=Sum("total_burned_ha"),
             last_analyzed=Max("created_at"),
         )
-        .order_by("-analysis_count")[:limit]
+        .order_by("user__email", "-analysis_count")[:limit]
     )
 
 
