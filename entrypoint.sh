@@ -2,5 +2,6 @@
 python manage.py migrate
 python manage.py collectstatic --noinput
 
-# Start the Gunicorn server com timeout maior
-gunicorn api.wsgi:application --bind 0.0.0.0:10000 --timeout 300
+# Start the Gunicorn server with increased timeout and multiple workers
+# Multiple workers ensure health checks are served while long requests are processed
+gunicorn api.wsgi:application --bind 0.0.0.0:10000 --timeout 600 --workers 3
