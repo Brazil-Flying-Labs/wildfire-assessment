@@ -59,5 +59,6 @@ node_modules/
 
 
 api/htmlcov
+api/.coverage
 
-api/.coveragepolygons/Test_Area_*.geojson
+polygons/
