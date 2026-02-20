@@ -161,15 +161,19 @@ function App() {
   // Update theme preference
   const updateTheme = useCallback(async (newTheme) => {
     if (!baseUrl) return;
+    // Optimistic update - apply theme immediately
+    setBackendProfile((prev) => prev ? { ...prev, theme: newTheme } : prev);
+    document.documentElement.setAttribute("data-theme", newTheme);
     try {
       await authorizedFetch(`${baseUrl}/me/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ theme: newTheme }),
       });
-      await fetchBackendProfile();
     } catch (error) {
       console.error("Failed to update theme:", error);
+      // Revert on error
+      await fetchBackendProfile();
     }
   }, [authorizedFetch, baseUrl, fetchBackendProfile]);
 
