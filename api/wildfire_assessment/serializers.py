@@ -397,15 +397,46 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
         return self._get_image_url(obj, 'rbr_image')
 
 
+class SeverityBreakdownItemSerializer(serializers.Serializer):
+    label = serializers.CharField()
+    area_ha = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+
+class AreaComparisonItemSerializer(serializers.Serializer):
+    area_name = serializers.CharField()
+    total_burned_ha = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+
+class MostAnalyzedAreaSerializer(serializers.Serializer):
+    area_name = serializers.CharField()
+    run_count = serializers.IntegerField()
+
+
+class LargestFireSerializer(serializers.Serializer):
+    area_name = serializers.CharField()
+    burned_ha = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+
 class DashboardStatsSerializer(serializers.Serializer):
     """Serializer for dashboard statistics."""
-    
+
     total_analyses = serializers.IntegerField()
     total_areas = serializers.IntegerField()
-    total_analyzed_ha = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
-    total_burned_ha = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
+    total_analyzed_ha = serializers.DecimalField(
+        max_digits=15, decimal_places=2, allow_null=True
+    )
+    total_burned_ha = serializers.DecimalField(
+        max_digits=15, decimal_places=2, allow_null=True
+    )
     analyses_this_month = serializers.IntegerField()
     recent_analyses = AnalysisRunSerializer(many=True)
+    severity_breakdown = SeverityBreakdownItemSerializer(many=True)
+    area_comparison = AreaComparisonItemSerializer(many=True)
+    average_burn_severity = serializers.DecimalField(
+        max_digits=5, decimal_places=2, allow_null=True
+    )
+    most_analyzed_area = MostAnalyzedAreaSerializer(allow_null=True)
+    largest_fire = LargestFireSerializer(allow_null=True)
 
 
 class AnalysisRequestSerializer(serializers.Serializer):

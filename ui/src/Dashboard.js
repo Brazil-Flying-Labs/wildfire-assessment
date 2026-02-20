@@ -1,5 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+} from "chart.js";
+import { Doughnut, Bar } from "react-chartjs-2";
 import { useLanguage } from "./LanguageContext";
+
+ChartJS.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement
+);
+
+const SEVERITY_COLORS = {
+  Unburned: "#28a745",
+  "Low Severity": "#ffc107",
+  "Moderate Severity": "#fd7e14",
+  "High Severity": "#dc3545",
+  "Very High Severity": "#6f42c1",
+};
 
 function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
   const { t } = useLanguage();
@@ -7,12 +34,30 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
 
+  // Dark mode detection for chart theming
+  const [isDark, setIsDark] = useState(
+    () => document.documentElement.getAttribute("data-theme") === "dark"
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(
+        document.documentElement.getAttribute("data-theme") === "dark"
+      );
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
   const loadDashboard = useCallback(async () => {
     if (!baseUrl) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await authorizedFetch(`${baseUrl}/dashboard/`);
       if (response.ok) {
@@ -47,6 +92,84 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
     });
   };
 
+  // Chart data for severity breakdown donut
+  const severityChartData = useMemo(() => {
+    const breakdown = stats?.severity_breakdown || [];
+    return {
+      labels: breakdown.map((d) => d.label),
+      datasets: [
+        {
+          data: breakdown.map((d) => Number(d.area_ha)),
+          backgroundColor: breakdown.map((d) => SEVERITY_COLORS[d.label]),
+          borderWidth: 0,
+        },
+      ],
+    };
+  }, [stats?.severity_breakdown]);
+
+  const doughnutOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: isDark ? "#e5e7eb" : "#212529", padding: 12 },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.label}: ${formatNumber(ctx.raw)} ha`,
+          },
+        },
+      },
+    }),
+    [isDark]
+  );
+
+  // Chart data for area comparison bar
+  const areaComparisonData = useMemo(() => {
+    const comparison = stats?.area_comparison || [];
+    return {
+      labels: comparison.map((d) => d.area_name),
+      datasets: [
+        {
+          data: comparison.map((d) => Number(d.total_burned_ha)),
+          backgroundColor: "rgba(220, 53, 69, 0.7)",
+          borderColor: "#dc3545",
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+      ],
+    };
+  }, [stats?.area_comparison]);
+
+  const barOptions = useMemo(
+    () => ({
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${formatNumber(ctx.raw)} ha`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { color: isDark ? "#9ca3af" : "#6c757d" },
+          grid: { color: isDark ? "#374151" : "#e9ecef" },
+        },
+        y: {
+          ticks: { color: isDark ? "#e5e7eb" : "#212529" },
+          grid: { display: false },
+        },
+      },
+    }),
+    [isDark]
+  );
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center p-5">
@@ -77,7 +200,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
   return (
     <div className="dashboard p-4">
       <h2 className="h4 mb-4">{t("dashboard.title")}</h2>
-      
+
       {/* Stats Cards */}
       <div className="row g-3 mb-4">
         {/* 1. Areas Monitored */}
@@ -96,7 +219,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
             </div>
           </div>
         </div>
-        
+
         {/* 2. Total Analyses */}
         <div className="col-6 col-md">
           <div className="card h-100 shadow-sm stat-card">
@@ -111,7 +234,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
             </div>
           </div>
         </div>
-        
+
         {/* 3. Total Area Analyzed */}
         <div className="col-6 col-md">
           <div className="card h-100 shadow-sm stat-card">
@@ -127,7 +250,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
             </div>
           </div>
         </div>
-        
+
         {/* 4. Total Area Burned */}
         <div className="col-6 col-md">
           <div className="card h-100 shadow-sm stat-card">
@@ -142,7 +265,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
             </div>
           </div>
         </div>
-        
+
         {/* 5. Analyses This Month */}
         <div className="col-6 col-md">
           <div className="card h-100 shadow-sm stat-card">
@@ -157,6 +280,106 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
               </div>
               <h3 className="stat-value h2 mb-1">{formatNumber(stats?.analyses_this_month)}</h3>
               <p className="stat-label text-muted mb-0 small">{t("dashboard.analysesThisMonth")}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Row: Severity Breakdown + Area Comparison */}
+      <div className="row g-3 mb-4">
+        {/* Severity Breakdown Donut */}
+        <div className="col-md-6">
+          <div className="card h-100 shadow-sm">
+            <div className="card-header">
+              <h3 className="h5 mb-0">{t("dashboard.severityBreakdown")}</h3>
+            </div>
+            <div className="card-body d-flex align-items-center justify-content-center" style={{ height: 300 }}>
+              {stats?.severity_breakdown?.length ? (
+                <Doughnut data={severityChartData} options={doughnutOptions} />
+              ) : (
+                <div className="text-center text-muted">{t("dashboard.noData")}</div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Area Comparison Bar */}
+        <div className="col-md-6">
+          <div className="card h-100 shadow-sm">
+            <div className="card-header">
+              <h3 className="h5 mb-0">{t("dashboard.areaComparison")}</h3>
+            </div>
+            <div className="card-body d-flex align-items-center justify-content-center" style={{ height: 300 }}>
+              {stats?.area_comparison?.length ? (
+                <Bar data={areaComparisonData} options={barOptions} />
+              ) : (
+                <div className="text-center text-muted">{t("dashboard.noData")}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Insight Cards Row */}
+      <div className="row g-3 mb-4">
+        {/* Average Burn Severity */}
+        <div className="col-md-4">
+          <div className="card h-100 shadow-sm stat-card">
+            <div className="card-body text-center">
+              <div className="stat-icon mb-2 text-warning">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+                </svg>
+              </div>
+              <h3 className="stat-value h2 mb-1">
+                {stats?.average_burn_severity != null
+                  ? formatNumber(stats.average_burn_severity)
+                  : "-"}
+              </h3>
+              <p className="stat-label text-muted mb-0 small">{t("dashboard.avgBurnSeverity")}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Most Analyzed Area */}
+        <div className="col-md-4">
+          <div className="card h-100 shadow-sm stat-card">
+            <div className="card-body text-center">
+              <div className="stat-icon mb-2 text-info">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </div>
+              <h3 className="stat-value h4 mb-1">
+                {stats?.most_analyzed_area?.area_name || "-"}
+              </h3>
+              <p className="stat-label text-muted mb-0 small">
+                {stats?.most_analyzed_area
+                  ? `${stats.most_analyzed_area.run_count} ${t("dashboard.runs")}`
+                  : t("dashboard.mostAnalyzedArea")}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Largest Fire */}
+        <div className="col-md-4">
+          <div className="card h-100 shadow-sm stat-card">
+            <div className="card-body text-center">
+              <div className="stat-icon mb-2 text-danger">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+                </svg>
+              </div>
+              <h3 className="stat-value h4 mb-1">
+                {stats?.largest_fire?.area_name || "-"}
+              </h3>
+              <p className="stat-label text-muted mb-0 small">
+                {stats?.largest_fire
+                  ? `${formatNumber(stats.largest_fire.burned_ha)} ha`
+                  : t("dashboard.largestFire")}
+              </p>
             </div>
           </div>
         </div>
@@ -190,11 +413,11 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                     <tr
                       key={analysis.id}
                       onClick={() => onAnalysisClick?.(analysis.id)}
-                      style={{ cursor: onAnalysisClick ? 'pointer' : 'default' }}
-                      role={onAnalysisClick ? 'button' : undefined}
+                      style={{ cursor: onAnalysisClick ? "pointer" : "default" }}
+                      role={onAnalysisClick ? "button" : undefined}
                       tabIndex={onAnalysisClick ? 0 : undefined}
                       onKeyDown={(e) => {
-                        if (onAnalysisClick && (e.key === 'Enter' || e.key === ' ')) {
+                        if (onAnalysisClick && (e.key === "Enter" || e.key === " ")) {
                           e.preventDefault();
                           onAnalysisClick(analysis.id);
                         }

@@ -866,3 +866,128 @@ class DashboardServiceTests(TestCase):
         )
         stats = dashboard_service.get_dashboard_stats(self.user)
         self.assertIsNone(stats["total_analyzed_ha"])
+
+    def test_severity_breakdown_aggregates_across_runs(self):
+        """severity_breakdown sums area_ha per severity class across all runs."""
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={
+                "Unburned": {"area_ha": 100.0},
+                "Low Severity": {"area_ha": 50.0},
+                "High Severity": {"area_ha": 20.0},
+            },
+        )
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+            severity_data={
+                "Unburned": {"area_ha": 200.0},
+                "High Severity": {"area_ha": 40.0},
+            },
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        breakdown = {
+            item["label"]: float(item["area_ha"])
+            for item in stats["severity_breakdown"]
+        }
+        self.assertEqual(breakdown["Unburned"], 300.0)
+        self.assertEqual(breakdown["High Severity"], 60.0)
+        self.assertEqual(breakdown["Low Severity"], 50.0)
+
+    def test_severity_breakdown_empty(self):
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertEqual(stats["severity_breakdown"], [])
+
+    def test_area_comparison(self):
+        area2 = AreaOfInterest.objects.create(
+            name="Area2", polygon_path="d2.geojson", country=self.country
+        )
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={"Total Burned Area": {"area_ha": 100.0}},
+        )
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=area2,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={"Total Burned Area": {"area_ha": 200.0}},
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        comparison = stats["area_comparison"]
+        self.assertEqual(len(comparison), 2)
+        self.assertEqual(comparison[0]["area_name"], "Area2")
+        self.assertEqual(float(comparison[0]["total_burned_ha"]), 200.0)
+
+    def test_average_burn_severity(self):
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={
+                "Unburned": {"area_ha": 50.0},
+                "High Severity": {"area_ha": 50.0},
+            },
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        # (0*50 + 3*50) / (50+50) = 1.50
+        self.assertEqual(float(stats["average_burn_severity"]), 1.50)
+
+    def test_average_burn_severity_none_when_no_data(self):
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertIsNone(stats["average_burn_severity"])
+
+    def test_most_analyzed_area(self):
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertEqual(
+            stats["most_analyzed_area"]["area_name"], "Dash Area"
+        )
+        self.assertEqual(stats["most_analyzed_area"]["run_count"], 2)
+
+    def test_most_analyzed_area_none_when_empty(self):
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertIsNone(stats["most_analyzed_area"])
+
+    def test_largest_fire(self):
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={"Total Burned Area": {"area_ha": 50.0}},
+        )
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+            severity_data={"Total Burned Area": {"area_ha": 500.0}},
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertEqual(stats["largest_fire"]["area_name"], "Dash Area")
+        self.assertEqual(float(stats["largest_fire"]["burned_ha"]), 500.0)
+
+    def test_largest_fire_none_when_empty(self):
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertIsNone(stats["largest_fire"])

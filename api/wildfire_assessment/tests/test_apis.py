@@ -722,6 +722,17 @@ class DashboardViewTests(APITestCase):
         # total_analyzed_ha comes from severity_data "Total Area" per distinct combo
         self.assertEqual(float(data["total_analyzed_ha"]), 1000.0)
 
+    def test_dashboard_includes_new_widget_fields(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertIn("severity_breakdown", data)
+        self.assertIn("area_comparison", data)
+        self.assertIn("average_burn_severity", data)
+        self.assertIn("most_analyzed_area", data)
+        self.assertIn("largest_fire", data)
+
 
 class AreaOfInterestUpdateTests(APITestCase):
     """Tests for updating areas of interest."""
