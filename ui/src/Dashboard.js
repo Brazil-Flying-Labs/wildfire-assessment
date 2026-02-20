@@ -28,6 +28,19 @@ const SEVERITY_COLORS = {
   "Very High Severity": "#6f42c1",
 };
 
+function InfoTooltip({ text }) {
+  return (
+    <span className="info-tooltip">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" />
+      </svg>
+      <span className="info-tooltip-text">{text}</span>
+    </span>
+  );
+}
+
 function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -205,7 +218,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
       <div className="row g-3 mb-4">
         {/* 1. Areas Monitored */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipTotalAreas")}>
+          <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -215,14 +228,17 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                 </svg>
               </div>
               <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_areas)}</h3>
-              <p className="stat-label text-muted mb-0 small">{t("dashboard.totalAreas")}</p>
+              <p className="stat-label text-muted mb-0 small">
+                {t("dashboard.totalAreas")}
+                <InfoTooltip text={t("dashboard.tooltipTotalAreas")} />
+              </p>
             </div>
           </div>
         </div>
 
         {/* 2. Total Analyses */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipTotalAnalyses")}>
+          <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -230,14 +246,17 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                 </svg>
               </div>
               <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_analyses)}</h3>
-              <p className="stat-label text-muted mb-0 small">{t("dashboard.totalAnalyses")}</p>
+              <p className="stat-label text-muted mb-0 small">
+                {t("dashboard.totalAnalyses")}
+                <InfoTooltip text={t("dashboard.tooltipTotalAnalyses")} />
+              </p>
             </div>
           </div>
         </div>
 
         {/* 3. Total Area Analyzed */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipAnalyzedHa")}>
+          <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-primary">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -246,14 +265,17 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                 </svg>
               </div>
               <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_analyzed_ha)}</h3>
-              <p className="stat-label text-muted mb-0 small">{t("dashboard.totalAnalyzedHa")}</p>
+              <p className="stat-label text-muted mb-0 small">
+                {t("dashboard.totalAnalyzedHa")}
+                <InfoTooltip text={t("dashboard.tooltipAnalyzedHa")} />
+              </p>
             </div>
           </div>
         </div>
 
         {/* 4. Total Area Burned */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipBurnedHa")}>
+          <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-danger">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -261,14 +283,17 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                 </svg>
               </div>
               <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_burned_ha)}</h3>
-              <p className="stat-label text-muted mb-0 small">{t("dashboard.totalBurnedHa")}</p>
+              <p className="stat-label text-muted mb-0 small">
+                {t("dashboard.totalBurnedHa")}
+                <InfoTooltip text={t("dashboard.tooltipBurnedHa")} />
+              </p>
             </div>
           </div>
         </div>
 
         {/* 5. Analyses This Month */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipThisMonth")}>
+          <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-success">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -279,7 +304,10 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                 </svg>
               </div>
               <h3 className="stat-value h2 mb-1">{formatNumber(stats?.analyses_this_month)}</h3>
-              <p className="stat-label text-muted mb-0 small">{t("dashboard.analysesThisMonth")}</p>
+              <p className="stat-label text-muted mb-0 small">
+                {t("dashboard.analysesThisMonth")}
+                <InfoTooltip text={t("dashboard.tooltipThisMonth")} />
+              </p>
             </div>
           </div>
         </div>
@@ -289,9 +317,12 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
       <div className="row g-3 mb-4">
         {/* Severity Breakdown Donut */}
         <div className="col-md-6">
-          <div className="card h-100 shadow-sm" title={t("dashboard.tooltipSeverity")}>
+          <div className="card h-100 shadow-sm">
             <div className="card-header">
-              <h3 className="h5 mb-0">{t("dashboard.severityBreakdown")}</h3>
+              <h3 className="h5 mb-0">
+                {t("dashboard.severityBreakdown")}
+                <InfoTooltip text={t("dashboard.tooltipSeverity")} />
+              </h3>
             </div>
             <div className="card-body d-flex align-items-center justify-content-center" style={{ height: 300 }}>
               {stats?.severity_breakdown?.length ? (
@@ -305,9 +336,12 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* Area Comparison Bar */}
         <div className="col-md-6">
-          <div className="card h-100 shadow-sm" title={t("dashboard.tooltipAreaComparison")}>
+          <div className="card h-100 shadow-sm">
             <div className="card-header">
-              <h3 className="h5 mb-0">{t("dashboard.areaComparison")}</h3>
+              <h3 className="h5 mb-0">
+                {t("dashboard.areaComparison")}
+                <InfoTooltip text={t("dashboard.tooltipAreaComparison")} />
+              </h3>
             </div>
             <div className="card-body d-flex align-items-center justify-content-center" style={{ height: 300 }}>
               {stats?.area_comparison?.length ? (
@@ -324,7 +358,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
       <div className="row g-3 mb-4">
         {/* Average Burn Severity */}
         <div className="col-md-4">
-          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipAvgSeverity")}>
+          <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-warning">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -336,14 +370,17 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                   ? formatNumber(stats.average_burn_severity)
                   : "-"}
               </h3>
-              <p className="stat-label text-muted mb-0 small">{t("dashboard.avgBurnSeverity")}</p>
+              <p className="stat-label text-muted mb-0 small">
+                {t("dashboard.avgBurnSeverity")}
+                <InfoTooltip text={t("dashboard.tooltipAvgSeverity")} />
+              </p>
             </div>
           </div>
         </div>
 
         {/* Most Analyzed Area */}
         <div className="col-md-4">
-          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipMostAnalyzed")}>
+          <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-info">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -358,6 +395,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                 {stats?.most_analyzed_area
                   ? `${stats.most_analyzed_area.run_count} ${t("dashboard.runs")}`
                   : t("dashboard.mostAnalyzedArea")}
+                <InfoTooltip text={t("dashboard.tooltipMostAnalyzed")} />
               </p>
             </div>
           </div>
@@ -365,7 +403,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* Largest Fire */}
         <div className="col-md-4">
-          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipLargestFire")}>
+          <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-danger">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -379,6 +417,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
                 {stats?.largest_fire
                   ? `${formatNumber(stats.largest_fire.burned_ha)} ha`
                   : t("dashboard.largestFire")}
+                <InfoTooltip text={t("dashboard.tooltipLargestFire")} />
               </p>
             </div>
           </div>

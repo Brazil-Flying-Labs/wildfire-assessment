@@ -1441,6 +1441,59 @@
   font-size: 0.8rem;
 }
 
+/* Info tooltip */
+.info-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  color: #6c757d;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
+.info-tooltip:hover {
+  color: #495057;
+}
+
+.info-tooltip .info-tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #212529;
+  color: #fff;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  width: 240px;
+  text-align: center;
+  z-index: 1050;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.info-tooltip .info-tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #212529;
+}
+
+.info-tooltip:hover .info-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
 /* Dark mode for dashboard */
 [data-theme="dark"] .dashboard {
   background-color: var(--bg-primary);
