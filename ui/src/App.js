@@ -40,16 +40,9 @@ function App() {
   const [deliverableAlert, setDeliverableAlert] = useState(null);
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [backendProfile, setBackendProfile] = useState(null);
-  const [showLandingPage, setShowLandingPageState] = useState(
-    () => sessionStorage.getItem("showLandingPage") === "true"
-  );
+  const [showLandingPage, setShowLandingPageState] = useState(true);
   const setShowLandingPage = useCallback((value) => {
     setShowLandingPageState(value);
-    if (value) {
-      sessionStorage.setItem("showLandingPage", "true");
-    } else {
-      sessionStorage.removeItem("showLandingPage");
-    }
   }, []);
 
   // Page navigation state: "home", "analysis", "areas", or "analysis-detail"
@@ -847,7 +840,7 @@ function App() {
             <button
               type="button"
               className="btn p-0 border-0 bg-transparent"
-              onClick={() => setShowLandingPage(true)}
+              onClick={() => navigateTo("dashboard")}
               aria-label={t("landing.title")}
             >
               <img
