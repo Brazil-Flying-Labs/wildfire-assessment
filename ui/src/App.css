@@ -1423,6 +1423,11 @@
   overflow: visible;
 }
 
+.dashboard .card:has(.info-tooltip:hover) {
+  z-index: 10;
+  position: relative;
+}
+
 .stat-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
