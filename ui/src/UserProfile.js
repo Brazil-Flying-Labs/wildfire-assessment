@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLanguage } from "./LanguageContext";
+import { useLanguage, SUPPORTED_LANGUAGES } from "./LanguageContext";
+
+const LANGUAGE_LABELS = {
+  en: "English",
+  "pt-BR": "Português (Brasil)",
+  fr: "Français",
+};
 
 function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate }) {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const [loading, setLoading] = useState(!backendProfile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -187,6 +193,25 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
                 onChange={handleInputChange}
                 placeholder={t("profile.lastNamePlaceholder")}
               />
+            </div>
+
+            <div className="mb-3">
+              <label htmlFor="profileLanguage" className="form-label">
+                {t("profile.language")}
+              </label>
+              <select
+                className="form-select"
+                id="profileLanguage"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                {SUPPORTED_LANGUAGES.map((lang) => (
+                  <option key={lang} value={lang}>
+                    {LANGUAGE_LABELS[lang] || lang}
+                  </option>
+                ))}
+              </select>
+              <div className="form-text">{t("profile.languageHint")}</div>
             </div>
 
             <button
