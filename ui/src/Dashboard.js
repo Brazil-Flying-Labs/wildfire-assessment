@@ -205,7 +205,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
       <div className="row g-3 mb-4">
         {/* 1. Areas Monitored */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card">
+          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipTotalAreas")}>
             <div className="card-body text-center">
               <div className="stat-icon mb-2">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -222,7 +222,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* 2. Total Analyses */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card">
+          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipTotalAnalyses")}>
             <div className="card-body text-center">
               <div className="stat-icon mb-2">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -237,7 +237,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* 3. Total Area Analyzed */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card">
+          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipAnalyzedHa")}>
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-primary">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -253,7 +253,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* 4. Total Area Burned */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card">
+          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipBurnedHa")}>
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-danger">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -268,7 +268,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* 5. Analyses This Month */}
         <div className="col-6 col-md">
-          <div className="card h-100 shadow-sm stat-card">
+          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipThisMonth")}>
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-success">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -289,7 +289,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
       <div className="row g-3 mb-4">
         {/* Severity Breakdown Donut */}
         <div className="col-md-6">
-          <div className="card h-100 shadow-sm">
+          <div className="card h-100 shadow-sm" title={t("dashboard.tooltipSeverity")}>
             <div className="card-header">
               <h3 className="h5 mb-0">{t("dashboard.severityBreakdown")}</h3>
             </div>
@@ -305,7 +305,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* Area Comparison Bar */}
         <div className="col-md-6">
-          <div className="card h-100 shadow-sm">
+          <div className="card h-100 shadow-sm" title={t("dashboard.tooltipAreaComparison")}>
             <div className="card-header">
               <h3 className="h5 mb-0">{t("dashboard.areaComparison")}</h3>
             </div>
@@ -324,7 +324,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
       <div className="row g-3 mb-4">
         {/* Average Burn Severity */}
         <div className="col-md-4">
-          <div className="card h-100 shadow-sm stat-card">
+          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipAvgSeverity")}>
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-warning">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -343,7 +343,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* Most Analyzed Area */}
         <div className="col-md-4">
-          <div className="card h-100 shadow-sm stat-card">
+          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipMostAnalyzed")}>
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-info">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -365,7 +365,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick }) {
 
         {/* Largest Fire */}
         <div className="col-md-4">
-          <div className="card h-100 shadow-sm stat-card">
+          <div className="card h-100 shadow-sm stat-card" title={t("dashboard.tooltipLargestFire")}>
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-danger">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
