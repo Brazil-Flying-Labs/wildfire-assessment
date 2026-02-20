@@ -1319,3 +1319,73 @@
   color: #9ca3af;
   opacity: 1;
 }
+
+/* Dark mode for AI Analysis Modal */
+[data-theme="dark"] .ai-analysis-modal {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .ai-analysis-modal-header {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .ai-analysis-modal-title {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ai-analysis-modal-close {
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .ai-analysis-modal-close:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+}
+
+[data-theme="dark"] .ai-analysis-modal-body {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ai-analysis-content {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ai-analysis-content h1,
+[data-theme="dark"] .ai-analysis-content h2,
+[data-theme="dark"] .ai-analysis-content h3,
+[data-theme="dark"] .ai-analysis-content h4,
+[data-theme="dark"] .ai-analysis-content h5 {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ai-chat-user-bubble {
+  background-color: #4f46e5;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .ai-analysis-modal-footer {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .ai-chat-input-row input {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .ai-chat-input-row input::placeholder {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .ai-chat-footer-meta {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .ai-analysis-cursor {
+  color: #818cf8;
+}
