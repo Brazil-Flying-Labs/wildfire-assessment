@@ -480,8 +480,6 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
                   <tr>
                     <th scope="col">{t("areas.name")}</th>
                     <th scope="col" className="d-none d-md-table-cell">{t("areas.country")}</th>
-                    <th scope="col" className="d-none d-md-table-cell">{t("areas.areaHa")}</th>
-                    <th scope="col" className="d-none d-lg-table-cell">{t("areas.municipality")}</th>
                     <th scope="col" className="text-end" style={{ width: "50px" }}>
                       <span className="visually-hidden">{t("areas.actions")}</span>
                     </th>
@@ -501,15 +499,6 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
                           ? `${area.country_name} (${area.country_code})`
                           : "-"}
                       </td>
-                      <td className="d-none d-md-table-cell">
-                        {area.area_ha
-                          ? parseFloat(area.area_ha).toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })
-                          : "-"}
-                      </td>
-                      <td className="d-none d-lg-table-cell">{area.municipio || "-"}</td>
                       <td className="text-end">
                         {deleteConfirm === area.id ? (
                           <div className="d-flex gap-1 justify-content-end">

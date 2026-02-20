@@ -127,9 +127,7 @@ class WildfireAssessmentTests(APITestCase):
         kwargs = mock_process.call_args.kwargs
         self.assertEqual(kwargs["pre_fire_date"], "2023-01-01")
         self.assertEqual(kwargs["post_fire_date"], "2023-01-15")
-        self.assertEqual(
-            kwargs["polygon_path"], f"../../polygons/{self.reserve.polygon_path}"
-        )
+        self.assertEqual(kwargs["polygon_path"], self.reserve.polygon_path)
 
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     def test_scientific_deliverable_handles_all_deliverables(self, mock_process):
@@ -205,7 +203,8 @@ class WildfireAssessmentTests(APITestCase):
         data = response.json()
         self.assertEqual(data["count"], 0)
 
-    def test_create_area_of_interest_success(self):
+    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    def test_create_area_of_interest_success(self, mock_upload):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
         url = reverse("areaofinterest-list")
@@ -288,13 +287,12 @@ class WildfireAssessmentTests(APITestCase):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
 
-        # Create a temp file to simulate polygon file
-        with patch("os.path.exists", return_value=True), \
-             patch("os.remove") as mock_remove:
+        with patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3") as mock_delete:
+            mock_delete.return_value = True
             url = reverse("areaofinterest-detail", args=[self.reserve.id])
             response = self.client.delete(url)
             self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-            mock_remove.assert_called_once()
+            mock_delete.assert_called_once_with(self.reserve.polygon_path)
 
     def test_delete_area_of_interest_file_deletion_error(self):
         from unittest.mock import patch
@@ -302,15 +300,14 @@ class WildfireAssessmentTests(APITestCase):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
 
-        # Simulate file deletion error
-        with patch("os.path.exists", return_value=True), \
-             patch("os.remove", side_effect=OSError("Permission denied")), \
-             patch("wildfire_assessment.views.LOG") as mock_log:
+        # Simulate S3 deletion failure
+        with patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3") as mock_delete:
+            mock_delete.return_value = False
             url = reverse("areaofinterest-detail", args=[self.reserve.id])
             response = self.client.delete(url)
-            # Should still succeed even if file deletion fails
+            # Should still succeed even if S3 deletion fails
             self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-            mock_log.warning.assert_called_once()
+            mock_delete.assert_called_once()
 
     def test_delete_area_of_interest_permission_check_in_destroy(self):
         """Test the defensive permission check in destroy method."""
@@ -323,7 +320,7 @@ class WildfireAssessmentTests(APITestCase):
         # This tests the defensive permission check that would normally be unreachable
         with patch(
             "wildfire_assessment.views.AreaOfInterestViewSet.get_object",
-            return_value=self.other_reserve
+            return_value=self.other_reserve,
         ):
             url = reverse("areaofinterest-detail", args=[self.other_reserve.id])
             response = self.client.delete(url)

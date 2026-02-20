@@ -54,7 +54,7 @@ class UserProfileModelTests(TestCase):
 class AnalysisRunModelTests(TestCase):
     def test_str_representation(self):
         user = get_user_model().objects.create(username="analyst")
-        country = Country.objects.create(name="Brazil", code="BR")
+        country = Country.objects.create(name="TestAnalysis Country", code="TA")
         area = AreaOfInterest.objects.create(
             name="Amazon Reserve",
             polygon_path="amazon.geojson",

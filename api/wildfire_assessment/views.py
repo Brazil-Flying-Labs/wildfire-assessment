@@ -1,12 +1,7 @@
-import json
 import logging
-import os
 import uuid
-from datetime import datetime
 
-from django.db.models import Q, Sum
 from django.http import JsonResponse, StreamingHttpResponse
-from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import generics, permissions, status, viewsets
@@ -15,7 +10,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
-from wildfire_assessment.models import AnalysisRun, AreaOfInterest
+from wildfire_assessment.models import AreaOfInterest
 from wildfire_assessment.serializers import (
     AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
@@ -30,6 +25,14 @@ from wildfire_assessment.svc.ai_analysis import (
     generate_analysis_stream,
     generate_followup_stream,
 )
+from wildfire_assessment.svc.area_of_interest import (
+    delete_polygon_file,
+    get_analysis_runs_queryset,
+    get_areas_queryset,
+    save_analysis_run,
+    user_can_access_area,
+)
+from wildfire_assessment.svc.dashboard import get_dashboard_stats
 from wildfire_assessment.svc.processor import (
     process_fire_assessment,
     process_scientific_deliverable,
@@ -69,37 +72,12 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         return AreaOfInterestSerializer
 
     def get_queryset(self):
-        """Filter queryset to only show reserves the user has access to."""
-        queryset = super().get_queryset()
-        user = self.request.user
-        country_ids = user.country_permissions.values_list("country_id", flat=True)
-        if country_ids:
-            queryset = queryset.filter(country_id__in=country_ids)
-        else:
-            return queryset.none()
-
-        # Search by name or country name (case and accent insensitive)
+        """Filter queryset to only show areas the user has access to."""
         search = self.request.query_params.get("search")
-        if search:
-            from django.db import connection
-
-            # Use UNACCENT for PostgreSQL, fall back to icontains for other backends
-            if connection.vendor == "postgresql":  # pragma: no cover
-                queryset = queryset.filter(
-                    Q(name__unaccent__icontains=search) | Q(country__name__unaccent__icontains=search)
-                )
-            else:
-                queryset = queryset.filter(
-                    Q(name__icontains=search) | Q(country__name__icontains=search)
-                )
-
-        return queryset
+        return get_areas_queryset(self.request.user, search=search)
 
     def retrieve(self, request, *args, **kwargs):
-        """
-        Retrieve a specific AreaOfInterest by its ID.
-
-        """
+        """Retrieve a specific AreaOfInterest by its ID."""
         return super().retrieve(request, *args, **kwargs)
 
     def list(self, request, *args, **kwargs):
@@ -115,9 +93,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
-        """
-        Create a new AreaOfInterest with GeoJSON upload.
-        """
+        """Create a new AreaOfInterest with GeoJSON upload."""
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
@@ -127,39 +103,21 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         Allows updating name, country, and optionally uploading a new GeoJSON file.
         """
         instance = self.get_object()
-
-        # Check if user has permission to update (via country)
-        # Note: This is a defensive check; queryset already filters by country
-        user = request.user
-        country_ids = list(
-            user.country_permissions.values_list("country_id", flat=True)
-        )
-        if instance.country_id not in country_ids:  # pragma: no cover
+        if not user_can_access_area(request.user, instance):  # pragma: no cover
             return Response(
                 {"error": "You do not have permission to update this area."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
-        """
-        Partially update an AreaOfInterest.
-        """
+        """Partially update an AreaOfInterest."""
         instance = self.get_object()
-
-        # Check if user has permission to update (via country)
-        # Note: This is a defensive check; queryset already filters by country
-        user = request.user
-        country_ids = list(
-            user.country_permissions.values_list("country_id", flat=True)
-        )
-        if instance.country_id not in country_ids:  # pragma: no cover
+        if not user_can_access_area(request.user, instance):  # pragma: no cover
             return Response(
                 {"error": "You do not have permission to update this area."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -169,32 +127,12 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         Also deletes the associated GeoJSON file.
         """
         instance = self.get_object()
-
-        # Check if user has permission to delete (via country)
-        user = request.user
-        country_ids = list(
-            user.country_permissions.values_list("country_id", flat=True)
-        )
-        if instance.country_id not in country_ids:
+        if not user_can_access_area(request.user, instance):
             return Response(
                 {"error": "You do not have permission to delete this reserve."},
                 status=status.HTTP_403_FORBIDDEN,
             )
-
-        # Try to delete the associated GeoJSON file
-        if instance.polygon_path:
-            try:
-                polygon_path = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-                    "..",
-                    "polygons",
-                    instance.polygon_path,
-                )
-                if os.path.exists(polygon_path):
-                    os.remove(polygon_path)
-            except Exception as e:
-                LOG.warning(f"Failed to delete polygon file: {e}")
-
+        delete_polygon_file(instance.polygon_path)
         return super().destroy(request, *args, **kwargs)
 
     @extend_schema(
@@ -232,9 +170,6 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         """
         instance = self.get_object()
         execution_id = uuid.uuid4()
-        polygon_path = instance.polygon_path
-
-        polygon_path = f"../../polygons/{polygon_path}"
 
         pre_fire_date = request.query_params.get("pre_fire_date")
         post_fire_date = request.query_params.get("post_fire_date")
@@ -242,35 +177,15 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         assessment_result = process_fire_assessment(
             pre_fire_date=pre_fire_date,
             post_fire_date=post_fire_date,
-            polygon_path=polygon_path,
+            polygon_path=instance.polygon_path,
         )
 
-        # Extract severity data and total burned area
-        severity_data = None
-        total_burned_ha = None
-        try:  # pragma: no cover
-            severity_map = assessment_result.get("severity_map")
-            if severity_map:
-                if isinstance(severity_map, str):
-                    severity_data = json.loads(severity_map)
-                else:
-                    severity_data = severity_map
-                # Get total burned area from severity data
-                if severity_data and "Total Burned Area" in severity_data:
-                    total_burned_ha = severity_data["Total Burned Area"].get("area_ha")
-        except (json.JSONDecodeError, TypeError, KeyError):  # pragma: no cover
-            pass
-
-        # Save the analysis run
-        AnalysisRun.objects.create(
+        save_analysis_run(
             user=request.user,
-            area_of_interest=instance,
+            area=instance,
             pre_fire_date=pre_fire_date,
             post_fire_date=post_fire_date,
-            status="completed",
-            severity_data=severity_data,
-            total_burned_ha=total_burned_ha,
-            completed_at=timezone.now(),
+            assessment_result=assessment_result,
         )
 
         return Response(
@@ -362,20 +277,12 @@ class AnalysisRunViewSet(viewsets.ReadOnlyModelViewSet):
     Users can only access analyses for areas in countries they are authorized for.
     """
 
-    queryset = AnalysisRun.objects.all().order_by("-created_at")
     serializer_class = AnalysisRunSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """Filter queryset to only show analyses the user has access to."""
-        queryset = super().get_queryset()
-        user = self.request.user
-        country_ids = user.country_permissions.values_list("country_id", flat=True)
-        if country_ids:
-            queryset = queryset.filter(area_of_interest__country_id__in=country_ids)
-        else:
-            return queryset.none()
-        return queryset
+        return get_analysis_runs_queryset(self.request.user)
 
 
 class UserMeView(generics.RetrieveUpdateAPIView):
@@ -398,58 +305,16 @@ class DashboardView(APIView):
         responses={200: DashboardStatsSerializer},
     )
     def get(self, request):
-        user = request.user
-        
-        # Get country IDs the user has access to
-        country_ids = user.country_permissions.values_list("country_id", flat=True)
-        
-        # Filter areas and analyses by user's country permissions
-        accessible_areas = AreaOfInterest.objects.filter(country_id__in=country_ids)
-        accessible_analyses = AnalysisRun.objects.filter(
-            area_of_interest__country_id__in=country_ids
-        )
-        
-        # Get current month start
-        now = timezone.now()
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        
-        # Calculate statistics
-        total_analyses = accessible_analyses.count()
-        total_areas = accessible_areas.count()
-        
-        # Total area analyzed: sum of area_ha from all areas that have been analyzed
-        analyzed_area_ids = accessible_analyses.values_list('area_of_interest_id', flat=True).distinct()
-        total_analyzed_ha = accessible_areas.filter(
-            id__in=analyzed_area_ids
-        ).aggregate(total=Sum('area_ha'))['total']
-        
-        total_burned_ha = accessible_analyses.aggregate(
-            total=Sum('total_burned_ha')
-        )['total']
-        analyses_this_month = accessible_analyses.filter(
-            created_at__gte=month_start
-        ).count()
-        
-        # Get recent analyses (last 10)
-        recent_analyses = accessible_analyses.select_related(
-            'area_of_interest', 'area_of_interest__country', 'user'
-        )[:10]
-        
-        data = {
-            'total_analyses': total_analyses,
-            'total_areas': total_areas,
-            'total_analyzed_ha': total_analyzed_ha,
-            'total_burned_ha': total_burned_ha,
-            'analyses_this_month': analyses_this_month,
-            'recent_analyses': AnalysisRunSerializer(recent_analyses, many=True).data,
-        }
-        
-        return Response(data)
+        stats = get_dashboard_stats(request.user)
+        stats["recent_analyses"] = AnalysisRunSerializer(
+            stats["recent_analyses"], many=True
+        ).data
+        return Response(stats)
 
 
 class AIAnalysisView(APIView):
     """
-    Generate AI-powered analysis of wildfire data using OpenAI.
+    Generate AI-powered analysis of wildfire data.
 
     Returns a streaming response with the analysis text.
     """
@@ -463,7 +328,7 @@ class AIAnalysisView(APIView):
                 description="Streaming text response with the AI analysis"
             ),
             400: OpenApiResponse(description="Invalid request data"),
-            500: OpenApiResponse(description="OpenAI API error"),
+            500: OpenApiResponse(description="API error"),
         },
     )
     def post(self, request):

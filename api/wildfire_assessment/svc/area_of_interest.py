@@ -1,0 +1,93 @@
+import json
+import logging
+
+from django.db import connection
+from django.db.models import Q
+from django.utils import timezone
+from wildfire_assessment.models import AnalysisRun, AreaOfInterest
+from wildfire_assessment.svc.aws import delete_polygon_from_s3
+
+LOG = logging.getLogger(__name__)
+
+
+def get_user_country_ids(user):
+    """Return a list of country IDs the user is authorized for."""
+    return list(user.country_permissions.values_list("country_id", flat=True))
+
+
+def get_areas_queryset(user, search=None):
+    """Return AreaOfInterest queryset filtered by user permissions and optional search."""
+    country_ids = get_user_country_ids(user)
+    if not country_ids:
+        return AreaOfInterest.objects.none()
+
+    queryset = AreaOfInterest.objects.filter(country_id__in=country_ids).order_by(
+        "name"
+    )
+
+    if search:
+        if connection.vendor == "postgresql":  # pragma: no cover
+            queryset = queryset.filter(
+                Q(name__unaccent__icontains=search)
+                | Q(country__name__unaccent__icontains=search)
+            )
+        else:  # pragma: no cover
+            queryset = queryset.filter(
+                Q(name__icontains=search) | Q(country__name__icontains=search)
+            )
+
+    return queryset
+
+
+def user_can_access_area(user, area):
+    """Check if a user has country-level permission for an area."""
+    country_ids = get_user_country_ids(user)
+    return area.country_id in country_ids
+
+
+def delete_polygon_file(polygon_path):
+    """Delete a polygon GeoJSON file from S3."""
+    if not polygon_path:
+        return False
+
+    return delete_polygon_from_s3(polygon_path)
+
+
+def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_result):
+    """Extract severity data from an assessment result and persist an AnalysisRun."""
+    severity_data = None
+    total_burned_ha = None
+
+    try:
+        severity_map = assessment_result.get("severity_map")
+        if severity_map:
+            if isinstance(severity_map, str):
+                severity_data = json.loads(severity_map)
+            else:
+                severity_data = severity_map
+            if severity_data and "Total Burned Area" in severity_data:
+                total_burned_ha = severity_data["Total Burned Area"].get("area_ha")
+    except (json.JSONDecodeError, TypeError, KeyError):
+        pass
+
+    return AnalysisRun.objects.create(
+        user=user,
+        area_of_interest=area,
+        pre_fire_date=pre_fire_date,
+        post_fire_date=post_fire_date,
+        status="completed",
+        severity_data=severity_data,
+        total_burned_ha=total_burned_ha,
+        completed_at=timezone.now(),
+    )
+
+
+def get_analysis_runs_queryset(user):
+    """Return AnalysisRun queryset filtered by user country permissions."""
+    country_ids = get_user_country_ids(user)
+    if not country_ids:
+        return AnalysisRun.objects.none()
+
+    return AnalysisRun.objects.filter(
+        area_of_interest__country_id__in=country_ids
+    ).order_by("-created_at")

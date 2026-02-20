@@ -4,8 +4,17 @@ from unittest.mock import MagicMock, patch
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
-from wildfire_assessment.models import UserProfile
-from wildfire_assessment.svc import aws, processor
+from wildfire_assessment.models import (
+    AnalysisRun,
+    AreaOfInterest,
+    Country,
+    UserCountry,
+    UserProfile,
+)
+from wildfire_assessment.svc import area_of_interest as aoi_service
+from wildfire_assessment.svc import aws
+from wildfire_assessment.svc import dashboard as dashboard_service
+from wildfire_assessment.svc import processor
 
 User = get_user_model()
 
@@ -20,14 +29,19 @@ class ProcessorTests(TestCase):
         self.email = "user@example.com"
         self.reserve_name = "Reserve Test"
 
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_fire_assessment_uses_visual_urls_when_available(
         self,
         mock_secret,
+        mock_download,
         mock_assessment,
+        mock_unlink,
     ):
         mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
             "visual": {
@@ -50,7 +64,9 @@ class ProcessorTests(TestCase):
             polygon_path=self.polygon_path,
         )
 
+        mock_download.assert_called_once_with(self.polygon_path)
         mock_assessment.assert_called_once()
+        mock_unlink.assert_called_once()
         self.assertIn("severity_map", result)
         self.assertIn("rgb_pre_fire_visual_jpg", result)
         self.assertIn("rgb_post_fire_visual_jpg", result)
@@ -58,22 +74,27 @@ class ProcessorTests(TestCase):
         self.assertIn("dnbr_visual_jpg", result)
         self.assertIn("rbr_visual_jpg", result)
 
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.send_gmail_email")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_notifies_user(
         self,
         mock_secret,
+        mock_download,
         mock_assessment,
         mock_ee,
         _mock_sleep,
         mock_send_email,
+        mock_unlink,
     ):
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
         )
+        mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
             "scientific": {
@@ -97,22 +118,27 @@ class ProcessorTests(TestCase):
 
         self.assertEqual(status, "COMPLETED")
         mock_send_email.assert_called_once()
+        mock_unlink.assert_called_once()
         called_kwargs = mock_send_email.call_args.kwargs
         self.assertEqual(called_kwargs["to_address"], self.email)
         self.assertIn(self.reserve_name, called_kwargs["body"])
 
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.send_gmail_email")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_uses_user_language_preference(
         self,
         mock_secret,
+        mock_download,
         mock_assessment,
         mock_ee,
         _mock_sleep,
         mock_send_email,
+        mock_unlink,
     ):
         """Test that email is sent in user's preferred language."""
         # Create a user with Portuguese language preference
@@ -128,6 +154,7 @@ class ProcessorTests(TestCase):
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
         )
+        mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
             "scientific": {
@@ -157,20 +184,24 @@ class ProcessorTests(TestCase):
         # Body should be in Portuguese
         self.assertIn("está pronto para download", called_kwargs["body"])
 
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.send_gmail_email")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     @patch("wildfire_assessment.svc.processor.UserProfile")
     def test_process_scientific_deliverable_falls_back_on_user_lookup_error(
         self,
         mock_profile_model,
         mock_secret,
+        mock_download,
         mock_assessment,
         mock_ee,
         _mock_sleep,
         mock_send_email,
+        mock_unlink,
     ):
         """Test that email falls back to English when user lookup fails."""
         # Make UserProfile.objects.filter raise an exception
@@ -179,6 +210,7 @@ class ProcessorTests(TestCase):
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
         )
+        mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
             "scientific": {
@@ -226,24 +258,29 @@ class ProcessorTests(TestCase):
                 reserve_name=self.reserve_name,
             )
 
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.send_gmail_email")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.Deliverable")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_unmapped_deliverable(
         self,
         mock_secret,
         mock_deliverable,
+        mock_download,
         mock_assessment,
         mock_ee,
         _mock_sleep,
         _mock_send,
+        mock_unlink,
     ):
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
         )
+        mock_download.return_value = '{"type": "Polygon"}'
         sentinel = object()
         mock_deliverable.__getitem__.return_value = sentinel
         mock_deliverable.RGB_PRE_FIRE = object()
@@ -269,16 +306,19 @@ class ProcessorTests(TestCase):
                 reserve_name=self.reserve_name,
             )
 
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_missing_statuses(
-        self, mock_secret, mock_assessment, mock_ee, _mock_sleep
+        self, mock_secret, mock_download, mock_assessment, mock_ee, _mock_sleep, mock_unlink
     ):
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
         )
+        mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
             "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
@@ -296,14 +336,17 @@ class ProcessorTests(TestCase):
                 reserve_name=self.reserve_name,
             )
 
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_failed_status(
-        self, mock_secret, mock_assessment, mock_ee, _mock_sleep
+        self, mock_secret, mock_download, mock_assessment, mock_ee, _mock_sleep, mock_unlink
     ):
         mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
             "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
@@ -323,17 +366,20 @@ class ProcessorTests(TestCase):
                 reserve_name=self.reserve_name,
             )
 
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.send_gmail_email")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_deliverable_keys(
-        self, mock_secret, mock_assessment, mock_ee, _mock_sleep, mock_send
+        self, mock_secret, mock_download, mock_assessment, mock_ee, _mock_sleep, mock_send, mock_unlink
     ):
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
         )
+        mock_download.return_value = '{"type": "Polygon"}'
         for deliverable in [
             Deliverable.RGB_PRE_FIRE,
             Deliverable.RGB_POST_FIRE,
@@ -405,3 +451,167 @@ class AwsUtilsTests(TestCase):
         key = processor.get_gee_private_key_json()
         self.assertFalse(key.startswith("'"))
         self.assertEqual(json.loads(key)["key"], 123)
+
+
+class AreaOfInterestServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="svcuser", password="pw")
+        self.country = Country.objects.create(name="Svc Country", code="SV")
+        self.area = AreaOfInterest.objects.create(
+            name="Svc Area",
+            polygon_path="svc.geojson",
+            country=self.country,
+        )
+
+    # -- delete_polygon_file --------------------------------------------------
+
+    def test_delete_polygon_file_empty_path(self):
+        self.assertFalse(aoi_service.delete_polygon_file(""))
+
+    def test_delete_polygon_file_none_path(self):
+        self.assertFalse(aoi_service.delete_polygon_file(None))
+
+    # -- user_can_access_area -------------------------------------------------
+
+    def test_user_can_access_area_true(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.assertTrue(aoi_service.user_can_access_area(self.user, self.area))
+
+    def test_user_can_access_area_false(self):
+        self.assertFalse(aoi_service.user_can_access_area(self.user, self.area))
+
+    # -- save_analysis_run ----------------------------------------------------
+
+    def test_save_analysis_run_with_string_severity_map(self):
+        severity = {"Total Burned Area": {"area_ha": 42.5}}
+        result = {"severity_map": json.dumps(severity)}
+
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+
+        self.assertEqual(run.severity_data, severity)
+        self.assertEqual(float(run.total_burned_ha), 42.5)
+        self.assertEqual(run.status, "completed")
+
+    def test_save_analysis_run_with_dict_severity_map(self):
+        severity = {"Total Burned Area": {"area_ha": 10.0}, "High": {}}
+        result = {"severity_map": severity}
+
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+
+        self.assertEqual(run.severity_data, severity)
+        self.assertEqual(float(run.total_burned_ha), 10.0)
+
+    def test_save_analysis_run_without_severity_map(self):
+        result = {"s3_urls": {}}
+
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+
+        self.assertIsNone(run.severity_data)
+        self.assertIsNone(run.total_burned_ha)
+
+    def test_save_analysis_run_with_invalid_severity_map_json(self):
+        result = {"severity_map": "{invalid json"}
+
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+
+        self.assertIsNone(run.severity_data)
+        self.assertIsNone(run.total_burned_ha)
+
+    def test_save_analysis_run_severity_without_total_burned(self):
+        severity = {"High": {"area_ha": 5.0}}
+        result = {"severity_map": severity}
+
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+
+        self.assertEqual(run.severity_data, severity)
+        self.assertIsNone(run.total_burned_ha)
+
+    # -- delete_polygon_file with S3 ------------------------------------------
+
+    @patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3")
+    def test_delete_polygon_file_calls_s3(self, mock_delete):
+        mock_delete.return_value = True
+        result = aoi_service.delete_polygon_file("test.geojson")
+        self.assertTrue(result)
+        mock_delete.assert_called_once_with("test.geojson")
+
+    @patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3")
+    def test_delete_polygon_file_s3_failure(self, mock_delete):
+        mock_delete.return_value = False
+        result = aoi_service.delete_polygon_file("test.geojson")
+        self.assertFalse(result)
+
+
+class S3PolygonTests(TestCase):
+    """Tests for S3 polygon upload/download/delete functions."""
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_upload_polygon_to_s3(self, mock_session):
+        client = MagicMock()
+        mock_session.return_value.client.return_value = client
+        geojson = {"type": "Polygon", "coordinates": []}
+
+        aws.upload_polygon_to_s3("test.geojson", geojson)
+
+        client.put_object.assert_called_once()
+        call_kwargs = client.put_object.call_args.kwargs
+        self.assertEqual(call_kwargs["Key"], "polygons/test.geojson")
+        self.assertEqual(call_kwargs["ContentType"], "application/json")
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_upload_polygon_to_s3_with_string_data(self, mock_session):
+        client = MagicMock()
+        mock_session.return_value.client.return_value = client
+
+        aws.upload_polygon_to_s3("test.geojson", '{"type": "Polygon"}')
+
+        client.put_object.assert_called_once()
+        call_kwargs = client.put_object.call_args.kwargs
+        self.assertEqual(call_kwargs["Body"], '{"type": "Polygon"}')
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_download_polygon_from_s3(self, mock_session):
+        client = MagicMock()
+        mock_session.return_value.client.return_value = client
+        body_mock = MagicMock()
+        body_mock.read.return_value = b'{"type": "Polygon"}'
+        client.get_object.return_value = {"Body": body_mock}
+
+        content = aws.download_polygon_from_s3("test.geojson")
+
+        self.assertEqual(content, '{"type": "Polygon"}')
+        client.get_object.assert_called_once()
+        call_kwargs = client.get_object.call_args.kwargs
+        self.assertEqual(call_kwargs["Key"], "polygons/test.geojson")
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_delete_polygon_from_s3_success(self, mock_session):
+        client = MagicMock()
+        mock_session.return_value.client.return_value = client
+
+        result = aws.delete_polygon_from_s3("test.geojson")
+
+        self.assertTrue(result)
+        client.delete_object.assert_called_once()
+        call_kwargs = client.delete_object.call_args.kwargs
+        self.assertEqual(call_kwargs["Key"], "polygons/test.geojson")
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_delete_polygon_from_s3_failure(self, mock_session):
+        client = MagicMock()
+        client.delete_object.side_effect = Exception("S3 error")
+        mock_session.return_value.client.return_value = client
+
+        result = aws.delete_polygon_from_s3("test.geojson")
+
+        self.assertFalse(result)

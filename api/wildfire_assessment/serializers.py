@@ -188,11 +188,9 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
                     self._validate_coordinates(item, context, depth + 1)
 
     def create(self, validated_data):
-        import json
-        import os
         import uuid
 
-        from django.conf import settings
+        from wildfire_assessment.svc.aws import upload_polygon_to_s3
 
         geojson_data = validated_data.pop("geojson")
         name = validated_data.get("name")
@@ -201,21 +199,11 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
         safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
         filename = f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
 
-        # Save to polygons directory
-        polygons_dir = os.path.join(
-            settings.BASE_DIR, "..", "..", "polygons"
-        )
-        os.makedirs(polygons_dir, exist_ok=True)
-
-        filepath = os.path.join(polygons_dir, filename)
-        with open(filepath, "w") as f:
-            json.dump(geojson_data, f)
-
-        # Calculate area if possible (simplified - actual calculation may need geopandas)
-        area_ha = None
+        # Upload to S3
+        upload_polygon_to_s3(filename, geojson_data)
 
         validated_data["polygon_path"] = filename
-        validated_data["area_ha"] = area_ha
+        validated_data["area_ha"] = None
 
         return super().create(validated_data)
 
@@ -253,36 +241,27 @@ class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
         return create_serializer.validate_geojson(value)
 
     def update(self, instance, validated_data):
-        import json
-        import os
         import uuid
 
-        from django.conf import settings
+        from wildfire_assessment.svc.aws import (
+            delete_polygon_from_s3,
+            upload_polygon_to_s3,
+        )
 
         geojson_data = validated_data.pop("geojson", None)
 
-        # If new GeoJSON provided, save it and update the path
+        # If new GeoJSON provided, upload to S3 and update the path
         if geojson_data:
             name = validated_data.get("name", instance.name)
             safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
             filename = f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
 
-            polygons_dir = os.path.join(settings.BASE_DIR, "..", "..", "polygons")
-            os.makedirs(polygons_dir, exist_ok=True)
-
-            # Delete old file if exists
+            # Delete old file from S3 if exists
             if instance.polygon_path:
-                old_path = os.path.join(polygons_dir, instance.polygon_path)
-                if os.path.exists(old_path):
-                    try:
-                        os.remove(old_path)
-                    except Exception:  # pragma: no cover
-                        pass  # Log but don't fail
+                delete_polygon_from_s3(instance.polygon_path)
 
-            # Save new file
-            filepath = os.path.join(polygons_dir, filename)
-            with open(filepath, "w") as f:
-                json.dump(geojson_data, f)
+            # Upload new file to S3
+            upload_polygon_to_s3(filename, geojson_data)
 
             validated_data["polygon_path"] = filename
 
