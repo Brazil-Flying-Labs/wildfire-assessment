@@ -595,18 +595,13 @@ function App() {
 
   const severityColorMap = useMemo(
     () => ({
-      "Unburned": "green",
-      "Low Severity": "yellow",
-      "Moderate Severity": "orange",
-      "High Severity": "red",
-      "Very High Severity": "purple"
+      "Unburned": "#28a745",
+      "Low Severity": "#ffc107",
+      "Moderate Severity": "#fd7e14",
+      "High Severity": "#dc3545",
+      "Very High Severity": "#6f42c1"
     }),
     []
-  );
-
-  const getSeverityColor = useCallback(
-    (name) => severityColorMap[name] || "",
-    [severityColorMap]
   );
 
   const scientificDeliverables = useMemo(
@@ -1212,22 +1207,22 @@ function App() {
               analysisResult ? (
                 <div className="analysis-results d-flex flex-column gap-4">
                   {bestDates ? (
-                    <div className="card border-0 shadow-sm">
+                    <div className="card shadow-sm">
+                      <div className="card-header">
+                        <h3 className="h5 mb-0">{t("app.bestDates")}</h3>
+                      </div>
                       <div className="card-body">
-                        <h3 className="card-title h5 mb-3">
-                          {t("app.bestDates")}
-                        </h3>
                         <dl className="row mb-0">
                           {bestDates.preBest ? (
                             <>
-                              <dt className="col-sm-4">{t("app.preFire")}</dt>
-                              <dd className="col-sm-8">{bestDates.preBest}</dd>
+                              <dt className="text-muted small col-sm-4">{t("app.preFire")}</dt>
+                              <dd className="col-sm-8 mb-2">{bestDates.preBest}</dd>
                             </>
                           ) : null}
                           {bestDates.postBest ? (
                             <>
-                              <dt className="col-sm-4">{t("app.postFire")}</dt>
-                              <dd className="col-sm-8">{bestDates.postBest}</dd>
+                              <dt className="text-muted small col-sm-4">{t("app.postFire")}</dt>
+                              <dd className="col-sm-8 mb-0">{bestDates.postBest}</dd>
                             </>
                           ) : null}
                         </dl>
@@ -1235,148 +1230,180 @@ function App() {
                     </div>
                   ) : null}
 
-                  {imageEntries.length ? (
-                    <section>
-                      <h3 className="h5 mb-3">{t("app.visualizations")}</h3>
-                      <div className="analysis-images row g-4">
-                        {imageEntries.map(([key, url]) => (
-                          <div className="col-12 col-md-6 col-lg-4" key={key}>
-                            <div className="card h-100 shadow-sm">
-                              <img
-                                src={url}
-                                className="card-img-top"
-                                alt={formatLabel(key)}
-                                loading="lazy"
-                              />
-                              <div className="card-body">
-                                <h4 className="card-title h6 mb-0">
-                                  {formatLabel(key)}
-                                </h4>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                  {severityEntries.length ? (
+                    <div className="card shadow-sm">
+                      <div className="card-header">
+                        <h3 className="h5 mb-0">{t("app.severityTitle")}</h3>
                       </div>
-                    </section>
+                      <div className="card-body">
+                        <div className="table-responsive">
+                          <table className="table table-hover mb-0">
+                            <thead className="table-light">
+                              <tr>
+                                <th scope="col">{t("app.severity")}</th>
+                                <th scope="col">{t("app.areaHa")}</th>
+                                <th scope="col">{t("app.percent")}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {severityEntries.map(({ name, area, percent }) => (
+                                <tr key={name}>
+                                  <td>
+                                    <span className="d-flex align-items-center gap-2">
+                                      {severityColorMap[name] && (
+                                        <span
+                                          className="d-inline-block rounded"
+                                          style={{
+                                            width: "12px",
+                                            height: "12px",
+                                            backgroundColor: severityColorMap[name],
+                                          }}
+                                        />
+                                      )}
+                                      {name}
+                                    </span>
+                                  </td>
+                                  <td>{formatAreaValue(area)}</td>
+                                  <td>{formatPercentValue(percent)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
                   ) : null}
 
-                  {severityEntries.length ? (
-                    <section>
-                      <h3 className="h5 mb-3">{t("app.severityTitle")}</h3>
-                      <div className="table-responsive">
-                        <table className="table table-sm table-striped align-middle">
-                          <thead className="table-light">
-                            <tr>
-                              <th scope="col">{t("app.severity")}</th>
-                              <th scope="col">{t("app.areaHa")}</th>
-                              <th scope="col">{t("app.percent")}</th>
-                              <th scope="col">{t("app.color")}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {severityEntries.map(({ name, area, percent }) => (
-                              <tr key={name}>
-                                <td>{name}</td>
-                                <td>{formatAreaValue(area)}</td>
-                                <td>{formatPercentValue(percent)}</td>
-                                <td>{getSeverityColor(name)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                  {imageEntries.length ? (
+                    <div className="card shadow-sm">
+                      <div className="card-header">
+                        <h3 className="h5 mb-0">{t("app.visualizations")}</h3>
                       </div>
-                    </section>
+                      <div className="card-body">
+                        <div className="row g-3">
+                          {imageEntries.map(([key, url]) => (
+                            <div className="col-md-6 col-lg-4" key={key}>
+                              <div className="text-center">
+                                <div className="fw-semibold mb-2">{formatLabel(key)}</div>
+                                <a href={url} target="_blank" rel="noopener noreferrer">
+                                  <img
+                                    src={url}
+                                    alt={formatLabel(key)}
+                                    className="img-fluid rounded border"
+                                    style={{ maxHeight: "300px" }}
+                                    loading="lazy"
+                                  />
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   ) : null}
 
                   {tiffEntries.length || csvEntry ? (
-                    <section>
-                      <h3 className="h5 mb-3">{t("app.downloads")}</h3>
-                      <div className="analysis-downloads d-flex flex-wrap gap-2">
-                        {tiffEntries.map(([key, url]) => (
-                          <a
-                            key={key}
-                            href={url}
-                            className="btn btn-outline-secondary btn-sm"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {formatLabel(key)} (TIFF)
-                          </a>
-                        ))}
-                        {csvEntry ? (
-                          <a
-                            href={csvEntry[1]}
-                            className="btn btn-outline-secondary btn-sm"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {formatLabel(csvEntry[0])} (CSV)
-                          </a>
-                        ) : null}
+                    <div className="card shadow-sm">
+                      <div className="card-header">
+                        <h3 className="h5 mb-0">{t("app.downloads")}</h3>
                       </div>
-                    </section>
+                      <div className="card-body">
+                        <div className="d-flex flex-wrap gap-2">
+                          {tiffEntries.map(([key, url]) => (
+                            <a
+                              key={key}
+                              href={url}
+                              className="btn btn-outline-secondary btn-sm"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {formatLabel(key)} (TIFF)
+                            </a>
+                          ))}
+                          {csvEntry ? (
+                            <a
+                              href={csvEntry[1]}
+                              className="btn btn-outline-secondary btn-sm"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {formatLabel(csvEntry[0])} (CSV)
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
                   ) : null}
 
-                  <section>
-                    <details className="analysis-raw border rounded-3 p-3 bg-white shadow-sm">
-                      <summary className="fw-medium mb-2">
-                        {t("app.viewJson")}
-                      </summary>
-                      <pre className="mb-0 bg-light p-3 rounded overflow-auto">
-                        {JSON.stringify(analysisResult, null, 2)}
-                      </pre>
-                    </details>
-                  </section>
-
-                  <section className="mt-4">
-                    <h3 className="h5 mb-2">{t("app.deliverableTitle")}</h3>
-                    <p className="small text-muted mb-3">
-                      {t("app.deliverableHint")}
-                    </p>
-                    <div className="d-flex flex-wrap gap-3">
-                      {scientificDeliverables.map(({ label, value }) => {
-                        const status = deliverableStatus[value] || {};
-                        return (
-                          <div
-                            key={value}
-                            className="d-flex flex-column align-items-start"
-                          >
-                            <button
-                              type="button"
-                              className="btn btn-link p-0"
-                              disabled={
-                                isScientificDeliverableDisabled || status.loading
-                              }
-                              onClick={() => handleScientificDeliverable(value)}
-                              title={t("app.deliverableTooltip", { label })}
-                            >
-                              {status.loading
-                                ? t("app.deliverableRequesting", { label })
-                                : label}
-                            </button>
-                            {status.taskId ? (
-                              <span className="small text-success">
-                                {t("app.taskId", { taskId: status.taskId })}
-                              </span>
-                            ) : null}
-                            {!status.loading && status.error ? (
-                              <span className="small text-danger">
-                                {status.error}
-                              </span>
-                            ) : null}
-                          </div>
-                        );
-                      })}
+                  <div className="card shadow-sm">
+                    <div className="card-header">
+                      <h3 className="h5 mb-0">{t("app.viewJson")}</h3>
                     </div>
-                    {deliverableAlert ? (
-                      <div
-                        className={`alert alert-${deliverableAlert.type} mt-3`}
-                        role="alert"
-                      >
-                        {deliverableAlert.message}
+                    <div className="card-body">
+                      <details>
+                        <summary className="fw-medium mb-2">
+                          {t("app.viewJson")}
+                        </summary>
+                        <pre className="mb-0 bg-light p-3 rounded overflow-auto">
+                          {JSON.stringify(analysisResult, null, 2)}
+                        </pre>
+                      </details>
+                    </div>
+                  </div>
+
+                  <div className="card shadow-sm">
+                    <div className="card-header">
+                      <h3 className="h5 mb-0">{t("app.deliverableTitle")}</h3>
+                    </div>
+                    <div className="card-body">
+                      <p className="small text-muted mb-3">
+                        {t("app.deliverableHint")}
+                      </p>
+                      <div className="d-flex flex-wrap gap-3">
+                        {scientificDeliverables.map(({ label, value }) => {
+                          const status = deliverableStatus[value] || {};
+                          return (
+                            <div
+                              key={value}
+                              className="d-flex flex-column align-items-start"
+                            >
+                              <button
+                                type="button"
+                                className="btn btn-link p-0"
+                                disabled={
+                                  isScientificDeliverableDisabled || status.loading
+                                }
+                                onClick={() => handleScientificDeliverable(value)}
+                                title={t("app.deliverableTooltip", { label })}
+                              >
+                                {status.loading
+                                  ? t("app.deliverableRequesting", { label })
+                                  : label}
+                              </button>
+                              {status.taskId ? (
+                                <span className="small text-success">
+                                  {t("app.taskId", { taskId: status.taskId })}
+                                </span>
+                              ) : null}
+                              {!status.loading && status.error ? (
+                                <span className="small text-danger">
+                                  {status.error}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                       </div>
-                    ) : null}
-                  </section>
+                      {deliverableAlert ? (
+                        <div
+                          className={`alert alert-${deliverableAlert.type} mt-3`}
+                          role="alert"
+                        >
+                          {deliverableAlert.message}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               ) : null}
 

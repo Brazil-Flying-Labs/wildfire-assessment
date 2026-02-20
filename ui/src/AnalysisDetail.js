@@ -6,6 +6,8 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [analysis, setAnalysis] = useState(null);
+  const [deliverableStatus, setDeliverableStatus] = useState({});
+  const [deliverableAlert, setDeliverableAlert] = useState(null);
 
   const loadAnalysis = useCallback(async () => {
     if (!baseUrl || !analysisId) return;
@@ -116,6 +118,62 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
       return [];
     }
   }, [analysis]);
+
+  const scientificDeliverables = useMemo(
+    () => [
+      { label: "RGB Pre-fire", value: "RGB_PRE_FIRE" },
+      { label: "RGB Post-fire", value: "RGB_POST_FIRE" },
+      { label: "dNBR", value: "DNBR" },
+      { label: "RBR", value: "RBR" },
+      { label: "dNDVI", value: "DNDVI" },
+    ],
+    []
+  );
+
+  const handleScientificDeliverable = useCallback(
+    async (deliverableName) => {
+      if (!analysis) return;
+
+      setDeliverableAlert(null);
+      setDeliverableStatus((prev) => ({
+        ...prev,
+        [deliverableName]: { loading: true, error: null, taskId: null },
+      }));
+
+      try {
+        const queryParams = new URLSearchParams({
+          pre_fire_date: analysis.pre_fire_date,
+          post_fire_date: analysis.post_fire_date,
+          deliverable: deliverableName,
+        });
+
+        const url = `${baseUrl}/area_of_interest/${analysis.area_of_interest}/scientific_deliverable/?${queryParams.toString()}`;
+        const response = await authorizedFetch(url, { method: "POST" });
+
+        if (!response.ok) {
+          throw new Error(t("app.errorDeliverable", { status: response.status }));
+        }
+
+        const data = await response.json();
+        const label = scientificDeliverables.find((d) => d.value === deliverableName)?.label || deliverableName;
+        setDeliverableStatus((prev) => ({
+          ...prev,
+          [deliverableName]: { loading: false, taskId: data.task_id || null },
+        }));
+        setDeliverableAlert({
+          type: "success",
+          message: t("app.deliverableSuccess", { label }),
+        });
+      } catch (err) {
+        console.error("Failed to request scientific deliverable:", err);
+        setDeliverableStatus((prev) => ({
+          ...prev,
+          [deliverableName]: { loading: false, error: err.message, taskId: null },
+        }));
+      }
+    },
+    [analysis, authorizedFetch, baseUrl, scientificDeliverables, t]
+  );
 
   if (loading) {
     return (
@@ -279,6 +337,59 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
           ) : (
             <p className="text-muted mb-0">{t("analysisDetail.noImages")}</p>
           )}
+        </div>
+      </div>
+
+      {/* Scientific Deliverables */}
+      <div className="card shadow-sm mb-4">
+        <div className="card-header">
+          <h3 className="h5 mb-0">{t("app.deliverableTitle")}</h3>
+        </div>
+        <div className="card-body">
+          <p className="small text-muted mb-3">
+            {t("app.deliverableHint")}
+          </p>
+          <div className="d-flex flex-wrap gap-3">
+            {scientificDeliverables.map(({ label, value }) => {
+              const status = deliverableStatus[value] || {};
+              return (
+                <div
+                  key={value}
+                  className="d-flex flex-column align-items-start"
+                >
+                  <button
+                    type="button"
+                    className="btn btn-link p-0"
+                    disabled={status.loading}
+                    onClick={() => handleScientificDeliverable(value)}
+                    title={t("app.deliverableTooltip", { label })}
+                  >
+                    {status.loading
+                      ? t("app.deliverableRequesting", { label })
+                      : label}
+                  </button>
+                  {status.taskId ? (
+                    <span className="small text-success">
+                      {t("app.taskId", { taskId: status.taskId })}
+                    </span>
+                  ) : null}
+                  {!status.loading && status.error ? (
+                    <span className="small text-danger">
+                      {status.error}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          {deliverableAlert ? (
+            <div
+              className={`alert alert-${deliverableAlert.type} mt-3`}
+              role="alert"
+            >
+              {deliverableAlert.message}
+            </div>
+          ) : null}
         </div>
       </div>
 
