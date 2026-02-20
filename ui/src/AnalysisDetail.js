@@ -53,6 +53,18 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
     });
   };
 
+  const imageEntries = useMemo(() => {
+    if (!analysis) return [];
+    const items = [
+      { label: t("analysisDetail.preFireRgb"), url: analysis.rgb_pre_fire_url },
+      { label: t("analysisDetail.postFireRgb"), url: analysis.rgb_post_fire_url },
+      { label: t("analysisDetail.dndvi"), url: analysis.dndvi_url },
+      { label: t("analysisDetail.dnbr"), url: analysis.dnbr_url },
+      { label: t("analysisDetail.rbr"), url: analysis.rbr_url },
+    ];
+    return items.filter((item) => item.url);
+  }, [analysis, t]);
+
   const severityColorMap = useMemo(
     () => ({
       "Unburned": "#28a745",
@@ -239,6 +251,36 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
           </div>
         </div>
       )}
+
+      {/* Images */}
+      <div className="card shadow-sm mb-4">
+        <div className="card-header">
+          <h3 className="h5 mb-0">{t("analysisDetail.images")}</h3>
+        </div>
+        <div className="card-body">
+          {imageEntries.length > 0 ? (
+            <div className="row g-3">
+              {imageEntries.map(({ label, url }) => (
+                <div className="col-md-6 col-lg-4" key={label}>
+                  <div className="text-center">
+                    <div className="fw-semibold mb-2">{label}</div>
+                    <a href={url} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={url}
+                        alt={label}
+                        className="img-fluid rounded border"
+                        style={{ maxHeight: "300px" }}
+                      />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted mb-0">{t("analysisDetail.noImages")}</p>
+          )}
+        </div>
+      </div>
 
       {/* Raw Data */}
       <div className="card shadow-sm">

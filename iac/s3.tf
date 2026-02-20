@@ -19,14 +19,14 @@ resource "aws_s3_bucket_lifecycle_configuration" "wildfire_assessment" {
   bucket = aws_s3_bucket.wildfire_assessment.id
 
   rule {
-    id     = "expire-objects-after-1-day"
+    id     = "expire-objects-after-2-years"
     status = "Enabled"
 
     # Apply to all objects (required by provider)
     filter {}
 
     expiration {
-      days = 1
+      days = 730
     }
   }
 }
