@@ -1279,3 +1279,30 @@
 [data-theme="dark"] .user-profile .card-body {
   background-color: var(--bg-card);
 }
+
+/* Dark mode for kebab dropdown menu */
+[data-theme="dark"] .kebab-dropdown {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .kebab-item {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .kebab-item:hover {
+  background-color: var(--bg-secondary);
+}
+
+[data-theme="dark"] .kebab-item.text-danger {
+  color: #f87171;
+}
+
+[data-theme="dark"] .kebab-item.text-danger:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+[data-theme="dark"] .kebab-trigger:hover {
+  background-color: var(--bg-secondary);
+}
