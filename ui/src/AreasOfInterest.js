@@ -292,7 +292,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
         setCreateSubmitting(false);
       }
     },
-    [authorizedFetch, baseUrl, closeCreateModal, createFormData, createGeojsonFile, formatApiErrors, loadAreas, searchTerm, t]
+    [authorizedFetch, baseUrl, closeCreateModal, createFormData, createGeojsonFile, formatApiErrors, loadAreas, searchTerm, t, validatePolygonGeometry]
   );
 
   // Edit modal handlers
@@ -394,7 +394,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
         setEditSubmitting(false);
       }
     },
-    [authorizedFetch, baseUrl, closeEditModal, currentPage, editFormData, editGeojsonFile, editingArea, formatApiErrors, loadAreas, searchTerm, t]
+    [authorizedFetch, baseUrl, closeEditModal, currentPage, editFormData, editGeojsonFile, editingArea, formatApiErrors, loadAreas, searchTerm, t, validatePolygonGeometry]
   );
 
   const isCreateFormValid = useMemo(() => {
