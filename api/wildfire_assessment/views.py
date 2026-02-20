@@ -75,11 +75,11 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         else:
             return queryset.none()
 
-        # Search by name or country name
+        # Search by name or country name (case and accent insensitive)
         search = self.request.query_params.get("search")
         if search:
             queryset = queryset.filter(
-                Q(name__icontains=search) | Q(country__name__icontains=search)
+                Q(name__unaccent__icontains=search) | Q(country__name__unaccent__icontains=search)
             )
 
         return queryset
