@@ -58,10 +58,21 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
                 )
         return value
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        name = attrs.get("name")
+        country = attrs.get("country")
+        if name and country:
+            if AreaOfInterest.objects.filter(name=name, country=country).exists():
+                raise serializers.ValidationError(
+                    {"name": "An area of interest with this name already exists in the selected country."}
+                )
+        return attrs
+
     def validate_geojson(self, value):
         """
         Validate GeoJSON structure and geometry for Google Earth Engine compatibility.
-        
+
         Validates:
         - Valid GeoJSON structure (type, geometry)
         - Valid geometry using shapely
@@ -244,6 +255,20 @@ class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
                     "You do not have permission to move areas to this country."
                 )
         return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        name = attrs.get("name", self.instance.name if self.instance else None)
+        country = attrs.get("country", self.instance.country if self.instance else None)
+        if name and country:
+            qs = AreaOfInterest.objects.filter(name=name, country=country)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"name": "An area of interest with this name already exists in the selected country."}
+                )
+        return attrs
 
     def validate_geojson(self, value):
         """Reuse validation from create serializer."""

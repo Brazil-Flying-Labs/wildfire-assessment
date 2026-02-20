@@ -37,6 +37,20 @@ class AreaOfInterestAdminForm(forms.ModelForm):
         self.fields["polygon_path"].required = False
         self.fields["polygon_path"].disabled = True
 
+    def clean(self):
+        cleaned_data = super().clean()
+        name = cleaned_data.get("name")
+        country = cleaned_data.get("country")
+        if name and country:
+            qs = AreaOfInterest.objects.filter(name=name, country=country)
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError(
+                    "An area of interest with this name already exists in the selected country."
+                )
+        return cleaned_data
+
     def clean_geojson_file(self):
         geojson_file = self.cleaned_data.get("geojson_file")
         if not geojson_file:

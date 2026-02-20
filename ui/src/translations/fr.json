@@ -197,6 +197,7 @@
   "areas.errorReadingFile": "Erreur lors de la lecture du fichier",
   "areas.invalidGeojson": "Fichier GeoJSON invalide",
   "areas.polygonRequired": "Seules les géométries de type Polygon ou MultiPolygon sont acceptées. Le fichier envoyé contient un type de géométrie différent.",
+  "areas.duplicateName": "Une zone d'intérêt portant ce nom existe déjà dans le pays sélectionné.",
   "areas.fillAllFields": "Veuillez remplir tous les champs obligatoires",
   "areas.createSuccess": "Zone créée avec succès !",
   "areas.deleteSuccess": "Zone supprimée avec succès !",

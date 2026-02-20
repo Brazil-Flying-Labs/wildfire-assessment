@@ -540,6 +540,44 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("geojson", serializer.errors)
 
+    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    def test_duplicate_name_same_country_rejected(self, _mock_upload):
+        """Test that duplicate area name in the same country is rejected."""
+        AreaOfInterest.objects.create(
+            name="Duplicate Area", country=self.country, polygon_path="existing.geojson"
+        )
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Duplicate Area",
+                "country": self.country.id,
+                "geojson": self.valid_polygon,
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("name", serializer.errors)
+
+    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    def test_same_name_different_country_allowed(self, _mock_upload):
+        """Test that the same area name is allowed in a different country."""
+        UserCountry.objects.create(user=self.user, country=self.other_country)
+        AreaOfInterest.objects.create(
+            name="Shared Name", country=self.country, polygon_path="existing.geojson"
+        )
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Shared Name",
+                "country": self.other_country.id,
+                "geojson": self.valid_polygon,
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
     def test_validate_coordinates_depth_limit(self):
         """Test that deeply nested coordinates don't cause infinite recursion."""
         request = self.factory.post("/")
