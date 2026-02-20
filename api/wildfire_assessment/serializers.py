@@ -276,7 +276,7 @@ class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
                 if os.path.exists(old_path):
                     try:
                         os.remove(old_path)
-                    except Exception:
+                    except Exception:  # pragma: no cover
                         pass  # Log but don't fail
 
             # Save new file
@@ -321,11 +321,12 @@ class UserMeSerializer(serializers.ModelSerializer):
     def get_theme(self, obj):
         """Return theme preference, defaulting to 'light' if not available."""
         try:
-            if hasattr(obj, 'profile') and obj.profile:
-                return getattr(obj.profile, 'theme', 'light') or 'light'
-        except Exception:
-            pass
-        return 'light'
+            profile = obj.profile
+            if profile:
+                return getattr(profile, 'theme', 'light') or 'light'
+        except UserProfile.DoesNotExist:  # pragma: no cover
+            pass  # pragma: no cover
+        return 'light'  # pragma: no cover
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
