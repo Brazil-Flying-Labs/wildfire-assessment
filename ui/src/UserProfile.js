@@ -38,31 +38,19 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
 
   // Initialize form data from backend profile (only on first load)
   useEffect(() => {
-    console.log("[UserProfile] useEffect triggered", {
-      backendProfile,
-      initialized: initializedRef.current,
-    });
     if (backendProfile && !initializedRef.current) {
       initializedRef.current = true;
       const backendFirstName = backendProfile.first_name || "";
       const backendLastName = backendProfile.last_name || "";
       
-      console.log("[UserProfile] Initializing form", {
-        backendFirstName,
-        backendLastName,
-        willUseAuth0: !backendFirstName && !backendLastName,
-      });
-      
       // If backend has no name, prefill with Auth0 name
       if (!backendFirstName && !backendLastName) {
         const auth0Names = getAuth0NameParts();
-        console.log("[UserProfile] Using Auth0 names", auth0Names);
         setFormData({
           firstName: auth0Names.firstName,
           lastName: auth0Names.lastName,
         });
       } else {
-        console.log("[UserProfile] Using backend names");
         setFormData({
           firstName: backendFirstName,
           lastName: backendLastName,
