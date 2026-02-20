@@ -707,7 +707,15 @@
   padding-right: 2.5rem;
 }
 
-/* Areas table responsive */
+/* Areas table responsive — allow kebab dropdown to overflow */
+.areas-management .card-body {
+  overflow: visible;
+}
+
+.areas-management .table-responsive {
+  overflow: visible;
+}
+
 .areas-table td {
   vertical-align: middle;
 }
