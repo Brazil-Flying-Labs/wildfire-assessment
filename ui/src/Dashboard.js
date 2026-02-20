@@ -80,21 +80,8 @@ function Dashboard({ authorizedFetch, baseUrl }) {
       
       {/* Stats Cards */}
       <div className="row g-3 mb-4">
-        <div className="col-6 col-md-3">
-          <div className="card h-100 shadow-sm stat-card">
-            <div className="card-body text-center">
-              <div className="stat-icon mb-2">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-                </svg>
-              </div>
-              <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_analyses)}</h3>
-              <p className="stat-label text-muted mb-0 small">{t("dashboard.totalAnalyses")}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="col-6 col-md-3">
+        {/* 1. Areas Monitored */}
+        <div className="col-6 col-md">
           <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2">
@@ -110,7 +97,39 @@ function Dashboard({ authorizedFetch, baseUrl }) {
           </div>
         </div>
         
-        <div className="col-6 col-md-3">
+        {/* 2. Total Analyses */}
+        <div className="col-6 col-md">
+          <div className="card h-100 shadow-sm stat-card">
+            <div className="card-body text-center">
+              <div className="stat-icon mb-2">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+              </div>
+              <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_analyses)}</h3>
+              <p className="stat-label text-muted mb-0 small">{t("dashboard.totalAnalyses")}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* 3. Total Area Analyzed */}
+        <div className="col-6 col-md">
+          <div className="card h-100 shadow-sm stat-card">
+            <div className="card-body text-center">
+              <div className="stat-icon mb-2 text-primary">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+                </svg>
+              </div>
+              <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_analyzed_ha)}</h3>
+              <p className="stat-label text-muted mb-0 small">{t("dashboard.totalAnalyzedHa")}</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* 4. Total Area Burned */}
+        <div className="col-6 col-md">
           <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-danger">
@@ -124,7 +143,8 @@ function Dashboard({ authorizedFetch, baseUrl }) {
           </div>
         </div>
         
-        <div className="col-6 col-md-3">
+        {/* 5. Analyses This Month */}
+        <div className="col-6 col-md">
           <div className="card h-100 shadow-sm stat-card">
             <div className="card-body text-center">
               <div className="stat-icon mb-2 text-success">
@@ -136,7 +156,7 @@ function Dashboard({ authorizedFetch, baseUrl }) {
                 </svg>
               </div>
               <h3 className="stat-value h2 mb-1">{formatNumber(stats?.analyses_this_month)}</h3>
-              <p className="stat-label text-muted mb-0 small">{t("dashboard.thisMonth")}</p>
+              <p className="stat-label text-muted mb-0 small">{t("dashboard.analysesThisMonth")}</p>
             </div>
           </div>
         </div>

@@ -382,6 +382,13 @@ class DashboardView(APIView):
         # Calculate statistics
         total_analyses = accessible_analyses.count()
         total_areas = accessible_areas.count()
+        
+        # Total area analyzed: sum of area_ha from all areas that have been analyzed
+        analyzed_area_ids = accessible_analyses.values_list('area_of_interest_id', flat=True).distinct()
+        total_analyzed_ha = accessible_areas.filter(
+            id__in=analyzed_area_ids
+        ).aggregate(total=Sum('area_ha'))['total']
+        
         total_burned_ha = accessible_analyses.aggregate(
             total=Sum('total_burned_ha')
         )['total']
@@ -397,6 +404,7 @@ class DashboardView(APIView):
         data = {
             'total_analyses': total_analyses,
             'total_areas': total_areas,
+            'total_analyzed_ha': total_analyzed_ha,
             'total_burned_ha': total_burned_ha,
             'analyses_this_month': analyses_this_month,
             'recent_analyses': AnalysisRunSerializer(recent_analyses, many=True).data,

@@ -390,6 +390,7 @@ class DashboardStatsSerializer(serializers.Serializer):
     
     total_analyses = serializers.IntegerField()
     total_areas = serializers.IntegerField()
+    total_analyzed_ha = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
     total_burned_ha = serializers.DecimalField(max_digits=15, decimal_places=2, allow_null=True)
     analyses_this_month = serializers.IntegerField()
     recent_analyses = AnalysisRunSerializer(many=True)
