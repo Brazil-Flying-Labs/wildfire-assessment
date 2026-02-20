@@ -42,7 +42,7 @@ def health_status(_request):
 class AreaOfInterestPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = "page_size"
-    max_page_size = 100
+    max_page_size = 999999999
 
 
 class AreaOfInterestViewSet(viewsets.ModelViewSet):

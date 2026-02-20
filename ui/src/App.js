@@ -232,7 +232,7 @@ function App() {
     (async () => {
       try {
         const response = await authorizedFetch(
-          `${baseUrl}/area_of_interest/?page_size=100`,
+          `${baseUrl}/area_of_interest/?page_size=999999999`,
           {
             signal: controller.signal,
           }
