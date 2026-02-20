@@ -3,7 +3,7 @@ resource "aws_ecs_cluster" "wildfire_assessment" {
 
   setting {
     name  = "containerInsights"
-    value = "enabled"
+    value = "enhanced"
   }
 
   configuration {
