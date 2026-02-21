@@ -137,7 +137,7 @@ function App() {
 
   const login = useCallback(
     () => {
-      const theme = document.documentElement.getAttribute("data-theme") || "light";
+      const theme = document.documentElement.getAttribute("data-theme") || "dark";
       loginWithRedirect({
         authorizationParams: {
           ui_locales: language,
@@ -212,11 +212,16 @@ function App() {
     return null;
   }, [authorizedFetch, baseUrl]);
 
-  // Apply theme to document
+  // Apply theme to document — dark on landing page when not logged in
+  const isOnLandingPage = !authReady || showLandingPage;
   useEffect(() => {
-    const theme = backendProfile?.theme || "light";
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [backendProfile?.theme]);
+    if (isOnLandingPage && !backendProfile) {
+      document.documentElement.setAttribute("data-theme", "dark");
+    } else {
+      const theme = backendProfile?.theme || "dark";
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+  }, [backendProfile, isOnLandingPage]);
 
   // Update theme preference
   const updateTheme = useCallback(async (newTheme) => {

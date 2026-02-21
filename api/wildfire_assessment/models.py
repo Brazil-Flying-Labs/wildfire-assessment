@@ -92,7 +92,7 @@ class UserProfile(models.Model):
     theme = models.CharField(
         max_length=10,
         choices=THEME_CHOICES,
-        default="light",
+        default="dark",
     )
     dashboard_widgets = models.JSONField(
         null=True,

@@ -363,14 +363,14 @@ class UserMeSerializer(serializers.ModelSerializer):
         return list(countries)
 
     def get_theme(self, obj):
-        """Return theme preference, defaulting to 'light' if not available."""
+        """Return theme preference, defaulting to 'dark' if not available."""
         try:
             profile = obj.profile
             if profile:
-                return getattr(profile, 'theme', 'light') or 'light'
+                return getattr(profile, 'theme', 'dark') or 'dark'
         except UserProfile.DoesNotExist:  # pragma: no cover
             pass  # pragma: no cover
-        return 'light'  # pragma: no cover
+        return 'dark'  # pragma: no cover
 
     def get_dashboard_widgets(self, obj):
         """Return dashboard widget layout, or None if not customized."""

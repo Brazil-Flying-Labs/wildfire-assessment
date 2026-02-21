@@ -859,10 +859,10 @@ class UserMeViewExtendedTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()["theme"], "light")
+        self.assertEqual(response.json()["theme"], "dark")
 
     def test_get_theme_without_profile(self):
-        """Test that theme defaults to 'light' when user has no profile."""
+        """Test that theme defaults to 'dark' when user has no profile."""
         from wildfire_assessment.models import UserProfile
 
         # Delete the auto-created profile
@@ -870,4 +870,4 @@ class UserMeViewExtendedTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()["theme"], "light")
+        self.assertEqual(response.json()["theme"], "dark")
