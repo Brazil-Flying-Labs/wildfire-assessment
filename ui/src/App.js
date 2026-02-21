@@ -8,6 +8,7 @@ import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
 import AreasOfInterest from "./AreasOfInterest";
 import Dashboard from "./Dashboard";
+import NotificationBell from "./NotificationBell";
 import UserProfile from "./UserProfile";
 
 const UI_VERSION = "1.4.8";
@@ -49,6 +50,11 @@ function App() {
   // Page navigation state: "home", "analysis", "areas", or "analysis-detail"
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
+
+  // Notification state
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationPollRef = useRef(null);
 
   const toggleNav = useCallback(() => {
     setIsNavOpen((previous) => !previous);
@@ -212,6 +218,62 @@ function App() {
     return null;
   }, [authorizedFetch, baseUrl]);
 
+  // Notification sound
+  const prevUnreadRef = useRef(0);
+  const playNotificationSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      // Two-tone chime
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1174.66, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {
+      // Audio not available — ignore
+    }
+  }, []);
+
+  // Notification polling
+  const fetchUnreadCount = useCallback(async () => {
+    if (!baseUrl) return;
+    try {
+      const response = await authorizedFetch(
+        `${baseUrl}/notifications/unread_count/`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const newCount = data.unread_count;
+        if (newCount > prevUnreadRef.current) {
+          playNotificationSound();
+        }
+        prevUnreadRef.current = newCount;
+        setUnreadCount(newCount);
+      }
+    } catch {
+      // Silently ignore polling errors
+    }
+  }, [authorizedFetch, baseUrl, playNotificationSound]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!baseUrl) return;
+    try {
+      const response = await authorizedFetch(`${baseUrl}/notifications/`);
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.results || []);
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [authorizedFetch, baseUrl]);
+
   // Apply theme to document — dark on landing page when not logged in
   const isOnLandingPage = !authReady || showLandingPage;
   useEffect(() => {
@@ -292,6 +354,16 @@ function App() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
+
+  // Poll for unread notification count every 5 seconds
+  useEffect(() => {
+    if (!authReady || !baseUrl) return;
+    fetchUnreadCount();
+    notificationPollRef.current = setInterval(fetchUnreadCount, 5000);
+    return () => {
+      if (notificationPollRef.current) clearInterval(notificationPollRef.current);
+    };
+  }, [authReady, baseUrl, fetchUnreadCount]);
 
   const loadReserves = useCallback(() => {
     if (!baseUrl) {
@@ -994,6 +1066,12 @@ function App() {
 
           <div className="d-flex align-items-center gap-2 header-actions">
             <LanguageSelector />
+            <NotificationBell
+              onNotificationClick={handleAnalysisClick}
+              unreadCount={unreadCount}
+              notifications={notifications}
+              onOpen={fetchNotifications}
+            />
             <div className="avatar-menu">
               {user?.picture ? (
                 <img
@@ -1183,6 +1261,7 @@ function App() {
               baseUrl={baseUrl}
               analysisId={selectedAnalysisId}
               onBack={handleBackFromAnalysisDetail}
+              onNotificationsRead={fetchUnreadCount}
             />
           ) : currentPage === "areas" ? (
             <AreasOfInterest

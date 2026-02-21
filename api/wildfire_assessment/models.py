@@ -174,3 +174,42 @@ class AnalysisRun(models.Model):
     
     def __str__(self):
         return f"{self.area_of_interest.name} - {self.pre_fire_date} to {self.post_fire_date}"
+
+
+class Notification(models.Model):
+    """In-app notifications for users."""
+
+    NOTIFICATION_TYPES = [
+        ("deliverable_ready", "Deliverable Ready"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    analysis_run = models.ForeignKey(
+        AnalysisRun,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        null=True,
+        blank=True,
+    )
+    notification_type = models.CharField(
+        max_length=30,
+        choices=NOTIFICATION_TYPES,
+        default="deliverable_ready",
+    )
+    deliverable_name = models.CharField(max_length=30, blank=True)
+    message = models.CharField(max_length=500)
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "is_read", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Notification for {self.user} - {self.notification_type}"

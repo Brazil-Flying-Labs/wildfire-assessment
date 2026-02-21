@@ -8,6 +8,7 @@ from wildfire_assessment.models import (
     AnalysisRun,
     AreaOfInterest,
     Country,
+    Notification,
     UserCountry,
     UserProfile,
 )
@@ -172,6 +173,7 @@ class ProcessorTests(TestCase):
             deliverable_name=Deliverable.DNBR.name,
             email=self.email,
             reserve_name=self.reserve_name,
+            user_id=user.id,
         )
 
         self.assertEqual(status, "COMPLETED")
@@ -574,6 +576,167 @@ class AwsUtilsTests(TestCase):
             )
         # Should still complete despite DB error
         self.assertEqual(result_status, "COMPLETED")
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_creates_notification(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+        mock_unlink,
+    ):
+        """Test that a Notification record is created when deliverable completes."""
+        User = get_user_model()
+        user = User.objects.create_user(
+            username="notifuser", email=self.email, password="pw"
+        )
+        country = Country.objects.create(name="Notif Country", code="NF")
+        area = AreaOfInterest.objects.create(
+            name="Notif Area", polygon_path="notif.geojson", country=country
+        )
+        analysis_run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr.tif"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        self.assertEqual(Notification.objects.count(), 0)
+
+        processor.process_scientific_deliverable(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+            deliverable_name=Deliverable.DNBR.name,
+            email=self.email,
+            reserve_name=self.reserve_name,
+            analysis_run_id=analysis_run.id,
+            user_id=user.id,
+        )
+
+        self.assertEqual(Notification.objects.count(), 1)
+        notif = Notification.objects.first()
+        self.assertEqual(notif.user, user)
+        self.assertEqual(notif.analysis_run, analysis_run)
+        self.assertEqual(notif.notification_type, "deliverable_ready")
+        self.assertEqual(notif.deliverable_name, "DNBR")
+        self.assertIn("Notif Area", notif.message)
+        self.assertFalse(notif.is_read)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_no_notification_without_run_id(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+        mock_unlink,
+    ):
+        """No notification is created when analysis_run_id is not provided."""
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr.tif"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        processor.process_scientific_deliverable(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+            deliverable_name=Deliverable.DNBR.name,
+            email=self.email,
+            reserve_name=self.reserve_name,
+        )
+
+        self.assertEqual(Notification.objects.count(), 0)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_notification_creation_failure(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+        mock_unlink,
+    ):
+        """Notification creation failure is handled gracefully."""
+        User = get_user_model()
+        user = User.objects.create_user(
+            username="failnotif", email=self.email, password="pw"
+        )
+
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr.tif"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        with patch("wildfire_assessment.svc.processor.Notification") as mock_notif:
+            mock_notif.objects.create.side_effect = Exception("DB error")
+            result = processor.process_scientific_deliverable(
+                pre_fire_date=self.pre_fire_date,
+                post_fire_date=self.post_fire_date,
+                polygon_path=self.polygon_path,
+                deliverable_name=Deliverable.DNBR.name,
+                email=self.email,
+                reserve_name=self.reserve_name,
+                analysis_run_id=999,
+                user_id=user.id,
+            )
+
+        self.assertEqual(result, "COMPLETED")
 
 
 class AreaOfInterestServiceTests(TestCase):
@@ -1138,6 +1301,18 @@ class DashboardServiceTests(TestCase):
     def test_severity_trend_empty(self):
         stats = dashboard_service.get_dashboard_stats(self.user)
         self.assertEqual(stats["severity_trend"], [])
+
+    def test_severity_trend_skips_run_without_created_at(self):
+        """Runs with created_at=None should be skipped in severity trend."""
+        mock_run = MagicMock()
+        mock_run.severity_data = {"Unburned": {"area_ha": 50.0}}
+        mock_run.created_at = None
+
+        mock_qs = MagicMock()
+        mock_qs.filter.return_value = [mock_run]
+
+        result = dashboard_service._severity_trend(mock_qs)
+        self.assertEqual(result, [])
 
     def test_severity_trend_skips_non_dict_data(self):
         AnalysisRun.objects.create(

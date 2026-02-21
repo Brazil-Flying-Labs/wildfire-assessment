@@ -11,6 +11,7 @@ from wildfire_assessment.models import (
     AnalysisRun,
     AreaOfInterest,
     Country,
+    Notification,
     UserCountry,
     UserProfile,
 )
@@ -244,6 +245,19 @@ class AnalysisRunAdmin(admin.ModelAdmin):
 
 
 admin.site.register(AnalysisRun, AnalysisRunAdmin)
+
+
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("user", "notification_type", "deliverable_name", "is_read", "created_at")
+    list_filter = ("is_read", "notification_type", "created_at")
+    search_fields = ("user__email", "message")
+    readonly_fields = (
+        "user", "analysis_run", "notification_type", "deliverable_name",
+        "message", "is_read", "created_at",
+    )
+
+
+admin.site.register(Notification, NotificationAdmin)
 
 
 def analytics_dashboard_view(request):

@@ -148,6 +148,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const [showAddModal, setShowAddModal] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [deletingAnalysis, setDeletingAnalysis] = useState(false);
   const backendSyncedRef = useRef(false);
 
   const sensors = useSensors(
@@ -189,6 +190,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   }, [loadDashboard]);
 
   const handleDeleteAnalysis = useCallback(async (analysisId) => {
+    setDeletingAnalysis(true);
     try {
       const response = await authorizedFetch(`${baseUrl}/analysis_run/${analysisId}/`, {
         method: "DELETE",
@@ -201,6 +203,8 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       }
     } catch {
       alert(t("dashboard.errorDeletingAnalysis"));
+    } finally {
+      setDeletingAnalysis(false);
     }
   }, [authorizedFetch, baseUrl, loadDashboard, t]);
 
@@ -215,7 +219,10 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "-";
     const date = new Date(dateString);
-    return date.toLocaleDateString();
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}/${m}/${d}`;
   }, []);
 
   const formatNumber = useCallback((num) => {
@@ -499,15 +506,21 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                                 type="button"
                                 className="btn btn-danger btn-sm"
                                 onClick={() => handleDeleteAnalysis(analysis.id)}
+                                disabled={deletingAnalysis}
                               >
-                                {t("dashboard.confirmDeleteAnalysis")}
+                                {deletingAnalysis ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : (
+                                  t("areas.confirmDelete")
+                                )}
                               </button>
                               <button
                                 type="button"
                                 className="btn btn-outline-secondary btn-sm"
                                 onClick={() => setDeleteConfirmId(null)}
+                                disabled={deletingAnalysis}
                               >
-                                {t("dashboard.cancelDeleteAnalysis")}
+                                {t("areas.cancel")}
                               </button>
                             </div>
                           ) : (
@@ -583,15 +596,21 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                               type="button"
                               className="btn btn-danger btn-sm"
                               onClick={() => handleDeleteAnalysis(analysis.id)}
+                              disabled={deletingAnalysis}
                             >
-                              {t("dashboard.confirmDeleteAnalysis")}
+                              {deletingAnalysis ? (
+                                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                              ) : (
+                                t("areas.confirmDelete")
+                              )}
                             </button>
                             <button
                               type="button"
                               className="btn btn-outline-secondary btn-sm"
                               onClick={() => setDeleteConfirmId(null)}
+                              disabled={deletingAnalysis}
                             >
-                              {t("dashboard.cancelDeleteAnalysis")}
+                              {t("areas.cancel")}
                             </button>
                           </div>
                         ) : (
@@ -665,7 +684,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
     severity_trend: () => (
       <SeverityTrendWidget severityTrend={stats?.severity_trend} />
     ),
-  }), [stats, t, formatNumber, formatDate, onAnalysisClick, deleteConfirmId, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu]);
+  }), [stats, t, formatNumber, formatDate, onAnalysisClick, deleteConfirmId, deletingAnalysis, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu]);
 
   if (loading) {
     return (

@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from dotenv import load_dotenv
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAssessment
-from wildfire_assessment.models import AnalysisRun, UserProfile
+from wildfire_assessment.models import AnalysisRun, Notification, UserProfile
 from wildfire_assessment.svc.aws import (
     download_polygon_from_s3,
     get_aws_secret_manager_secret,
@@ -105,6 +105,7 @@ def process_scientific_deliverable(
     email: str,
     reserve_name: str,
     analysis_run_id: int | None = None,
+    user_id: int | None = None,
 ) -> str:
     """
     Kick off a single scientific deliverable export in the background.
@@ -117,6 +118,7 @@ def process_scientific_deliverable(
         email (str): Email address to notify when done.
         reserve_name (str): Name of the ecological reserve.
         analysis_run_id (int | None): ID of the AnalysisRun to update with the URL.
+        user_id (int | None): ID of the requesting user (for notifications).
     Returns:
         str: Final status of the task ("COMPLETED", "FAILED", etc.)
     """
@@ -206,10 +208,43 @@ def process_scientific_deliverable(
                             deliverable_key,
                         )
 
+            # Create in-app notification
+            if analysis_run_id and user_id:
+                try:
+                    User = get_user_model()
+                    user = User.objects.filter(id=user_id).first()
+                    if user:
+                        run = (
+                            AnalysisRun.objects.filter(id=analysis_run_id)
+                            .select_related("area_of_interest")
+                            .first()
+                        )
+                        area_name = (
+                            run.area_of_interest.name if run else "Unknown"
+                        )
+                        Notification.objects.create(
+                            user=user,
+                            analysis_run_id=analysis_run_id,
+                            notification_type="deliverable_ready",
+                            deliverable_name=deliverable_key,
+                            message=(
+                                f"Scientific {deliverable_key} deliverable "
+                                f"for {area_name} is ready to download."
+                            ),
+                        )
+                except Exception:
+                    logger.warning(
+                        "Failed to create notification for user %s, "
+                        "analysis %s",
+                        email,
+                        analysis_run_id,
+                    )
+
             # Get user's language preference, default to English
             language = "en"
             try:
-                profile = UserProfile.objects.filter(user__email=email).first()
+                lookup = {"user_id": user_id} if user_id else {"user__email": email}
+                profile = UserProfile.objects.filter(**lookup).first()
                 if profile and profile.default_language:
                     language = profile.default_language
             except Exception:

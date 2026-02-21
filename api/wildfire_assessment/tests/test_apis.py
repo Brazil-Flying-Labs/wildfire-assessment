@@ -7,7 +7,13 @@ from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
-from wildfire_assessment.models import AreaOfInterest, Country, UserCountry
+from wildfire_assessment.models import (
+    AnalysisRun,
+    AreaOfInterest,
+    Country,
+    Notification,
+    UserCountry,
+)
 from wildfire_assessment.views import health_status
 
 
@@ -1079,3 +1085,148 @@ class AnalysisRunDeleteTests(APITestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(AnalysisRun.objects.filter(id=self.analysis.id).exists())
+
+
+class NotificationViewSetTests(APITestCase):
+    def setUp(self):
+        self.country = Country.objects.create(name="Notif Country", code="NC")
+        self.area = AreaOfInterest.objects.create(
+            name="Notif Area", polygon_path="notif.geojson", country=self.country
+        )
+        self.user = User.objects.create_user(
+            username="notifuser", email="notif@example.com", password="pw"
+        )
+        self.other_user = User.objects.create_user(
+            username="other", email="other@example.com", password="pw"
+        )
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        self.notif1 = Notification.objects.create(
+            user=self.user,
+            analysis_run=self.analysis,
+            notification_type="deliverable_ready",
+            deliverable_name="DNBR",
+            message="DNBR ready",
+        )
+        self.notif2 = Notification.objects.create(
+            user=self.user,
+            analysis_run=self.analysis,
+            notification_type="deliverable_ready",
+            deliverable_name="RBR",
+            message="RBR ready",
+        )
+        # Notification for other user — should never be visible
+        self.other_notif = Notification.objects.create(
+            user=self.other_user,
+            notification_type="deliverable_ready",
+            deliverable_name="DNDVI",
+            message="Other user notif",
+        )
+
+    def test_list_requires_auth(self):
+        url = reverse("notification-list")
+        response = self.client.get(url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_list_returns_own_notifications(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        ids = [n["id"] for n in data["results"]]
+        self.assertIn(self.notif1.id, ids)
+        self.assertIn(self.notif2.id, ids)
+        self.assertNotIn(self.other_notif.id, ids)
+
+    def test_list_does_not_show_other_users_notifications(self):
+        self.client.force_authenticate(user=self.other_user)
+        url = reverse("notification-list")
+        response = self.client.get(url)
+        ids = [n["id"] for n in response.json()["results"]]
+        self.assertNotIn(self.notif1.id, ids)
+
+    def test_retrieve_own_notification(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-detail", args=[self.notif1.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["deliverable_name"], "DNBR")
+        self.assertEqual(data["analysis_run_id"], self.analysis.id)
+        self.assertEqual(data["area_name"], "Notif Area")
+
+    def test_retrieve_other_users_notification_forbidden(self):
+        self.client.force_authenticate(user=self.other_user)
+        url = reverse("notification-detail", args=[self.notif1.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_unread_count(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-unread-count")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["unread_count"], 2)
+
+    def test_unread_count_after_marking_read(self):
+        self.notif1.is_read = True
+        self.notif1.save()
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-unread-count")
+        response = self.client.get(url)
+        self.assertEqual(response.json()["unread_count"], 1)
+
+    def test_mark_read_single(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-mark-read", args=[self.notif1.id])
+        response = self.client.patch(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.notif1.refresh_from_db()
+        self.assertTrue(self.notif1.is_read)
+
+    def test_mark_read_single_other_user_forbidden(self):
+        self.client.force_authenticate(user=self.other_user)
+        url = reverse("notification-mark-read", args=[self.notif1.id])
+        response = self.client.patch(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_mark_read_batch(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-mark-read-batch")
+        response = self.client.post(
+            url,
+            {"analysis_run_id": self.analysis.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["marked_read"], 2)
+        self.notif1.refresh_from_db()
+        self.notif2.refresh_from_db()
+        self.assertTrue(self.notif1.is_read)
+        self.assertTrue(self.notif2.is_read)
+
+    def test_mark_read_batch_missing_analysis_run_id(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-mark-read-batch")
+        response = self.client.post(url, {}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_mark_read_batch_does_not_affect_other_user(self):
+        self.client.force_authenticate(user=self.other_user)
+        url = reverse("notification-mark-read-batch")
+        response = self.client.post(
+            url,
+            {"analysis_run_id": self.analysis.id},
+            format="json",
+        )
+        self.assertEqual(response.json()["marked_read"], 0)
+        self.notif1.refresh_from_db()
+        self.assertFalse(self.notif1.is_read)

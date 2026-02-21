@@ -54,7 +54,7 @@ function AreaPolygon({ area, t }) {
       `<strong>${area.name}</strong><br />` +
       `${t("dashboard.burnedHa")}: ${area.total_burned_ha.toLocaleString(undefined, { maximumFractionDigits: 1 })} ha<br />` +
       `${t("dashboard.fireMapRuns")}: ${area.run_count}<br />` +
-      (area.last_analysis_date ? `${t("dashboard.fireMapLastAnalysis")}: ${area.last_analysis_date}` : "")
+      (area.last_analysis_date ? `${t("dashboard.fireMapLastAnalysis")}: ${area.last_analysis_date.replace(/-/g, "/")}` : "")
     );
   }, [area, t]);
 
@@ -147,7 +147,7 @@ export default function FireMapWidget({ areasGeo }) {
                   {t("dashboard.burnedHa")}: {area.total_burned_ha.toLocaleString(undefined, { maximumFractionDigits: 1 })} ha<br />
                   {t("dashboard.fireMapRuns")}: {area.run_count}<br />
                   {area.last_analysis_date && (
-                    <>{t("dashboard.fireMapLastAnalysis")}: {area.last_analysis_date}</>
+                    <>{t("dashboard.fireMapLastAnalysis")}: {area.last_analysis_date.replace(/-/g, "/")}</>
                   )}
                 </Popup>
               </CircleMarker>

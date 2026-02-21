@@ -25,23 +25,14 @@ function severityColor(value) {
   return "#7f1d1d";
 }
 
-function formatDate(dateStr, language) {
+function formatDate(dateStr) {
   const [year, month, day] = dateStr.split("-");
-  const date = new Date(year, parseInt(month, 10) - 1, parseInt(day, 10));
-  return date.toLocaleDateString(language === "pt-BR" ? "pt-BR" : language, {
-    day: "numeric",
-    month: "short",
-  });
+  return `${year}/${month}/${day}`;
 }
 
-function formatDateFull(dateStr, language) {
+function formatDateFull(dateStr) {
   const [year, month, day] = dateStr.split("-");
-  const date = new Date(year, parseInt(month, 10) - 1, parseInt(day, 10));
-  return date.toLocaleDateString(language === "pt-BR" ? "pt-BR" : language, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return `${year}/${month}/${day}`;
 }
 
 export default function SeverityTrendWidget({ severityTrend }) {

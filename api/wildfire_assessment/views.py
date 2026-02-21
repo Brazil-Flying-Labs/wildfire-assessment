@@ -10,7 +10,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
-from wildfire_assessment.models import AreaOfInterest
+from wildfire_assessment.models import AreaOfInterest, Notification
 from wildfire_assessment.serializers import (
     AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
@@ -19,6 +19,7 @@ from wildfire_assessment.serializers import (
     AreaOfInterestSerializer,
     AreaOfInterestUpdateSerializer,
     DashboardStatsSerializer,
+    NotificationSerializer,
     UserMeSerializer,
 )
 from wildfire_assessment.svc.ai_analysis import (
@@ -287,6 +288,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             email=request.user.email,
             reserve_name=instance.name,
             analysis_run_id=analysis_run_id,
+            user_id=request.user.id,
         )
 
         # Persist the Celery task ID so the frontend can detect in-progress
@@ -536,3 +538,44 @@ def _build_streaming_response(first_chunk, stream, holder):
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"
     return response
+
+
+class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
+    """Notifications for the authenticated user."""
+
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(
+            user=self.request.user,
+        ).select_related("analysis_run", "analysis_run__area_of_interest")
+
+    @action(detail=False, methods=["get"], url_path="unread_count")
+    def unread_count(self, request):
+        count = Notification.objects.filter(
+            user=request.user, is_read=False
+        ).count()
+        return Response({"unread_count": count})
+
+    @action(detail=True, methods=["patch"], url_path="read")
+    def mark_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save(update_fields=["is_read"])
+        return Response({"status": "ok"})
+
+    @action(detail=False, methods=["post"], url_path="mark-read")
+    def mark_read_batch(self, request):
+        analysis_run_id = request.data.get("analysis_run_id")
+        if not analysis_run_id:
+            return Response(
+                {"error": "analysis_run_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        updated = Notification.objects.filter(
+            user=request.user,
+            analysis_run_id=analysis_run_id,
+            is_read=False,
+        ).update(is_read=True)
+        return Response({"marked_read": updated})

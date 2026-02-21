@@ -1,6 +1,11 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from wildfire_assessment.models import AreaOfInterest, Country, UserProfile
+from wildfire_assessment.models import (
+    AreaOfInterest,
+    Country,
+    Notification,
+    UserProfile,
+)
 from wildfire_assessment.translations import get_error_translation, get_user_language
 
 User = get_user_model()
@@ -581,3 +586,30 @@ class AnalysisFollowUpSerializer(serializers.Serializer):
     question = serializers.CharField(
         help_text="Follow-up question about the analysis"
     )
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    area_name = serializers.CharField(
+        source="analysis_run.area_of_interest.name",
+        read_only=True,
+        default="",
+    )
+    analysis_run_id = serializers.IntegerField(
+        source="analysis_run.id",
+        read_only=True,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id",
+            "notification_type",
+            "deliverable_name",
+            "message",
+            "is_read",
+            "analysis_run_id",
+            "area_name",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at"]

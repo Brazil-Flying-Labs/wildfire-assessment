@@ -9,6 +9,7 @@ from wildfire_assessment.models import (
     AnalysisRun,
     AreaOfInterest,
     Country,
+    Notification,
     UserCountry,
     UserProfile,
 )
@@ -17,6 +18,7 @@ from wildfire_assessment.serializers import (
     AreaOfInterestCreateSerializer,
     AreaOfInterestSerializer,
     AreaOfInterestUpdateSerializer,
+    NotificationSerializer,
     UserMeSerializer,
 )
 
@@ -896,6 +898,34 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
 
     @patch("wildfire_assessment.svc.aws.delete_polygon_from_s3")
     @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    def test_update_centroid_from_feature(self, _mock_upload, _mock_delete):
+        """Test centroid computation from a Feature GeoJSON on update."""
+        area = AreaOfInterest.objects.create(
+            name="Feature Update", polygon_path="old.geojson", country=self.country
+        )
+        request = self.factory.patch("/")
+        request.user = self.user
+        geojson = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]],
+            },
+            "properties": {},
+        }
+        serializer = AreaOfInterestUpdateSerializer(
+            area,
+            data={"geojson": geojson},
+            partial=True,
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        updated = serializer.save()
+        self.assertAlmostEqual(float(updated.centroid_lat), 2.0, places=5)
+        self.assertAlmostEqual(float(updated.centroid_lng), 2.0, places=5)
+
+    @patch("wildfire_assessment.svc.aws.delete_polygon_from_s3")
+    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
     def test_update_centroid_from_feature_collection(self, _mock_upload, _mock_delete):
         area = AreaOfInterest.objects.create(
             name="FC Update", polygon_path="old.geojson", country=self.country
@@ -990,3 +1020,64 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
             context={},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class NotificationSerializerTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="notifser", email="notifser@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="Ser Country", code="SC")
+        self.area = AreaOfInterest.objects.create(
+            name="Ser Area", polygon_path="ser.geojson", country=self.country
+        )
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        self.notification = Notification.objects.create(
+            user=self.user,
+            analysis_run=self.analysis,
+            notification_type="deliverable_ready",
+            deliverable_name="DNBR",
+            message="DNBR for Ser Area is ready",
+        )
+
+    def test_contains_expected_fields(self):
+        serializer = NotificationSerializer(self.notification)
+        self.assertEqual(
+            set(serializer.data.keys()),
+            {
+                "id",
+                "notification_type",
+                "deliverable_name",
+                "message",
+                "is_read",
+                "analysis_run_id",
+                "area_name",
+                "created_at",
+            },
+        )
+
+    def test_field_values(self):
+        serializer = NotificationSerializer(self.notification)
+        data = serializer.data
+        self.assertEqual(data["notification_type"], "deliverable_ready")
+        self.assertEqual(data["deliverable_name"], "DNBR")
+        self.assertEqual(data["message"], "DNBR for Ser Area is ready")
+        self.assertFalse(data["is_read"])
+        self.assertEqual(data["analysis_run_id"], self.analysis.id)
+        self.assertEqual(data["area_name"], "Ser Area")
+
+    def test_analysis_run_id_null_when_no_analysis(self):
+        notif = Notification.objects.create(
+            user=self.user,
+            notification_type="deliverable_ready",
+            deliverable_name="RBR",
+            message="Orphan notification",
+        )
+        serializer = NotificationSerializer(notif)
+        self.assertIsNone(serializer.data["analysis_run_id"])
+        self.assertEqual(serializer.data["area_name"], "")

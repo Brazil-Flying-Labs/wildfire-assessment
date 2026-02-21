@@ -32,6 +32,7 @@ from wildfire_assessment.views import (
     AnalysisRunViewSet,
     AreaOfInterestViewSet,
     DashboardView,
+    NotificationViewSet,
     UserMeView,
     health_status,
 )
@@ -39,6 +40,7 @@ from wildfire_assessment.views import (
 router = routers.DefaultRouter()
 router.register(r"area_of_interest", AreaOfInterestViewSet)
 router.register(r"analysis_run", AnalysisRunViewSet, basename="analysisrun")
+router.register(r"notifications", NotificationViewSet, basename="notification")
 
 urlpatterns = [
     path("", health_status, name="health-status"),

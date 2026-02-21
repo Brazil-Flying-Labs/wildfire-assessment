@@ -9,19 +9,24 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from wildfire_assessment.admin import AreaOfInterestAdminForm
-from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+from wildfire_assessment.models import (
+    AnalysisRun,
+    AreaOfInterest,
+    Country,
+    Notification,
+)
 
 
 class AdminTests(TestCase):
     def test_unregister_user_not_registered(self):
         User = get_user_model()
-        for model in (User, Country, AreaOfInterest, AnalysisRun):
+        for model in (User, Country, AreaOfInterest, AnalysisRun, Notification):
             if admin.site.is_registered(model):
                 admin.site.unregister(model)
 
         importlib.reload(admin_module)
 
-        for model in (User, Country, AreaOfInterest, AnalysisRun):
+        for model in (User, Country, AreaOfInterest, AnalysisRun, Notification):
             self.assertTrue(admin.site.is_registered(model))
 
 
@@ -288,3 +293,55 @@ class AreaOfInterestAdminFormValidationTests(TestCase):
             files={"geojson_file": uploaded_file},
         )
         self.assertTrue(form.is_valid(), form.errors)
+
+
+class NotificationAdminTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="notifadmin", email="notifadmin@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="NA Country", code="NA")
+        self.area = AreaOfInterest.objects.create(
+            name="NA Area", polygon_path="na.geojson", country=self.country
+        )
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        self.notification = Notification.objects.create(
+            user=self.user,
+            analysis_run=self.analysis,
+            notification_type="deliverable_ready",
+            deliverable_name="DNBR",
+            message="Test notification",
+        )
+
+    def test_notification_admin_registered(self):
+        self.assertTrue(admin.site.is_registered(Notification))
+
+    def test_notification_admin_list_display(self):
+        from wildfire_assessment.admin import NotificationAdmin
+
+        admin_instance = NotificationAdmin(Notification, admin.site)
+        self.assertIn("user", admin_instance.list_display)
+        self.assertIn("notification_type", admin_instance.list_display)
+        self.assertIn("is_read", admin_instance.list_display)
+        self.assertIn("created_at", admin_instance.list_display)
+
+    def test_notification_admin_list_filter(self):
+        from wildfire_assessment.admin import NotificationAdmin
+
+        admin_instance = NotificationAdmin(Notification, admin.site)
+        self.assertIn("is_read", admin_instance.list_filter)
+        self.assertIn("notification_type", admin_instance.list_filter)
+
+    def test_notification_admin_readonly_fields(self):
+        from wildfire_assessment.admin import NotificationAdmin
+
+        admin_instance = NotificationAdmin(Notification, admin.site)
+        self.assertIn("user", admin_instance.readonly_fields)
+        self.assertIn("message", admin_instance.readonly_fields)
+        self.assertIn("created_at", admin_instance.readonly_fields)
