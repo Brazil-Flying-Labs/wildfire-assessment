@@ -545,8 +545,20 @@
   }
 
   .notification-dropdown {
-    width: 280px;
-    right: -40px;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: calc(100vh - 60px);
+    border-radius: 0;
+    margin-top: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .notification-dropdown-body {
+    max-height: calc(100vh - 60px - 42px);
   }
 
   /* Hide header avatar on mobile — shown in sidebar instead */
