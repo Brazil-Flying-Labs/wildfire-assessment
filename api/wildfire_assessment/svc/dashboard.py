@@ -203,7 +203,7 @@ def get_dashboard_stats(user):
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     total_analyses = user_analyses.count()
-    total_areas = user_analyses.values("area_of_interest").count()
+    total_areas = user_analyses.values("area_of_interest").distinct().count()
 
     total_analyzed_ha = _sum_severity_totals(user_analyses, "Total Area")
     total_burned_ha = _sum_severity_totals(
