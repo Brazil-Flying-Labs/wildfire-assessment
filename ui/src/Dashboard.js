@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useLanguage } from "./LanguageContext";
 import { ALL_WIDGETS, DEFAULT_WIDGET_IDS, getWidget } from "./widgetDefinitions";
 import useIsDesktop from "./useIsDesktop";
+import LongPressSensor from "./LongPressSensor";
 import FireMapWidget from "./FireMapWidget";
 import SeverityTrendWidget from "./SeverityTrendWidget";
 
@@ -85,7 +86,7 @@ function PlusIcon() {
 }
 
 /* Column class based on widget group */
-function colClass(widgetId) {
+function baseColClass(widgetId) {
   const w = getWidget(widgetId);
   if (!w) return "col-12";
   if (w.group === "stats") return "col-6 col-md";
@@ -93,8 +94,29 @@ function colClass(widgetId) {
   return "col-12";
 }
 
+/* Build per-widget column classes: expand lone col-6 widgets to full width on mobile */
+function buildColClasses(ids) {
+  const bases = ids.map(baseColClass);
+  const classes = [...bases];
+  /* Walk through and find consecutive runs of col-6 items */
+  let i = 0;
+  while (i < bases.length) {
+    if (bases[i].startsWith("col-6")) {
+      let runStart = i;
+      while (i < bases.length && bases[i].startsWith("col-6")) i++;
+      /* If the run has an odd count, expand the last one */
+      if ((i - runStart) % 2 === 1) {
+        classes[i - 1] = "col-12 col-md";
+      }
+    } else {
+      i++;
+    }
+  }
+  return classes;
+}
+
 /* SortableWidget wrapper — provides drag handle + remove button */
-function SortableWidget({ id, children, onRemove, t }) {
+function SortableWidget({ id, colClassName, children, onRemove, t, isDesktop, jiggle }) {
   const {
     attributes,
     listeners,
@@ -109,21 +131,28 @@ function SortableWidget({ id, children, onRemove, t }) {
     transition,
   };
 
+  const cls = [colClassName, "widget-wrapper"];
+  if (isDragging) cls.push("is-dragging");
+  if (jiggle && !isDragging) cls.push("is-jiggling");
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`${colClass(id)} widget-wrapper${isDragging ? " is-dragging" : ""}`}
+      className={cls.join(" ")}
+      {...(!isDesktop ? { ...attributes, ...listeners } : {})}
     >
       <div className="widget-controls">
-        <button
-          className="widget-control-btn drag-handle"
-          aria-label={t("dashboard.dragWidget")}
-          {...attributes}
-          {...listeners}
-        >
-          <GripIcon />
-        </button>
+        {isDesktop && (
+          <button
+            className="widget-control-btn drag-handle"
+            aria-label={t("dashboard.dragWidget")}
+            {...attributes}
+            {...listeners}
+          >
+            <GripIcon />
+          </button>
+        )}
         <button
           className="widget-control-btn"
           aria-label={t("dashboard.removeWidget")}
@@ -149,11 +178,12 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const [openMenuId, setOpenMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deletingAnalysis, setDeletingAnalysis] = useState(false);
+  const [isDraggingAny, setIsDraggingAny] = useState(false);
   const backendSyncedRef = useRef(false);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
+  const longPressSensor = useSensor(LongPressSensor, { activationConstraint: { delay: 200, tolerance: 5 } });
+  const sensors = useSensors(isDesktop ? pointerSensor : longPressSensor);
 
   const hasLoadedRef = useRef(false);
 
@@ -731,24 +761,6 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
     );
   };
 
-  /* Mobile: all widgets, original order, no DnD */
-  if (!isDesktop) {
-    return (
-      <div className="dashboard p-4">
-        <h2 className="h4 mb-4">{t("dashboard.title")}</h2>
-        <div className="row g-3">
-          {DEFAULT_WIDGET_IDS.map((id) => (
-            <div key={id} className={colClass(id)}>
-              {renderWidget(id)}
-            </div>
-          ))}
-        </div>
-
-      </div>
-    );
-  }
-
-  /* Desktop: sortable widgets with DnD */
   return (
     <div className="dashboard p-4">
       <h2 className="h4 mb-4">{t("dashboard.title")}</h2>
@@ -756,15 +768,20 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
+        onDragStart={() => setIsDraggingAny(true)}
+        onDragEnd={(event) => { setIsDraggingAny(false); handleDragEnd(event); }}
+        onDragCancel={() => setIsDraggingAny(false)}
       >
         <SortableContext items={visibleIds} strategy={rectSortingStrategy}>
           <div className="row g-3">
-            {visibleIds.map((id) => (
-              <SortableWidget key={id} id={id} onRemove={handleRemove} t={t}>
-                {renderWidget(id)}
-              </SortableWidget>
-            ))}
+            {(() => {
+              const colClasses = buildColClasses(visibleIds);
+              return visibleIds.map((id, idx) => (
+                <SortableWidget key={id} id={id} colClassName={colClasses[idx]} onRemove={handleRemove} t={t} isDesktop={isDesktop} jiggle={isDraggingAny}>
+                  {renderWidget(id)}
+                </SortableWidget>
+              ));
+            })()}
           </div>
         </SortableContext>
       </DndContext>
