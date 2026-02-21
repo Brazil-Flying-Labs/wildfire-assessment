@@ -1578,6 +1578,9 @@
   * {
     box-shadow: none !important;
     text-shadow: none !important;
+  }
+
+  *:not(.severity-color) {
     background-color: transparent !important;
   }
 
@@ -1593,7 +1596,6 @@
   .severity-color {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    background-color: inherit !important;
   }
 
   .card {
