@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useLanguage } from "./LanguageContext";
 
 function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
@@ -7,7 +7,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
   const [error, setError] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [deliverableStatus, setDeliverableStatus] = useState({});
-  const [deliverableAlert, setDeliverableAlert] = useState(null);
+  const pollIntervalsRef = useRef({});
 
   const loadAnalysis = useCallback(async () => {
     if (!baseUrl || !analysisId) return;
@@ -78,6 +78,19 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
     []
   );
 
+  const severityTranslationMap = useMemo(
+    () => ({
+      "Unburned": t("severity.unburned"),
+      "Low Severity": t("severity.low"),
+      "Moderate Severity": t("severity.moderate"),
+      "High Severity": t("severity.high"),
+      "Very High Severity": t("severity.veryHigh"),
+      "Total Burned Area": t("severity.totalBurned"),
+      "Total Area": t("severity.totalArea"),
+    }),
+    [t]
+  );
+
   const severityEntries = useMemo(() => {
     const mapData = analysis?.severity_data;
     if (!mapData) return [];
@@ -140,23 +153,94 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
 
   const scientificDeliverables = useMemo(
     () => [
-      { label: "RGB Pre-fire", value: "RGB_PRE_FIRE" },
-      { label: "RGB Post-fire", value: "RGB_POST_FIRE" },
-      { label: "dNBR", value: "DNBR" },
-      { label: "RBR", value: "RBR" },
-      { label: "dNDVI", value: "DNDVI" },
+      { label: "RGB Pre-fire", value: "RGB_PRE_FIRE", urlKey: "scientific_rgb_pre_fire_url", taskKey: "scientific_rgb_pre_fire_task_id" },
+      { label: "RGB Post-fire", value: "RGB_POST_FIRE", urlKey: "scientific_rgb_post_fire_url", taskKey: "scientific_rgb_post_fire_task_id" },
+      { label: "dNBR", value: "DNBR", urlKey: "scientific_dnbr_url", taskKey: "scientific_dnbr_task_id" },
+      { label: "RBR", value: "RBR", urlKey: "scientific_rbr_url", taskKey: "scientific_rbr_task_id" },
+      { label: "dNDVI", value: "DNDVI", urlKey: "scientific_dndvi_url", taskKey: "scientific_dndvi_task_id" },
     ],
     []
   );
+
+  const startPolling = useCallback(
+    (deliverableName, taskId) => {
+      // Clear any existing interval for this deliverable
+      if (pollIntervalsRef.current[deliverableName]) {
+        clearInterval(pollIntervalsRef.current[deliverableName]);
+      }
+
+      const intervalId = setInterval(async () => {
+        try {
+          const params = new URLSearchParams({
+            task_id: taskId,
+            deliverable: deliverableName,
+          });
+          const url = `${baseUrl}/analysis_run/${analysis.id}/task_status/?${params.toString()}`;
+          const response = await authorizedFetch(url);
+          if (!response.ok) return;
+
+          const data = await response.json();
+
+          if (data.state === "SUCCESS") {
+            clearInterval(pollIntervalsRef.current[deliverableName]);
+            delete pollIntervalsRef.current[deliverableName];
+            setDeliverableStatus((prev) => ({
+              ...prev,
+              [deliverableName]: { polling: false },
+            }));
+            loadAnalysis();
+          } else if (data.state === "FAILURE") {
+            clearInterval(pollIntervalsRef.current[deliverableName]);
+            delete pollIntervalsRef.current[deliverableName];
+            setDeliverableStatus((prev) => ({
+              ...prev,
+              [deliverableName]: {
+                polling: false,
+                error: data.error || t("app.deliverableError"),
+              },
+            }));
+          }
+        } catch {
+          // Ignore polling errors, will retry on next interval
+        }
+      }, 5000);
+
+      pollIntervalsRef.current[deliverableName] = intervalId;
+    },
+    [analysis, authorizedFetch, baseUrl, loadAnalysis, t]
+  );
+
+  // On analysis load, detect in-progress deliverables and resume polling
+  useEffect(() => {
+    if (!analysis) return;
+    for (const { value, urlKey, taskKey } of scientificDeliverables) {
+      const hasUrl = analysis[urlKey];
+      const taskId = analysis[taskKey];
+      if (!hasUrl && taskId && !pollIntervalsRef.current[value]) {
+        setDeliverableStatus((prev) => ({
+          ...prev,
+          [value]: { polling: true },
+        }));
+        startPolling(value, taskId);
+      }
+    }
+  }, [analysis, scientificDeliverables, startPolling]);
+
+  // Cleanup polling intervals on unmount
+  useEffect(() => {
+    const intervals = pollIntervalsRef.current;
+    return () => {
+      Object.values(intervals).forEach(clearInterval);
+    };
+  }, []);
 
   const handleScientificDeliverable = useCallback(
     async (deliverableName) => {
       if (!analysis) return;
 
-      setDeliverableAlert(null);
       setDeliverableStatus((prev) => ({
         ...prev,
-        [deliverableName]: { loading: true, error: null, taskId: null },
+        [deliverableName]: { loading: true, error: null },
       }));
 
       try {
@@ -164,6 +248,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
           pre_fire_date: analysis.pre_fire_date,
           post_fire_date: analysis.post_fire_date,
           deliverable: deliverableName,
+          analysis_run_id: analysis.id,
         });
 
         const url = `${baseUrl}/area_of_interest/${analysis.area_of_interest}/scientific_deliverable/?${queryParams.toString()}`;
@@ -174,24 +259,22 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
         }
 
         const data = await response.json();
-        const label = scientificDeliverables.find((d) => d.value === deliverableName)?.label || deliverableName;
         setDeliverableStatus((prev) => ({
           ...prev,
-          [deliverableName]: { loading: false, taskId: data.task_id || null },
+          [deliverableName]: { loading: false, polling: true },
         }));
-        setDeliverableAlert({
-          type: "success",
-          message: t("app.deliverableSuccess", { label }),
-        });
+        if (data.task_id) {
+          startPolling(deliverableName, data.task_id);
+        }
       } catch (err) {
         console.error("Failed to request scientific deliverable:", err);
         setDeliverableStatus((prev) => ({
           ...prev,
-          [deliverableName]: { loading: false, error: err.message, taskId: null },
+          [deliverableName]: { loading: false, error: err.message },
         }));
       }
     },
-    [analysis, authorizedFetch, baseUrl, scientificDeliverables, t]
+    [analysis, authorizedFetch, baseUrl, startPolling, t]
   );
 
   if (loading) {
@@ -343,7 +426,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
                               }}
                             />
                           )}
-                          {name}
+                          {severityTranslationMap[name] || name}
                         </span>
                       </td>
                       <td>{formatNumber(area)} ha</td>
@@ -397,46 +480,72 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
             {t("app.deliverableHint")}
           </p>
           <div className="d-flex flex-wrap gap-3">
-            {scientificDeliverables.map(({ label, value }) => {
+            {scientificDeliverables.map(({ label, value, urlKey }) => {
               const status = deliverableStatus[value] || {};
+              const existingUrl = analysis?.[urlKey];
+              const isProcessing = status.loading || status.polling;
+              const cardClass = existingUrl
+                ? "is-ready"
+                : isProcessing
+                  ? "is-processing"
+                  : status.error
+                    ? "is-error"
+                    : "";
+
               return (
                 <div
                   key={value}
-                  className="d-flex flex-column align-items-start"
+                  className={`card shadow-sm deliverable-card ${cardClass}`}
                 >
-                  <button
-                    type="button"
-                    className="btn btn-link p-0"
-                    disabled={status.loading}
-                    onClick={() => handleScientificDeliverable(value)}
-                    title={t("app.deliverableTooltip", { label })}
-                  >
-                    {status.loading
-                      ? t("app.deliverableRequesting", { label })
-                      : label}
-                  </button>
-                  {status.taskId ? (
-                    <span className="small text-success">
-                      {t("app.taskId", { taskId: status.taskId })}
-                    </span>
-                  ) : null}
-                  {!status.loading && status.error ? (
-                    <span className="small text-danger">
-                      {status.error}
-                    </span>
-                  ) : null}
+                  <div className="card-body py-3 px-3">
+                    <div className="fw-semibold small mb-2">{label}</div>
+                    {existingUrl ? (
+                      <a
+                        href={existingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                        {t("app.deliverableOpen")}
+                      </a>
+                    ) : isProcessing ? (
+                      <div className="d-flex align-items-center gap-2 text-muted small">
+                        <div className="spinner-border spinner-border-sm" role="status">
+                          <span className="visually-hidden">{t("common.loading")}</span>
+                        </div>
+                        {t("app.deliverableProcessing")}
+                      </div>
+                    ) : status.error ? (
+                      <div>
+                        <div className="small text-danger mb-1">{status.error}</div>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => handleScientificDeliverable(value)}
+                        >
+                          {t("common.tryAgain")}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        onClick={() => handleScientificDeliverable(value)}
+                        title={t("app.deliverableTooltip", { label })}
+                      >
+                        {t("app.deliverableRequest")}
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
-          {deliverableAlert ? (
-            <div
-              className={`alert alert-${deliverableAlert.type} mt-3`}
-              role="alert"
-            >
-              {deliverableAlert.message}
-            </div>
-          ) : null}
         </div>
       </div>
 

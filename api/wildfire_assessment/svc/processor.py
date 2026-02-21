@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from dotenv import load_dotenv
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAssessment
-from wildfire_assessment.models import UserProfile
+from wildfire_assessment.models import AnalysisRun, UserProfile
 from wildfire_assessment.svc.aws import (
     download_polygon_from_s3,
     get_aws_secret_manager_secret,
@@ -76,6 +76,25 @@ def process_fire_assessment(
         os.unlink(tmp.name)
 
 
+# Map deliverable names to AnalysisRun field names
+DELIVERABLE_FIELD_MAP = {
+    "RGB_PRE_FIRE": "scientific_rgb_pre_fire_url",
+    "RGB_POST_FIRE": "scientific_rgb_post_fire_url",
+    "DNDVI": "scientific_dndvi_url",
+    "DNBR": "scientific_dnbr_url",
+    "RBR": "scientific_rbr_url",
+}
+
+# Map deliverable names to AnalysisRun task ID field names
+DELIVERABLE_TASK_FIELD_MAP = {
+    "RGB_PRE_FIRE": "scientific_rgb_pre_fire_task_id",
+    "RGB_POST_FIRE": "scientific_rgb_post_fire_task_id",
+    "DNDVI": "scientific_dndvi_task_id",
+    "DNBR": "scientific_dnbr_task_id",
+    "RBR": "scientific_rbr_task_id",
+}
+
+
 @shared_task
 def process_scientific_deliverable(
     *,
@@ -85,6 +104,7 @@ def process_scientific_deliverable(
     deliverable_name: str,
     email: str,
     reserve_name: str,
+    analysis_run_id: int | None = None,
 ) -> str:
     """
     Kick off a single scientific deliverable export in the background.
@@ -96,6 +116,7 @@ def process_scientific_deliverable(
         deliverable_name (str): Name of the deliverable to process.
         email (str): Email address to notify when done.
         reserve_name (str): Name of the ecological reserve.
+        analysis_run_id (int | None): ID of the AnalysisRun to update with the URL.
     Returns:
         str: Final status of the task ("COMPLETED", "FAILED", etc.)
     """
@@ -162,6 +183,29 @@ def process_scientific_deliverable(
         result_wait = wait_for_task(result["scientific"][deliverable_key]["gee_task_id"])
 
         if result_wait == "COMPLETED":
+            deliverable_url = result["scientific"][deliverable_key]["url"]
+
+            # Save the deliverable URL and clear the task ID on the AnalysisRun
+            if analysis_run_id:
+                field_name = DELIVERABLE_FIELD_MAP.get(deliverable_key)
+                task_field = DELIVERABLE_TASK_FIELD_MAP.get(deliverable_key)
+                updates = {}
+                if field_name:
+                    updates[field_name] = deliverable_url
+                if task_field:
+                    updates[task_field] = None
+                if updates:
+                    try:
+                        AnalysisRun.objects.filter(id=analysis_run_id).update(
+                            **updates
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Failed to update AnalysisRun %s with %s URL",
+                            analysis_run_id,
+                            deliverable_key,
+                        )
+
             # Get user's language preference, default to English
             language = "en"
             try:
@@ -174,7 +218,7 @@ def process_scientific_deliverable(
             subject = get_email_translation(language, "email.subject")
             body = get_email_translation(language, "email.body").format(
                 reserve_name=reserve_name,
-                url=result["scientific"][deliverable_key]["url"],
+                url=deliverable_url,
             )
 
             send_gmail_email(

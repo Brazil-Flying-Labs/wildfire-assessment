@@ -318,6 +318,7 @@ class UserMeSerializer(serializers.ModelSerializer):
         source="profile.default_language", required=False
     )
     theme = serializers.SerializerMethodField()
+    dashboard_widgets = serializers.SerializerMethodField()
     authorized_countries = serializers.SerializerMethodField()
 
     class Meta:
@@ -328,9 +329,10 @@ class UserMeSerializer(serializers.ModelSerializer):
             "last_name",
             "default_language",
             "theme",
+            "dashboard_widgets",
             "authorized_countries",
         ]
-        read_only_fields = ["email", "authorized_countries"]
+        read_only_fields = ["email", "dashboard_widgets", "authorized_countries"]
 
     def get_authorized_countries(self, obj):
         countries = Country.objects.filter(
@@ -348,11 +350,23 @@ class UserMeSerializer(serializers.ModelSerializer):
             pass  # pragma: no cover
         return 'light'  # pragma: no cover
 
+    def get_dashboard_widgets(self, obj):
+        """Return dashboard widget layout, or None if not customized."""
+        try:
+            profile = obj.profile
+            if profile:
+                return getattr(profile, 'dashboard_widgets', None)
+        except UserProfile.DoesNotExist:  # pragma: no cover
+            pass  # pragma: no cover
+        return None  # pragma: no cover
+
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
-        
-        # Theme is sent at top level since it's a SerializerMethodField
-        theme = getattr(self, 'initial_data', {}).get("theme")
+
+        # These are sent at top level since they are SerializerMethodFields
+        initial = getattr(self, 'initial_data', {})
+        theme = initial.get("theme")
+        dashboard_widgets = initial.get("dashboard_widgets")
 
         # Update first_name and last_name if provided
         if "first_name" in validated_data:
@@ -372,6 +386,10 @@ class UserMeSerializer(serializers.ModelSerializer):
         if theme is not None:
             profile.theme = theme
             update_fields.append("theme")
+
+        if dashboard_widgets is not None:
+            profile.dashboard_widgets = dashboard_widgets
+            update_fields.append("dashboard_widgets")
 
         if update_fields:
             profile.save(update_fields=update_fields)
@@ -410,6 +428,16 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
             'dndvi_url',
             'dnbr_url',
             'rbr_url',
+            'scientific_rgb_pre_fire_url',
+            'scientific_rgb_post_fire_url',
+            'scientific_dndvi_url',
+            'scientific_dnbr_url',
+            'scientific_rbr_url',
+            'scientific_rgb_pre_fire_task_id',
+            'scientific_rgb_post_fire_task_id',
+            'scientific_dndvi_task_id',
+            'scientific_dnbr_task_id',
+            'scientific_rbr_task_id',
             'created_at',
             'completed_at',
         ]

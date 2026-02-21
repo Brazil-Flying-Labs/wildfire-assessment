@@ -497,34 +497,126 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
               {t("areas.noAreas")}
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover mb-0 areas-table">
-                <thead className="table-light">
-                  <tr>
-                    <th scope="col">{t("areas.name")}</th>
-                    <th scope="col" className="d-none d-md-table-cell">{t("areas.country")}</th>
-                    <th scope="col" className="text-end" style={{ width: "50px" }}>
-                      <span className="visually-hidden">{t("areas.actions")}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {areas.map((area) => (
-                    <tr key={area.id}>
-                      <td>
-                        <strong>{area.name}</strong>
-                        <div className="d-md-none text-muted small">
-                          {area.country_name || "-"}
-                        </div>
-                      </td>
-                      <td className="d-none d-md-table-cell">
-                        {area.country_name
-                          ? `${area.country_name} (${area.country_code})`
-                          : "-"}
-                      </td>
-                      <td className="text-end">
+            <>
+              {/* Desktop table */}
+              <div className="table-responsive d-none d-md-block">
+                <table className="table table-hover mb-0 areas-table">
+                  <thead className="table-light">
+                    <tr>
+                      <th scope="col">{t("areas.name")}</th>
+                      <th scope="col">{t("areas.country")}</th>
+                      <th scope="col" className="text-end" style={{ width: "50px" }}>
+                        <span className="visually-hidden">{t("areas.actions")}</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {areas.map((area) => (
+                      <tr key={area.id}>
+                        <td><strong>{area.name}</strong></td>
+                        <td>
+                          {area.country_name
+                            ? `${area.country_name} (${area.country_code})`
+                            : "-"}
+                        </td>
+                        <td className="text-end">
+                          {deleteConfirm === area.id ? (
+                            <div className="d-flex gap-1 justify-content-end">
+                              <button
+                                type="button"
+                                className="btn btn-danger btn-sm"
+                                onClick={() => handleDelete(area.id)}
+                                disabled={deleting}
+                              >
+                                {deleting ? (
+                                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                ) : (
+                                  t("areas.confirmDelete")
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={() => setDeleteConfirm(null)}
+                                disabled={deleting}
+                              >
+                                {t("areas.cancel")}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="kebab-menu">
+                              <button
+                                type="button"
+                                className="btn btn-link text-secondary p-1 kebab-trigger"
+                                onClick={() => toggleMenu(area.id)}
+                                aria-label={t("areas.actions")}
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="12" cy="5" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="12" cy="19" r="2" />
+                                </svg>
+                              </button>
+                              {openMenuId === area.id && (
+                                <>
+                                  <div className="kebab-backdrop" onClick={closeMenu}></div>
+                                  <div className="kebab-dropdown">
+                                    <button
+                                      type="button"
+                                      className="kebab-item"
+                                      onClick={() => {
+                                        closeMenu();
+                                        openEditModal(area);
+                                      }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                      </svg>
+                                      {t("areas.edit")}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="kebab-item text-danger"
+                                      onClick={() => {
+                                        closeMenu();
+                                        setDeleteConfirm(area.id);
+                                      }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                      </svg>
+                                      {t("areas.delete")}
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile cards */}
+              <div className="d-md-none mobile-card-list">
+                {areas.map((area) => (
+                  <div key={area.id} className="mobile-card">
+                    <div className="mobile-card-header">
+                      <div className="mobile-card-header-text">
+                        <span className="mobile-card-title">{area.name}</span>
+                        <span className="text-muted small">
+                          {area.country_name
+                            ? `${area.country_name} (${area.country_code})`
+                            : "-"}
+                        </span>
+                      </div>
+                      <div className="mobile-card-actions">
                         {deleteConfirm === area.id ? (
-                          <div className="d-flex gap-1 justify-content-end">
+                          <div className="d-flex gap-1">
                             <button
                               type="button"
                               className="btn btn-danger btn-sm"
@@ -597,12 +689,12 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
                             )}
                           </div>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
         {/* Pagination */}

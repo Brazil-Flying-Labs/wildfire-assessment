@@ -128,32 +128,32 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
     <div className="user-profile p-4">
       <h2 className="h4 mb-4">{t("profile.title")}</h2>
 
-      {success && (
-        <div className="alert alert-success alert-dismissible fade show" role="alert">
-          {success}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setSuccess(null)}
-            aria-label={t("common.close")}
-          ></button>
-        </div>
-      )}
-
-      {error && (
-        <div className="alert alert-danger alert-dismissible fade show" role="alert">
-          {error}
-          <button
-            type="button"
-            className="btn-close"
-            onClick={() => setError(null)}
-            aria-label={t("common.close")}
-          ></button>
-        </div>
-      )}
-
-      <div className="card shadow-sm" style={{ maxWidth: "500px", width: "100%" }}>
+      <div className="card shadow-sm">
         <div className="card-body">
+          {success && (
+            <div className="alert alert-success alert-dismissible fade show" role="alert">
+              {success}
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setSuccess(null)}
+                aria-label={t("common.close")}
+              ></button>
+            </div>
+          )}
+
+          {error && (
+            <div className="alert alert-danger alert-dismissible fade show" role="alert">
+              {error}
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setError(null)}
+                aria-label={t("common.close")}
+              ></button>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
               <label htmlFor="profileEmail" className="form-label">

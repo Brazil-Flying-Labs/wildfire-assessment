@@ -93,6 +93,12 @@ class UserProfile(models.Model):
         choices=THEME_CHOICES,
         default="light",
     )
+    dashboard_widgets = models.JSONField(
+        null=True,
+        blank=True,
+        default=None,
+        help_text="Ordered list of visible dashboard widget IDs",
+    )
 
     def __str__(self):
         return f"{self.user} - {self.default_language}"
@@ -141,6 +147,20 @@ class AnalysisRun(models.Model):
     dndvi_image = models.CharField(max_length=255, null=True, blank=True)
     dnbr_image = models.CharField(max_length=255, null=True, blank=True)
     rbr_image = models.CharField(max_length=255, null=True, blank=True)
+
+    # Scientific deliverable URLs (GCS export links, populated async)
+    scientific_rgb_pre_fire_url = models.URLField(max_length=500, null=True, blank=True)
+    scientific_rgb_post_fire_url = models.URLField(max_length=500, null=True, blank=True)
+    scientific_dndvi_url = models.URLField(max_length=500, null=True, blank=True)
+    scientific_dnbr_url = models.URLField(max_length=500, null=True, blank=True)
+    scientific_rbr_url = models.URLField(max_length=500, null=True, blank=True)
+
+    # Celery task IDs for in-progress scientific deliverables
+    scientific_rgb_pre_fire_task_id = models.CharField(max_length=255, null=True, blank=True)
+    scientific_rgb_post_fire_task_id = models.CharField(max_length=255, null=True, blank=True)
+    scientific_dndvi_task_id = models.CharField(max_length=255, null=True, blank=True)
+    scientific_dnbr_task_id = models.CharField(max_length=255, null=True, blank=True)
+    scientific_rbr_task_id = models.CharField(max_length=255, null=True, blank=True)
 
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)

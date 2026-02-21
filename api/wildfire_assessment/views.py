@@ -34,6 +34,8 @@ from wildfire_assessment.svc.area_of_interest import (
 )
 from wildfire_assessment.svc.dashboard import get_dashboard_stats
 from wildfire_assessment.svc.processor import (
+    DELIVERABLE_FIELD_MAP,
+    DELIVERABLE_TASK_FIELD_MAP,
     process_fire_assessment,
     process_scientific_deliverable,
 )
@@ -184,7 +186,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             polygon_path=instance.polygon_path,
         )
 
-        save_analysis_run(
+        analysis_run = save_analysis_run(
             user=request.user,
             area=instance,
             pre_fire_date=pre_fire_date,
@@ -195,6 +197,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         return Response(
             {
                 "execution_id": str(execution_id),
+                "analysis_run_id": analysis_run.id,
                 **assessment_result,
             }
         )
@@ -237,12 +240,18 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
                     "DNDVI",
                 ],
             ),
+            OpenApiParameter(
+                name="analysis_run_id",
+                description="ID of the AnalysisRun to attach the deliverable URL to",
+                type=OpenApiTypes.INT,
+                required=False,
+            ),
         ],
     )
     @action(detail=True, methods=["post"], url_path="scientific_deliverable")
     def scientific_deliverable(self, request, pk=None):
         """
-        Custom action to analyze an AreaOfInterest.
+        Custom action to generate a scientific deliverable for an AreaOfInterest.
         The 'id' parameter is the id of the AreaOfInterest.
         """
 
@@ -265,6 +274,11 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             )
 
         instance = self.get_object()
+
+        # Accept explicit analysis_run_id from the client
+        analysis_run_id = request.query_params.get("analysis_run_id")
+        analysis_run_id = int(analysis_run_id) if analysis_run_id else None
+
         task = process_scientific_deliverable.delay(
             pre_fire_date=request.query_params.get("pre_fire_date"),
             post_fire_date=request.query_params.get("post_fire_date"),
@@ -272,7 +286,19 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             deliverable_name=deliverable_enum.name,
             email=request.user.email,
             reserve_name=instance.name,
+            analysis_run_id=analysis_run_id,
         )
+
+        # Persist the Celery task ID so the frontend can detect in-progress
+        # deliverables when loading an existing analysis run.
+        if analysis_run_id:
+            from wildfire_assessment.models import AnalysisRun
+
+            task_field = DELIVERABLE_TASK_FIELD_MAP.get(deliverable_enum.name)
+            if task_field:
+                AnalysisRun.objects.filter(id=analysis_run_id).update(
+                    **{task_field: task.id}
+                )
 
         return Response({"task_id": task.id})
 
@@ -291,6 +317,74 @@ class AnalysisRunViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         """Filter queryset to only show analyses the user has access to."""
         return get_analysis_runs_queryset(self.request.user)
+
+    @extend_schema(
+        methods=["GET"],
+        parameters=[
+            OpenApiParameter(
+                name="task_id",
+                description="Celery task ID to check",
+                type=OpenApiTypes.STR,
+                required=True,
+            ),
+            OpenApiParameter(
+                name="deliverable",
+                description="Deliverable name to retrieve URL for when task completes",
+                type=OpenApiTypes.STR,
+                required=False,
+                enum=[
+                    "RGB_PRE_FIRE",
+                    "RGB_POST_FIRE",
+                    "DNBR",
+                    "RBR",
+                    "DNDVI",
+                ],
+            ),
+        ],
+        responses={
+            200: OpenApiResponse(
+                response={
+                    "type": "object",
+                    "properties": {
+                        "state": {"type": "string"},
+                        "url": {"type": "string"},
+                        "error": {"type": "string"},
+                    },
+                },
+                description="Task status and optional deliverable URL",
+            )
+        },
+    )
+    @action(detail=True, methods=["get"], url_path="task_status")
+    def task_status(self, request, pk=None):
+        """Check the status of a Celery task for a scientific deliverable."""
+        task_id = request.query_params.get("task_id")
+        deliverable = request.query_params.get("deliverable")
+
+        if not task_id:
+            return Response(
+                {"error": "task_id is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from celery.result import AsyncResult
+
+        result = AsyncResult(task_id)
+        state = result.state
+
+        response_data = {"state": state}
+
+        if state == "SUCCESS" and deliverable:
+            instance = self.get_object()
+            field_name = DELIVERABLE_FIELD_MAP.get(deliverable)
+            if field_name:
+                response_data["url"] = getattr(instance, field_name, None)
+
+        if state == "FAILURE":
+            response_data["error"] = (
+                str(result.result) if result.result else "Task failed"
+            )
+
+        return Response(response_data)
 
 
 class UserMeView(generics.RetrieveUpdateAPIView):
