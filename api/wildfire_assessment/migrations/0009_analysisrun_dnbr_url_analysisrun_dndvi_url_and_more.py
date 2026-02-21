@@ -6,33 +6,33 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('wildfire_assessment', '0008_add_analysis_run'),
+        ("wildfire_assessment", "0008_add_analysis_run"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='analysisrun',
-            name='dnbr_url',
+            model_name="analysisrun",
+            name="dnbr_url",
             field=models.URLField(blank=True, max_length=1024, null=True),
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='dndvi_url',
+            model_name="analysisrun",
+            name="dndvi_url",
             field=models.URLField(blank=True, max_length=1024, null=True),
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='rbr_url',
+            model_name="analysisrun",
+            name="rbr_url",
             field=models.URLField(blank=True, max_length=1024, null=True),
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='rgb_post_fire_url',
+            model_name="analysisrun",
+            name="rgb_post_fire_url",
             field=models.URLField(blank=True, max_length=1024, null=True),
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='rgb_pre_fire_url',
+            model_name="analysisrun",
+            name="rgb_pre_fire_url",
             field=models.URLField(blank=True, max_length=1024, null=True),
         ),
     ]

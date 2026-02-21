@@ -126,7 +126,7 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
 
   return (
     <div className="user-profile p-4">
-      <div className="d-flex align-items-center justify-content-between mb-4">
+      <div className="d-flex align-items-center justify-content-between mb-4 page-header-sticky">
         <h2 className="h4 mb-0">{t("profile.title")}</h2>
         <button
           type="button"

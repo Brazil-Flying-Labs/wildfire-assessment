@@ -1,7 +1,6 @@
 [tool.black]
-py311 = true
-max-line-length = 88
-experimental-string-processing = true
+target-version = ["py311"]
+line-length = 88
 include = 'api/.*\.py$|svc/.*\.py$'
 exclude = '''
 /(\.git|__pycache__|venv|.*\/migrations\/)/

@@ -1,14 +1,54 @@
+import uuid
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from shapely.geometry import shape
+from shapely.validation import explain_validity
 from wildfire_assessment.models import (
+    AnalysisRun,
     AreaOfInterest,
     Country,
     Notification,
     UserProfile,
 )
+from wildfire_assessment.svc.aws import (
+    delete_polygon_from_s3,
+    get_presigned_image_url,
+    upload_polygon_to_s3,
+)
 from wildfire_assessment.translations import get_error_translation, get_user_language
 
 User = get_user_model()
+
+
+def generate_s3_filename(name):
+    """Generate a unique S3 filename from a human-readable name."""
+    safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+    return f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
+
+
+def compute_centroid(geojson_data):
+    """Compute centroid from GeoJSON data. Returns (lat, lng) or None."""
+    try:
+        geojson_type = geojson_data.get("type")
+        if geojson_type == "Feature":
+            geom = shape(geojson_data["geometry"])
+        elif geojson_type == "FeatureCollection":
+            geom = shape(geojson_data["features"][0]["geometry"])
+        else:
+            geom = shape(geojson_data)
+        centroid = geom.centroid
+        return round(centroid.y, 7), round(centroid.x, 7)
+    except Exception:
+        return None
+
+
+def check_duplicate_area_name(name, country, instance=None):
+    """Return True if an area with this name already exists in the given country."""
+    qs = AreaOfInterest.objects.filter(name=name, country=country)
+    if instance and instance.pk:
+        qs = qs.exclude(pk=instance.pk)
+    return qs.exists()
 
 
 class CountrySerializer(serializers.ModelSerializer):
@@ -38,14 +78,10 @@ class AreaOfInterestSerializer(serializers.ModelSerializer):
         read_only_fields = ["polygon_path", "area_ha"]
 
 
-class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating areas of interest with GeoJSON upload."""
+class AreaSerializerMixin:
+    """Shared translation, country validation, and duplicate-name check."""
 
-    geojson = serializers.JSONField(write_only=True, required=True)
-
-    class Meta:
-        model = AreaOfInterest
-        fields = ["id", "name", "country", "geojson"]
+    _country_error_key = "error.no_permission_create"
 
     def _t(self, key, **kwargs):
         """Translate an error message based on the request user's language."""
@@ -60,21 +96,29 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
                 "country_id", flat=True
             )
             if value.id not in user_countries:
-                raise serializers.ValidationError(
-                    self._t("error.no_permission_create")
-                )
+                raise serializers.ValidationError(self._t(self._country_error_key))
         return value
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        name = attrs.get("name")
-        country = attrs.get("country")
+        name = attrs.get("name", getattr(self.instance, "name", None))
+        country = attrs.get("country", getattr(self.instance, "country", None))
         if name and country:
-            if AreaOfInterest.objects.filter(name=name, country=country).exists():
+            if check_duplicate_area_name(name, country, self.instance):
                 raise serializers.ValidationError(
                     {"name": self._t("error.duplicate_name")}
                 )
         return attrs
+
+
+class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSerializer):
+    """Serializer for creating areas of interest with GeoJSON upload."""
+
+    geojson = serializers.JSONField(write_only=True, required=True)
+
+    class Meta:
+        model = AreaOfInterest
+        fields = ["id", "name", "country", "geojson"]
 
     def validate_geojson(self, value):
         """
@@ -98,9 +142,7 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
         if geojson_type == "Feature":
             geometry = value.get("geometry")
             if not geometry:
-                raise serializers.ValidationError(
-                    self._t("error.feature_no_geometry")
-                )
+                raise serializers.ValidationError(self._t("error.feature_no_geometry"))
         elif geojson_type == "FeatureCollection":
             features = value.get("features", [])
             if not features:
@@ -135,9 +177,6 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
 
     def _validate_geometry(self, geometry, context="geometry"):
         """Validate a GeoJSON geometry object."""
-        from shapely.geometry import shape
-        from shapely.validation import explain_validity
-
         if not isinstance(geometry, dict):
             raise serializers.ValidationError(
                 self._t("error.geometry_not_object", context=context)
@@ -151,7 +190,9 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
 
         if geom_type not in ["Polygon", "MultiPolygon", "GeometryCollection"]:
             raise serializers.ValidationError(
-                self._t("error.geometry_unsupported", context=context, geom_type=geom_type)
+                self._t(
+                    "error.geometry_unsupported", context=context, geom_type=geom_type
+                )
             )
 
         coords = geometry.get("coordinates")
@@ -169,7 +210,9 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
             geom = shape(geometry)
         except Exception as e:
             raise serializers.ValidationError(
-                self._t("error.geometry_invalid_structure", context=context, detail=str(e))
+                self._t(
+                    "error.geometry_invalid_structure", context=context, detail=str(e)
+                )
             )
 
         # Check if geometry is valid
@@ -194,16 +237,22 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
             return
 
         if isinstance(coords, list):
-            if len(coords) >= 2 and all(isinstance(c, (int, float)) for c in coords[:2]):
+            if len(coords) >= 2 and all(
+                isinstance(c, (int, float)) for c in coords[:2]
+            ):
                 # This is a coordinate pair [lon, lat] or [lon, lat, alt]
                 lon, lat = coords[0], coords[1]
                 if not (-180 <= lon <= 180):
                     raise serializers.ValidationError(
-                        self._t("error.longitude_out_of_range", context=context, value=lon)
+                        self._t(
+                            "error.longitude_out_of_range", context=context, value=lon
+                        )
                     )
                 if not (-90 <= lat <= 90):
                     raise serializers.ValidationError(
-                        self._t("error.latitude_out_of_range", context=context, value=lat)
+                        self._t(
+                            "error.latitude_out_of_range", context=context, value=lat
+                        )
                     )
             else:
                 # Nested array - recurse
@@ -211,45 +260,25 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
                     self._validate_coordinates(item, context, depth + 1)
 
     def create(self, validated_data):
-        import uuid
-
-        from wildfire_assessment.svc.aws import upload_polygon_to_s3
-
         geojson_data = validated_data.pop("geojson")
-        name = validated_data.get("name")
+        filename = generate_s3_filename(validated_data.get("name"))
 
-        # Generate a unique filename
-        safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-        filename = f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
-
-        # Upload to S3
         upload_polygon_to_s3(filename, geojson_data)
 
         validated_data["polygon_path"] = filename
         validated_data["area_ha"] = None
 
-        # Compute centroid from GeoJSON
-        try:
-            from shapely.geometry import shape as shapely_shape
-
-            geojson_type = geojson_data.get("type")
-            if geojson_type == "Feature":
-                geom = shapely_shape(geojson_data["geometry"])
-            elif geojson_type == "FeatureCollection":
-                geom = shapely_shape(geojson_data["features"][0]["geometry"])
-            else:
-                geom = shapely_shape(geojson_data)
-            centroid = geom.centroid
-            validated_data["centroid_lat"] = round(centroid.y, 7)
-            validated_data["centroid_lng"] = round(centroid.x, 7)
-        except Exception:
-            pass
+        centroid = compute_centroid(geojson_data)
+        if centroid:
+            validated_data["centroid_lat"], validated_data["centroid_lng"] = centroid
 
         return super().create(validated_data)
 
 
-class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
+class AreaOfInterestUpdateSerializer(AreaSerializerMixin, serializers.ModelSerializer):
     """Serializer for updating areas of interest."""
+
+    _country_error_key = "error.no_permission_move"
 
     geojson = serializers.JSONField(write_only=True, required=False)
 
@@ -257,85 +286,29 @@ class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
         model = AreaOfInterest
         fields = ["id", "name", "country", "geojson"]
 
-    def _t(self, key, **kwargs):
-        """Translate an error message based on the request user's language."""
-        lang = get_user_language(self.context.get("request"))
-        return get_error_translation(lang, key, **kwargs)
-
-    def validate_country(self, value):
-        """Ensure the user has access to the specified country."""
-        request = self.context.get("request")
-        if request and request.user:
-            user_countries = request.user.country_permissions.values_list(
-                "country_id", flat=True
-            )
-            if value.id not in user_countries:
-                raise serializers.ValidationError(
-                    self._t("error.no_permission_move")
-                )
-        return value
-
-    def validate(self, attrs):
-        attrs = super().validate(attrs)
-        name = attrs.get("name", self.instance.name if self.instance else None)
-        country = attrs.get("country", self.instance.country if self.instance else None)
-        if name and country:
-            qs = AreaOfInterest.objects.filter(name=name, country=country)
-            if self.instance:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise serializers.ValidationError(
-                    {"name": self._t("error.duplicate_name")}
-                )
-        return attrs
-
     def validate_geojson(self, value):
         """Reuse validation from create serializer."""
-        # Use the same validation as create
         create_serializer = AreaOfInterestCreateSerializer(context=self.context)
         return create_serializer.validate_geojson(value)
 
     def update(self, instance, validated_data):
-        import uuid
-
-        from wildfire_assessment.svc.aws import (
-            delete_polygon_from_s3,
-            upload_polygon_to_s3,
-        )
-
         geojson_data = validated_data.pop("geojson", None)
 
-        # If new GeoJSON provided, upload to S3 and update the path
         if geojson_data:
             name = validated_data.get("name", instance.name)
-            safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-            filename = f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
+            filename = generate_s3_filename(name)
 
-            # Delete old file from S3 if exists
             if instance.polygon_path:
                 delete_polygon_from_s3(instance.polygon_path)
 
-            # Upload new file to S3
             upload_polygon_to_s3(filename, geojson_data)
-
             validated_data["polygon_path"] = filename
 
-            # Recompute centroid from new GeoJSON
-            try:
-                from shapely.geometry import shape as shapely_shape
-
-                geojson_type = geojson_data.get("type")
-                if geojson_type == "Feature":
-                    geom = shapely_shape(geojson_data["geometry"])
-                elif geojson_type == "FeatureCollection":
-                    geom = shapely_shape(geojson_data["features"][0]["geometry"])
-                else:
-                    geom = shapely_shape(geojson_data)
-                centroid = geom.centroid
-                validated_data["centroid_lat"] = round(centroid.y, 7)
-                validated_data["centroid_lng"] = round(centroid.x, 7)
-            except Exception:
-                pass
+            centroid = compute_centroid(geojson_data)
+            if centroid:
+                validated_data["centroid_lat"], validated_data["centroid_lng"] = (
+                    centroid
+                )
 
         return super().update(instance, validated_data)
 
@@ -362,9 +335,9 @@ class UserMeSerializer(serializers.ModelSerializer):
         read_only_fields = ["email", "dashboard_widgets", "authorized_countries"]
 
     def get_authorized_countries(self, obj):
-        countries = Country.objects.filter(
-            authorized_users__user=obj
-        ).values("id", "name", "code")
+        countries = Country.objects.filter(authorized_users__user=obj).values(
+            "id", "name", "code"
+        )
         return list(countries)
 
     def get_theme(self, obj):
@@ -372,17 +345,17 @@ class UserMeSerializer(serializers.ModelSerializer):
         try:
             profile = obj.profile
             if profile:
-                return getattr(profile, 'theme', 'dark') or 'dark'
+                return getattr(profile, "theme", "dark") or "dark"
         except UserProfile.DoesNotExist:  # pragma: no cover
             pass  # pragma: no cover
-        return 'dark'  # pragma: no cover
+        return "dark"  # pragma: no cover
 
     def get_dashboard_widgets(self, obj):
         """Return dashboard widget layout, or None if not customized."""
         try:
             profile = obj.profile
             if profile:
-                return getattr(profile, 'dashboard_widgets', None)
+                return getattr(profile, "dashboard_widgets", None)
         except UserProfile.DoesNotExist:  # pragma: no cover
             pass  # pragma: no cover
         return None  # pragma: no cover
@@ -391,7 +364,7 @@ class UserMeSerializer(serializers.ModelSerializer):
         profile_data = validated_data.pop("profile", {})
 
         # These are sent at top level since they are SerializerMethodFields
-        initial = getattr(self, 'initial_data', {})
+        initial = getattr(self, "initial_data", {})
         theme = initial.get("theme")
         dashboard_widgets = initial.get("dashboard_widgets")
 
@@ -427,9 +400,11 @@ class UserMeSerializer(serializers.ModelSerializer):
 class AnalysisRunSerializer(serializers.ModelSerializer):
     """Serializer for AnalysisRun model."""
 
-    area_name = serializers.CharField(source='area_of_interest.name', read_only=True)
-    country_name = serializers.CharField(source='area_of_interest.country.name', read_only=True)
-    user_email = serializers.CharField(source='user.email', read_only=True)
+    area_name = serializers.CharField(source="area_of_interest.name", read_only=True)
+    country_name = serializers.CharField(
+        source="area_of_interest.country.name", read_only=True
+    )
+    user_email = serializers.CharField(source="user.email", read_only=True)
     rgb_pre_fire_url = serializers.SerializerMethodField()
     rgb_post_fire_url = serializers.SerializerMethodField()
     dndvi_url = serializers.SerializerMethodField()
@@ -437,60 +412,58 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
     rbr_url = serializers.SerializerMethodField()
 
     class Meta:
-        from .models import AnalysisRun
         model = AnalysisRun
         fields = [
-            'id',
-            'area_of_interest',
-            'area_name',
-            'country_name',
-            'user_email',
-            'pre_fire_date',
-            'post_fire_date',
-            'status',
-            'severity_data',
-            'total_burned_ha',
-            'rgb_pre_fire_url',
-            'rgb_post_fire_url',
-            'dndvi_url',
-            'dnbr_url',
-            'rbr_url',
-            'scientific_rgb_pre_fire_url',
-            'scientific_rgb_post_fire_url',
-            'scientific_dndvi_url',
-            'scientific_dnbr_url',
-            'scientific_rbr_url',
-            'scientific_rgb_pre_fire_task_id',
-            'scientific_rgb_post_fire_task_id',
-            'scientific_dndvi_task_id',
-            'scientific_dnbr_task_id',
-            'scientific_rbr_task_id',
-            'created_at',
-            'completed_at',
+            "id",
+            "area_of_interest",
+            "area_name",
+            "country_name",
+            "user_email",
+            "pre_fire_date",
+            "post_fire_date",
+            "status",
+            "severity_data",
+            "total_burned_ha",
+            "rgb_pre_fire_url",
+            "rgb_post_fire_url",
+            "dndvi_url",
+            "dnbr_url",
+            "rbr_url",
+            "scientific_rgb_pre_fire_url",
+            "scientific_rgb_post_fire_url",
+            "scientific_dndvi_url",
+            "scientific_dnbr_url",
+            "scientific_rbr_url",
+            "scientific_rgb_pre_fire_task_id",
+            "scientific_rgb_post_fire_task_id",
+            "scientific_dndvi_task_id",
+            "scientific_dnbr_task_id",
+            "scientific_rbr_task_id",
+            "created_at",
+            "completed_at",
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ["id", "created_at"]
 
     def _get_image_url(self, obj, field):
-        from wildfire_assessment.svc.aws import get_presigned_image_url
         key = getattr(obj, field)
         if not key:
             return None
         return get_presigned_image_url(key)
 
     def get_rgb_pre_fire_url(self, obj):
-        return self._get_image_url(obj, 'rgb_pre_fire_image')
+        return self._get_image_url(obj, "rgb_pre_fire_image")
 
     def get_rgb_post_fire_url(self, obj):
-        return self._get_image_url(obj, 'rgb_post_fire_image')
+        return self._get_image_url(obj, "rgb_post_fire_image")
 
     def get_dndvi_url(self, obj):
-        return self._get_image_url(obj, 'dndvi_image')
+        return self._get_image_url(obj, "dndvi_image")
 
     def get_dnbr_url(self, obj):
-        return self._get_image_url(obj, 'dnbr_image')
+        return self._get_image_url(obj, "dnbr_image")
 
     def get_rbr_url(self, obj):
-        return self._get_image_url(obj, 'rbr_image')
+        return self._get_image_url(obj, "rbr_image")
 
 
 class SeverityBreakdownItemSerializer(serializers.Serializer):
@@ -583,9 +556,7 @@ class AnalysisFollowUpSerializer(serializers.Serializer):
     previous_response_id = serializers.CharField(
         help_text="Conversation ID from the previous response"
     )
-    question = serializers.CharField(
-        help_text="Follow-up question about the analysis"
-    )
+    question = serializers.CharField(help_text="Follow-up question about the analysis")
 
 
 class NotificationSerializer(serializers.ModelSerializer):

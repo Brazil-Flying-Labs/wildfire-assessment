@@ -97,7 +97,9 @@ class ErrorTranslationsTestCase(TestCase):
         self.assertEqual(result, "error.unknown_key")
 
     def test_get_error_translation_with_kwargs(self):
-        msg = get_error_translation("en", "error.unsupported_geometry", geom_type="LineString")
+        msg = get_error_translation(
+            "en", "error.unsupported_geometry", geom_type="LineString"
+        )
         self.assertIn("LineString", msg)
 
     def test_all_error_languages_have_same_keys(self):

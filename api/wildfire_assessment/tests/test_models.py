@@ -4,6 +4,7 @@ from wildfire_assessment.models import (
     AnalysisRun,
     AreaOfInterest,
     Country,
+    Notification,
     UserCountry,
     UserProfile,
 )
@@ -66,7 +67,28 @@ class AnalysisRunModelTests(TestCase):
             pre_fire_date="2024-01-01",
             post_fire_date="2024-01-15",
         )
+        self.assertEqual(str(analysis), "Amazon Reserve - 2024-01-01 to 2024-01-15")
+
+
+class NotificationModelTests(TestCase):
+    def test_str_representation(self):
+        user = get_user_model().objects.create(username="notifuser")
+        country = Country.objects.create(name="Notif Country", code="NC")
+        area = AreaOfInterest.objects.create(
+            name="Notif Area", polygon_path="notif.geojson", country=country
+        )
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        notification = Notification.objects.create(
+            user=user,
+            analysis_run=run,
+            notification_type="deliverable_ready",
+            message="Test",
+        )
         self.assertEqual(
-            str(analysis),
-            "Amazon Reserve - 2024-01-01 to 2024-01-15"
+            str(notification), "Notification for notifuser - deliverable_ready"
         )

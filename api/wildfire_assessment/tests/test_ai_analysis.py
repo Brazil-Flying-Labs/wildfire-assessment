@@ -209,9 +209,7 @@ class GeminiAnalysisTests(TestCase):
 
     @patch("wildfire_assessment.svc.ai_analysis.cache")
     @patch("wildfire_assessment.svc.ai_analysis.get_gemini_model")
-    def test_generate_followup_stream_yields_chunks(
-        self, mock_get_model, mock_cache
-    ):
+    def test_generate_followup_stream_yields_chunks(self, mock_get_model, mock_cache):
         mock_cache.get.return_value = {
             "history": [
                 {"role": "user", "parts": ["initial prompt"]},

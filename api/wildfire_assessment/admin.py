@@ -1,5 +1,4 @@
 import json
-import uuid
 
 from django import forms
 from django.contrib import admin
@@ -7,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.http import HttpResponseForbidden
 from django.shortcuts import render
+from django.utils.html import format_html
 from wildfire_assessment.models import (
     AnalysisRun,
     AreaOfInterest,
@@ -14,6 +14,10 @@ from wildfire_assessment.models import (
     Notification,
     UserCountry,
     UserProfile,
+)
+from wildfire_assessment.serializers import (
+    check_duplicate_area_name,
+    generate_s3_filename,
 )
 from wildfire_assessment.svc.analytics import (
     get_analytics_summary,
@@ -23,7 +27,11 @@ from wildfire_assessment.svc.analytics import (
     get_top_areas,
     get_user_stats,
 )
-from wildfire_assessment.svc.aws import delete_polygon_from_s3, upload_polygon_to_s3
+from wildfire_assessment.svc.aws import (
+    delete_polygon_from_s3,
+    get_presigned_image_url,
+    upload_polygon_to_s3,
+)
 
 
 class AreaOfInterestAdminForm(forms.ModelForm):
@@ -31,7 +39,15 @@ class AreaOfInterestAdminForm(forms.ModelForm):
 
     class Meta:
         model = AreaOfInterest
-        fields = ["name", "country", "polygon_path", "municipio", "site", "codigo_ibge", "area_ha"]
+        fields = [
+            "name",
+            "country",
+            "polygon_path",
+            "municipio",
+            "site",
+            "codigo_ibge",
+            "area_ha",
+        ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -43,12 +59,10 @@ class AreaOfInterestAdminForm(forms.ModelForm):
         name = cleaned_data.get("name")
         country = cleaned_data.get("country")
         if name and country:
-            qs = AreaOfInterest.objects.filter(name=name, country=country)
-            if self.instance and self.instance.pk:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
+            if check_duplicate_area_name(name, country, self.instance):
                 raise forms.ValidationError(
-                    "An area of interest with this name already exists in the selected country."
+                    "An area of interest with this name already exists "
+                    "in the selected country."
                 )
         return cleaned_data
 
@@ -94,10 +108,7 @@ class AreaOfInterestAdminForm(forms.ModelForm):
             content = geojson_file.read().decode("utf-8")
             json.loads(content)
 
-            safe_name = "".join(
-                c if c.isalnum() or c in "-_" else "_" for c in instance.name
-            )
-            filename = f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
+            filename = generate_s3_filename(instance.name)
 
             # Delete old polygon from S3 if replacing
             if instance.polygon_path:
@@ -187,28 +198,31 @@ class AnalysisRunAdmin(admin.ModelAdmin):
         "image_previews",
     )
     fieldsets = (
-        ("Analysis Details", {
-            "fields": (
-                "user",
-                "area_of_interest",
-                "pre_fire_date",
-                "post_fire_date",
-                "status",
-                "severity_data",
-                "total_burned_ha",
-                "created_at",
-                "completed_at",
-            ),
-        }),
-        ("Image Previews", {
-            "fields": ("image_previews",),
-        }),
+        (
+            "Analysis Details",
+            {
+                "fields": (
+                    "user",
+                    "area_of_interest",
+                    "pre_fire_date",
+                    "post_fire_date",
+                    "status",
+                    "severity_data",
+                    "total_burned_ha",
+                    "created_at",
+                    "completed_at",
+                ),
+            },
+        ),
+        (
+            "Image Previews",
+            {
+                "fields": ("image_previews",),
+            },
+        ),
     )
 
     def image_previews(self, obj):
-        from django.utils.html import format_html
-        from wildfire_assessment.svc.aws import get_presigned_image_url
-
         images = [
             ("Pre-fire RGB", obj.rgb_pre_fire_image),
             ("Post-fire RGB", obj.rgb_post_fire_image),
@@ -220,14 +234,18 @@ class AnalysisRunAdmin(admin.ModelAdmin):
         for label, key in images:
             if key:
                 url = get_presigned_image_url(key)
-                parts.append(format_html(
-                    '<div style="display:inline-block;margin:8px;text-align:center;">'
-                    '<div style="font-weight:bold;margin-bottom:4px;">{}</div>'
-                    '<a href="{}" target="_blank">'
-                    '<img src="{}" style="max-width:300px;max-height:300px;border:1px solid #ccc;" />'
-                    '</a></div>',
-                    label, url, url,
-                ))
+                parts.append(
+                    format_html(
+                        '<div style="display:inline-block;margin:8px;text-align:center;">'
+                        '<div style="font-weight:bold;margin-bottom:4px;">{}</div>'
+                        '<a href="{}" target="_blank">'
+                        '<img src="{}" style="max-width:300px;max-height:300px;border:1px solid #ccc;" />'
+                        "</a></div>",
+                        label,
+                        url,
+                        url,
+                    )
+                )
         if not parts:
             return format_html("<em>No images available</em>")
         return format_html("".join(str(p) for p in parts))
@@ -248,12 +266,23 @@ admin.site.register(AnalysisRun, AnalysisRunAdmin)
 
 
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ("user", "notification_type", "deliverable_name", "is_read", "created_at")
+    list_display = (
+        "user",
+        "notification_type",
+        "deliverable_name",
+        "is_read",
+        "created_at",
+    )
     list_filter = ("is_read", "notification_type", "created_at")
     search_fields = ("user__email", "message")
     readonly_fields = (
-        "user", "analysis_run", "notification_type", "deliverable_name",
-        "message", "is_read", "created_at",
+        "user",
+        "analysis_run",
+        "notification_type",
+        "deliverable_name",
+        "message",
+        "is_read",
+        "created_at",
     )
 
 

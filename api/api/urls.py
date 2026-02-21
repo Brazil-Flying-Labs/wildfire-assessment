@@ -47,7 +47,11 @@ urlpatterns = [
     path("me/", UserMeView.as_view(), name="user-me"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("analysis/", AIAnalysisView.as_view(), name="ai-analysis"),
-    path("analysis/followup/", AIAnalysisFollowUpView.as_view(), name="ai-analysis-followup"),
+    path(
+        "analysis/followup/",
+        AIAnalysisFollowUpView.as_view(),
+        name="ai-analysis-followup",
+    ),
     path("", include(router.urls)),
     path(
         "admin/login/",

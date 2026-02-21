@@ -22,9 +22,7 @@ def get_analytics_summary():
 def get_user_stats():
     """Return per-user analysis statistics."""
     return list(
-        AnalysisRun.objects.values(
-            "user__email", "user__first_name", "user__last_name"
-        )
+        AnalysisRun.objects.values("user__email", "user__first_name", "user__last_name")
         .annotate(
             analysis_count=Count("id"),
             total_burned_ha=Sum("total_burned_ha"),

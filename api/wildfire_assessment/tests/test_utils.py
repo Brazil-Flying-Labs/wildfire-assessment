@@ -36,9 +36,7 @@ class SendGmailEmailTests(SimpleTestCase):
         self.assertEqual(message_sent.get_content().strip(), self.body)
 
     @patch("wildfire_assessment.utils.smtplib.SMTP_SSL")
-    def test_send_gmail_email_raises_runtime_error_on_auth_failure(
-        self, mock_smtp_cls
-    ):
+    def test_send_gmail_email_raises_runtime_error_on_auth_failure(self, mock_smtp_cls):
         smtp_instance = MagicMock()
         smtp_instance.login.side_effect = smtplib.SMTPAuthenticationError(535, b"auth")
         mock_smtp_cls.return_value.__enter__.return_value = smtp_instance

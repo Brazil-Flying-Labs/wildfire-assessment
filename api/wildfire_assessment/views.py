@@ -1,6 +1,7 @@
 import logging
 import uuid
 
+from celery.result import AsyncResult
 from django.http import JsonResponse, StreamingHttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
@@ -10,7 +11,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
-from wildfire_assessment.models import AreaOfInterest, Notification
+from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Notification
 from wildfire_assessment.serializers import (
     AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
@@ -100,30 +101,33 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         """Create a new AreaOfInterest with GeoJSON upload."""
         return super().create(request, *args, **kwargs)
 
+    def _check_area_permission(self, request, error_key):
+        """Return a 403 Response if the user cannot access the area, else None."""
+        instance = self.get_object()
+        if not user_can_access_area(request.user, instance):
+            lang = get_user_language(request)
+            return Response(
+                {"error": get_error_translation(lang, error_key)},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return None
+
     def update(self, request, *args, **kwargs):
         """
         Update an AreaOfInterest.
 
         Allows updating name, country, and optionally uploading a new GeoJSON file.
         """
-        instance = self.get_object()
-        lang = get_user_language(request)
-        if not user_can_access_area(request.user, instance):  # pragma: no cover
-            return Response(
-                {"error": get_error_translation(lang, "error.no_permission_update")},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        denied = self._check_area_permission(request, "error.no_permission_update")
+        if denied:  # pragma: no cover
+            return denied  # pragma: no cover
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
         """Partially update an AreaOfInterest."""
-        instance = self.get_object()
-        lang = get_user_language(request)
-        if not user_can_access_area(request.user, instance):  # pragma: no cover
-            return Response(
-                {"error": get_error_translation(lang, "error.no_permission_update")},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        denied = self._check_area_permission(request, "error.no_permission_update")
+        if denied:  # pragma: no cover
+            return denied  # pragma: no cover
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -132,13 +136,10 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
 
         Also deletes the associated GeoJSON file.
         """
+        denied = self._check_area_permission(request, "error.no_permission_delete")
+        if denied:
+            return denied
         instance = self.get_object()
-        lang = get_user_language(request)
-        if not user_can_access_area(request.user, instance):
-            return Response(
-                {"error": get_error_translation(lang, "error.no_permission_delete")},
-                status=status.HTTP_403_FORBIDDEN,
-            )
         delete_polygon_file(instance.polygon_path)
         return super().destroy(request, *args, **kwargs)
 
@@ -257,22 +258,13 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         """
 
         deliverable = request.query_params.get("deliverable")
-        if deliverable == "RGB_PRE_FIRE":
-            deliverable_enum = Deliverable.RGB_PRE_FIRE
-        elif deliverable == "RGB_POST_FIRE":
-            deliverable_enum = Deliverable.RGB_POST_FIRE
-        elif deliverable == "DNBR":
-            deliverable_enum = Deliverable.DNBR
-        elif deliverable == "RBR":
-            deliverable_enum = Deliverable.RBR
-        elif deliverable == "DNDVI":
-            deliverable_enum = Deliverable.DNDVI
-        else:
+        if deliverable not in DELIVERABLE_FIELD_MAP:
             lang = get_user_language(request)
             return Response(
                 {"error": get_error_translation(lang, "error.invalid_deliverable")},
                 status=400,
             )
+        deliverable_enum = Deliverable[deliverable]
 
         instance = self.get_object()
 
@@ -294,8 +286,6 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         # Persist the Celery task ID so the frontend can detect in-progress
         # deliverables when loading an existing analysis run.
         if analysis_run_id:
-            from wildfire_assessment.models import AnalysisRun
-
             task_field = DELIVERABLE_TASK_FIELD_MAP.get(deliverable_enum.name)
             if task_field:
                 AnalysisRun.objects.filter(id=analysis_run_id).update(
@@ -368,8 +358,6 @@ class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
                 {"error": "task_id is required"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        from celery.result import AsyncResult
-
         result = AsyncResult(task_id)
         state = result.state
 
@@ -416,6 +404,27 @@ class DashboardView(APIView):
         return Response(stats)
 
 
+def _handle_ai_stream(generate_fn, language, empty_key, failed_key, log_message):
+    """Execute an AI stream generator and return a streaming response or error."""
+    try:
+        stream, holder = generate_fn()
+        first_chunk = next(stream)
+    except StopIteration:
+        return Response(
+            {"error": get_error_translation(language, empty_key)},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        LOG.exception(log_message)
+        return Response(
+            {"error": get_error_translation(language, failed_key, detail=str(e))},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    return _build_streaming_response(first_chunk, stream, holder)
+
+
 class AIAnalysisView(APIView):
     """
     Generate AI-powered analysis of wildfire data.
@@ -452,33 +461,20 @@ class AIAnalysisView(APIView):
         data = serializer.validated_data
         language = get_user_language(request)
 
-        try:
-            stream, holder = generate_analysis_stream(
+        return _handle_ai_stream(
+            generate_fn=lambda: generate_analysis_stream(
                 pre_fire_date=str(data["pre_fire_date"]),
                 post_fire_date=str(data["post_fire_date"]),
                 area_of_interest=data["area_of_interest"],
                 severity_distribution=data["severity_distribution"],
                 image_urls=data.get("image_urls", []),
                 language=language,
-            )
-            first_chunk = next(stream)
-        except StopIteration:
-            return Response(
-                {"error": get_error_translation(language, "error.ai_empty_response")},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-        except ValueError as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        except Exception as e:
-            LOG.exception("Error generating AI analysis")
-            return Response(
-                {"error": get_error_translation(language, "error.ai_failed", detail=str(e))},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        return _build_streaming_response(first_chunk, stream, holder)
+            ),
+            language=language,
+            empty_key="error.ai_empty_response",
+            failed_key="error.ai_failed",
+            log_message="Error generating AI analysis",
+        )
 
 
 class AIAnalysisFollowUpView(APIView):
@@ -494,30 +490,17 @@ class AIAnalysisFollowUpView(APIView):
         data = serializer.validated_data
         language = get_user_language(request)
 
-        try:
-            stream, holder = generate_followup_stream(
+        return _handle_ai_stream(
+            generate_fn=lambda: generate_followup_stream(
                 previous_response_id=data["previous_response_id"],
                 question=data["question"],
                 language=language,
-            )
-            first_chunk = next(stream)
-        except StopIteration:
-            return Response(
-                {"error": get_error_translation(language, "error.ai_followup_empty")},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
-        except ValueError as e:
-            return Response(
-                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-        except Exception as e:
-            LOG.exception("Error generating AI follow-up")
-            return Response(
-                {"error": get_error_translation(language, "error.ai_followup_failed", detail=str(e))},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        return _build_streaming_response(first_chunk, stream, holder)
+            ),
+            language=language,
+            empty_key="error.ai_followup_empty",
+            failed_key="error.ai_followup_failed",
+            log_message="Error generating AI follow-up",
+        )
 
 
 def _build_streaming_response(first_chunk, stream, holder):
@@ -553,9 +536,7 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="unread_count")
     def unread_count(self, request):
-        count = Notification.objects.filter(
-            user=request.user, is_read=False
-        ).count()
+        count = Notification.objects.filter(user=request.user, is_read=False).count()
         return Response({"unread_count": count})
 
     @action(detail=True, methods=["patch"], url_path="read")

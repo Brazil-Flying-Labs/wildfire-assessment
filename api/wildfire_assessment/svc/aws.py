@@ -56,7 +56,9 @@ def upload_polygon_to_s3(filename: str, geojson_data) -> None:
     """Upload GeoJSON data to S3 under the polygons/ prefix."""
     session = get_boto3_session()
     client = session.client("s3")
-    body = json.dumps(geojson_data) if not isinstance(geojson_data, str) else geojson_data
+    body = (
+        json.dumps(geojson_data) if not isinstance(geojson_data, str) else geojson_data
+    )
     client.put_object(
         Bucket=settings.S3_BUCKET_NAME,
         Key=f"polygons/{filename}",
@@ -77,7 +79,9 @@ def download_polygon_from_s3(filename: str) -> str:
     return response["Body"].read().decode("utf-8")
 
 
-def upload_image_to_s3(key: str, image_data: bytes, content_type: str = "image/jpeg") -> None:
+def upload_image_to_s3(
+    key: str, image_data: bytes, content_type: str = "image/jpeg"
+) -> None:
     """Upload image binary data to S3 under the images/ prefix."""
     session = get_boto3_session()
     client = session.client("s3")

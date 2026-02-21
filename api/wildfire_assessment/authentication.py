@@ -1,6 +1,7 @@
 """Custom DRF authentication backend that validates Auth0 JWT access tokens."""
 
 import logging
+import time
 from functools import lru_cache
 from typing import Optional
 from urllib.parse import quote
@@ -17,6 +18,10 @@ from rest_framework.authentication import get_authorization_header
 
 UserModel = get_user_model()
 LOG = logging.getLogger(__name__)
+
+# In-memory caches to avoid hitting Auth0 Management API on every request.
+_mgmt_token_cache = {"token": None, "expires_at": 0}
+_email_cache = {}
 
 
 @lru_cache(maxsize=1)
@@ -42,7 +47,14 @@ def _decode_jwt(token: str) -> dict:
 
 
 def _fetch_email_from_auth0(subject: str) -> str:
-    """Fetch the user's email from the Auth0 Management API using the subject."""
+    """Fetch the user's email from the Auth0 Management API using the subject.
+
+    Successful lookups are cached in-memory so subsequent requests for the
+    same subject never hit Auth0 again (email doesn't change).
+    """
+    cached = _email_cache.get(subject)
+    if cached:
+        return cached
 
     token = _get_auth0_management_token()
     if not token:
@@ -62,11 +74,17 @@ def _fetch_email_from_auth0(subject: str) -> str:
         LOG.warning("Failed to fetch Auth0 profile for %s: %s", subject, exc)
         return ""
 
-    return response.json().get("email", "")
+    email = response.json().get("email", "")
+    if email:
+        _email_cache[subject] = email
+    return email
 
 
 def _get_auth0_management_token() -> Optional[str]:
-    """Return a short-lived Auth0 Management API token."""
+    """Return a cached Auth0 Management API token, refreshing when expired."""
+
+    if _mgmt_token_cache["token"] and time.time() < _mgmt_token_cache["expires_at"]:
+        return _mgmt_token_cache["token"]
 
     client_id = getattr(settings, "AUTH0_MANAGEMENT_CLIENT_ID", None)
     client_secret = getattr(settings, "AUTH0_MANAGEMENT_CLIENT_SECRET", None)
@@ -92,7 +110,13 @@ def _get_auth0_management_token() -> Optional[str]:
         LOG.warning("Failed to retrieve Auth0 management token: %s", exc)
         return None
 
-    return response.json().get("access_token")
+    data = response.json()
+    token = data.get("access_token")
+    if token:
+        expires_in = data.get("expires_in", 3600)
+        _mgmt_token_cache["token"] = token
+        _mgmt_token_cache["expires_at"] = time.time() + expires_in - 60
+    return token
 
 
 def _sync_user_from_payload(payload: dict):
@@ -103,6 +127,10 @@ def _sync_user_from_payload(payload: dict):
     first_name = payload.get("given_name", "")
     last_name = payload.get("family_name", "")
     email = _fetch_email_from_auth0(subject)
+    if not email:
+        raise exceptions.AuthenticationFailed(
+            "Não foi possível obter o e-mail do usuário. Tente novamente."
+        )
 
     user, created = UserModel.objects.get_or_create(
         username=email,

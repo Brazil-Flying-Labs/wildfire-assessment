@@ -1,14 +1,19 @@
 import importlib
+import json
 from unittest.mock import patch
 
 import wildfire_assessment.admin as admin_module
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
-from wildfire_assessment.admin import AreaOfInterestAdminForm
+from wildfire_assessment.admin import (
+    AnalysisRunAdmin,
+    AreaOfInterestAdminForm,
+    NotificationAdmin,
+)
 from wildfire_assessment.models import (
     AnalysisRun,
     AreaOfInterest,
@@ -98,7 +103,9 @@ class AnalyticsDashboardViewTests(TestCase):
             username="superadmin", password="pw", email="super@example.com"
         )
         self.regular_user = User.objects.create_user(
-            username="regular", password="pw", email="regular@example.com",
+            username="regular",
+            password="pw",
+            email="regular@example.com",
             is_staff=True,
         )
         self.url = reverse("admin-analytics")
@@ -140,11 +147,9 @@ class AnalysisRunAdminTests(TestCase):
             dndvi_image="abc123/dndvi.jpg",
         )
 
-    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.admin.get_presigned_image_url")
     def test_image_previews_renders_images(self, mock_presign):
         mock_presign.side_effect = lambda key: f"https://s3.example.com/{key}"
-        from wildfire_assessment.admin import AnalysisRunAdmin
-
         admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
         html = str(admin_instance.image_previews(self.analysis))
         self.assertIn("https://s3.example.com/abc123/pre_fire_rgb.jpg", html)
@@ -167,30 +172,25 @@ class AnalysisRunAdminTests(TestCase):
         self.assertIn("No images available", html)
 
     def test_has_add_permission_returns_false(self):
-        from wildfire_assessment.admin import AnalysisRunAdmin
-
         admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
-        from django.test import RequestFactory
         request = RequestFactory().get("/")
         self.assertFalse(admin_instance.has_add_permission(request))
 
     def test_has_change_permission_returns_false(self):
-        from wildfire_assessment.admin import AnalysisRunAdmin
-
         admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
-        from django.test import RequestFactory
         request = RequestFactory().get("/")
         self.assertFalse(admin_instance.has_change_permission(request))
-        self.assertFalse(admin_instance.has_change_permission(request, obj=self.analysis))
+        self.assertFalse(
+            admin_instance.has_change_permission(request, obj=self.analysis)
+        )
 
     def test_has_delete_permission_returns_false(self):
-        from wildfire_assessment.admin import AnalysisRunAdmin
-
         admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
-        from django.test import RequestFactory
         request = RequestFactory().get("/")
         self.assertFalse(admin_instance.has_delete_permission(request))
-        self.assertFalse(admin_instance.has_delete_permission(request, obj=self.analysis))
+        self.assertFalse(
+            admin_instance.has_delete_permission(request, obj=self.analysis)
+        )
 
 
 class AreaOfInterestAdminFormValidationTests(TestCase):
@@ -225,13 +225,21 @@ class AreaOfInterestAdminFormValidationTests(TestCase):
         self.assertIn("Unsupported geometry type", form.errors["geojson_file"][0])
 
     def test_clean_geojson_file_featurecollection_unsupported_geometry(self):
-        import json
-        geojson = json.dumps({
-            "type": "FeatureCollection",
-            "features": [
-                {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[0, 0], [1, 1]]}, "properties": {}}
-            ]
-        }).encode("utf-8")
+        geojson = json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "LineString",
+                            "coordinates": [[0, 0], [1, 1]],
+                        },
+                        "properties": {},
+                    }
+                ],
+            }
+        ).encode("utf-8")
         uploaded_file = SimpleUploadedFile(
             "lines.geojson", geojson, content_type="application/json"
         )
@@ -278,13 +286,21 @@ class AreaOfInterestAdminFormValidationTests(TestCase):
 
     @patch("wildfire_assessment.admin.upload_polygon_to_s3")
     def test_clean_geojson_file_valid_feature_collection(self, _mock_upload):
-        import json
-        geojson = json.dumps({
-            "type": "FeatureCollection",
-            "features": [
-                {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}, "properties": {}}
-            ]
-        }).encode("utf-8")
+        geojson = json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]],
+                        },
+                        "properties": {},
+                    }
+                ],
+            }
+        ).encode("utf-8")
         uploaded_file = SimpleUploadedFile(
             "fc.geojson", geojson, content_type="application/json"
         )
@@ -323,8 +339,6 @@ class NotificationAdminTests(TestCase):
         self.assertTrue(admin.site.is_registered(Notification))
 
     def test_notification_admin_list_display(self):
-        from wildfire_assessment.admin import NotificationAdmin
-
         admin_instance = NotificationAdmin(Notification, admin.site)
         self.assertIn("user", admin_instance.list_display)
         self.assertIn("notification_type", admin_instance.list_display)
@@ -332,15 +346,11 @@ class NotificationAdminTests(TestCase):
         self.assertIn("created_at", admin_instance.list_display)
 
     def test_notification_admin_list_filter(self):
-        from wildfire_assessment.admin import NotificationAdmin
-
         admin_instance = NotificationAdmin(Notification, admin.site)
         self.assertIn("is_read", admin_instance.list_filter)
         self.assertIn("notification_type", admin_instance.list_filter)
 
     def test_notification_admin_readonly_fields(self):
-        from wildfire_assessment.admin import NotificationAdmin
-
         admin_instance = NotificationAdmin(Notification, admin.site)
         self.assertIn("user", admin_instance.readonly_fields)
         self.assertIn("message", admin_instance.readonly_fields)

@@ -1,6 +1,7 @@
 """
 Test settings - uses SQLite for fast local testing.
 """
+
 import os
 import sys
 
@@ -17,6 +18,7 @@ DATABASES = {
         "NAME": ":memory:",
     }
 }
+
 
 # Disable migrations for faster tests
 class DisableMigrations:

@@ -107,14 +107,14 @@ class UserProfile(models.Model):
 
 class AnalysisRun(models.Model):
     """Stores information about each wildfire analysis run."""
-    
+
     STATUS_CHOICES = [
         ("pending", "Pending"),
         ("running", "Running"),
         ("completed", "Completed"),
         ("failed", "Failed"),
     ]
-    
+
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -133,10 +133,10 @@ class AnalysisRun(models.Model):
         choices=STATUS_CHOICES,
         default="completed",
     )
-    
+
     # Severity data stored as JSON
     severity_data = models.JSONField(null=True, blank=True)
-    
+
     # Total burned area in hectares
     total_burned_ha = models.DecimalField(
         max_digits=15, decimal_places=3, null=True, blank=True
@@ -151,14 +151,20 @@ class AnalysisRun(models.Model):
 
     # Scientific deliverable URLs (GCS export links, populated async)
     scientific_rgb_pre_fire_url = models.URLField(max_length=500, null=True, blank=True)
-    scientific_rgb_post_fire_url = models.URLField(max_length=500, null=True, blank=True)
+    scientific_rgb_post_fire_url = models.URLField(
+        max_length=500, null=True, blank=True
+    )
     scientific_dndvi_url = models.URLField(max_length=500, null=True, blank=True)
     scientific_dnbr_url = models.URLField(max_length=500, null=True, blank=True)
     scientific_rbr_url = models.URLField(max_length=500, null=True, blank=True)
 
     # Celery task IDs for in-progress scientific deliverables
-    scientific_rgb_pre_fire_task_id = models.CharField(max_length=255, null=True, blank=True)
-    scientific_rgb_post_fire_task_id = models.CharField(max_length=255, null=True, blank=True)
+    scientific_rgb_pre_fire_task_id = models.CharField(
+        max_length=255, null=True, blank=True
+    )
+    scientific_rgb_post_fire_task_id = models.CharField(
+        max_length=255, null=True, blank=True
+    )
     scientific_dndvi_task_id = models.CharField(max_length=255, null=True, blank=True)
     scientific_dnbr_task_id = models.CharField(max_length=255, null=True, blank=True)
     scientific_rbr_task_id = models.CharField(max_length=255, null=True, blank=True)
@@ -166,12 +172,12 @@ class AnalysisRun(models.Model):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
-    
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Analysis Run"
         verbose_name_plural = "Analysis Runs"
-    
+
     def __str__(self):
         return f"{self.area_of_interest.name} - {self.pre_fire_date} to {self.post_fire_date}"
 

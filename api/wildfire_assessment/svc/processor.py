@@ -169,20 +169,11 @@ def process_scientific_deliverable(
 
         result = runner.run()
 
-        if deliverable == Deliverable.RGB_PRE_FIRE:
-            deliverable_key = "RGB_PRE_FIRE"
-        elif deliverable == Deliverable.RGB_POST_FIRE:
-            deliverable_key = "RGB_POST_FIRE"
-        elif deliverable == Deliverable.DNBR:
-            deliverable_key = "DNBR"
-        elif deliverable == Deliverable.RBR:
-            deliverable_key = "RBR"
-        elif deliverable == Deliverable.DNDVI:
-            deliverable_key = "DNDVI"
-        else:
-            raise ValueError("Invalid deliverable type")
+        deliverable_key = deliverable.name
 
-        result_wait = wait_for_task(result["scientific"][deliverable_key]["gee_task_id"])
+        result_wait = wait_for_task(
+            result["scientific"][deliverable_key]["gee_task_id"]
+        )
 
         if result_wait == "COMPLETED":
             deliverable_url = result["scientific"][deliverable_key]["url"]
@@ -198,9 +189,7 @@ def process_scientific_deliverable(
                     updates[task_field] = None
                 if updates:
                     try:
-                        AnalysisRun.objects.filter(id=analysis_run_id).update(
-                            **updates
-                        )
+                        AnalysisRun.objects.filter(id=analysis_run_id).update(**updates)
                     except Exception:
                         logger.warning(
                             "Failed to update AnalysisRun %s with %s URL",
@@ -219,9 +208,7 @@ def process_scientific_deliverable(
                             .select_related("area_of_interest")
                             .first()
                         )
-                        area_name = (
-                            run.area_of_interest.name if run else "Unknown"
-                        )
+                        area_name = run.area_of_interest.name if run else "Unknown"
                         Notification.objects.create(
                             user=user,
                             analysis_run_id=analysis_run_id,
@@ -234,8 +221,7 @@ def process_scientific_deliverable(
                         )
                 except Exception:
                     logger.warning(
-                        "Failed to create notification for user %s, "
-                        "analysis %s",
+                        "Failed to create notification for user %s, " "analysis %s",
                         email,
                         analysis_run_id,
                     )

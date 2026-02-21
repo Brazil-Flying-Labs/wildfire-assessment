@@ -440,7 +440,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
 
   return (
     <div className="areas-management p-4">
-      <div className="d-flex align-items-center justify-content-between mb-4">
+      <div className="d-flex align-items-center justify-content-between mb-4 page-header-sticky">
         <h2 className="h4 mb-0">{t("areas.title")}</h2>
         <button
           type="button"

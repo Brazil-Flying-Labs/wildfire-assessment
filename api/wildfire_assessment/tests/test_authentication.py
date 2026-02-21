@@ -9,9 +9,11 @@ from rest_framework import exceptions
 from wildfire_assessment.authentication import (
     Auth0JWTAuthentication,
     _decode_jwt,
+    _email_cache,
     _fetch_email_from_auth0,
     _get_auth0_management_token,
     _get_jwks_client,
+    _mgmt_token_cache,
     _sync_user_from_payload,
 )
 
@@ -22,6 +24,9 @@ User = get_user_model()
 class Auth0AuthenticationTests(TestCase):
     def setUp(self):
         self.auth = Auth0JWTAuthentication()
+        _email_cache.clear()
+        _mgmt_token_cache["token"] = None
+        _mgmt_token_cache["expires_at"] = 0
 
     @override_settings(AUTH0_JWKS_URL=None)
     def test_get_jwks_client_missing_url(self):
@@ -111,6 +116,81 @@ class Auth0AuthenticationTests(TestCase):
     def test_get_auth0_management_token_missing_config(self):
         self.assertIsNone(_get_auth0_management_token())
 
+    @override_settings(
+        AUTH0_MANAGEMENT_CLIENT_ID="client",
+        AUTH0_MANAGEMENT_CLIENT_SECRET="secret",
+        AUTH0_MANAGEMENT_AUDIENCE="aud",
+        AUTH0_MANAGEMENT_TOKEN_URL="https://auth0/token",
+        AUTH0_HTTP_TIMEOUT=1,
+    )
+    @patch("wildfire_assessment.authentication.requests.post")
+    def test_get_auth0_management_token_cached(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "access_token": "cached-token",
+            "expires_in": 3600,
+        }
+        mock_post.return_value = mock_response
+        # First call fetches from Auth0
+        self.assertEqual(_get_auth0_management_token(), "cached-token")
+        # Second call returns from cache without hitting Auth0
+        self.assertEqual(_get_auth0_management_token(), "cached-token")
+        mock_post.assert_called_once()
+
+    @override_settings(
+        AUTH0_MANAGEMENT_CLIENT_ID="client",
+        AUTH0_MANAGEMENT_CLIENT_SECRET="secret",
+        AUTH0_MANAGEMENT_AUDIENCE="aud",
+        AUTH0_MANAGEMENT_TOKEN_URL="https://auth0/token",
+        AUTH0_HTTP_TIMEOUT=1,
+    )
+    @patch("wildfire_assessment.authentication.time")
+    @patch("wildfire_assessment.authentication.requests.post")
+    def test_get_auth0_management_token_expired_cache(self, mock_post, mock_time):
+        mock_time.time.return_value = 1000
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "access_token": "token-1",
+            "expires_in": 100,
+        }
+        mock_post.return_value = mock_response
+        self.assertEqual(_get_auth0_management_token(), "token-1")
+        # Advance time past expiry
+        mock_time.time.return_value = 2000
+        mock_response.json.return_value = {
+            "access_token": "token-2",
+            "expires_in": 100,
+        }
+        self.assertEqual(_get_auth0_management_token(), "token-2")
+        self.assertEqual(mock_post.call_count, 2)
+
+    @override_settings(AUTH0_DOMAIN="example.auth0.com", AUTH0_HTTP_TIMEOUT=1)
+    @patch("wildfire_assessment.authentication.requests.get")
+    @patch("wildfire_assessment.authentication._get_auth0_management_token")
+    def test_fetch_email_from_auth0_cached(self, mock_token, mock_get):
+        mock_token.return_value = "token"
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"email": "cached@example.com"}
+        mock_get.return_value = mock_response
+        # First call fetches from Auth0
+        self.assertEqual(_fetch_email_from_auth0("auth0|cached"), "cached@example.com")
+        # Second call returns from cache
+        self.assertEqual(_fetch_email_from_auth0("auth0|cached"), "cached@example.com")
+        mock_get.assert_called_once()
+
+    @override_settings(AUTH0_DOMAIN="example.auth0.com", AUTH0_HTTP_TIMEOUT=1)
+    @patch("wildfire_assessment.authentication.requests.get")
+    @patch("wildfire_assessment.authentication._get_auth0_management_token")
+    def test_fetch_email_from_auth0_empty_not_cached(self, mock_token, mock_get):
+        mock_token.return_value = "token"
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"email": ""}
+        mock_get.return_value = mock_response
+        # Empty result should not be cached
+        self.assertEqual(_fetch_email_from_auth0("auth0|empty"), "")
+        self.assertEqual(_fetch_email_from_auth0("auth0|empty"), "")
+        self.assertEqual(mock_get.call_count, 2)
+
     @patch("wildfire_assessment.authentication._fetch_email_from_auth0")
     def test_sync_user_creates_inactive_user(self, mock_email):
         mock_email.return_value = "new@example.com"
@@ -139,6 +219,14 @@ class Auth0AuthenticationTests(TestCase):
     def test_sync_user_missing_subject(self):
         with self.assertRaises(exceptions.AuthenticationFailed):
             _sync_user_from_payload({})
+
+    @patch("wildfire_assessment.authentication._fetch_email_from_auth0")
+    def test_sync_user_empty_email_raises(self, mock_email):
+        mock_email.return_value = ""
+        payload = {"sub": "auth0|fail"}
+        with self.assertRaises(exceptions.AuthenticationFailed) as ctx:
+            _sync_user_from_payload(payload)
+        self.assertIn("e-mail", str(ctx.exception))
 
     @patch("wildfire_assessment.authentication._fetch_email_from_auth0")
     def test_sync_user_inactive_user(self, mock_email):

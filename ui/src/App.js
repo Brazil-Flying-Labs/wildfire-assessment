@@ -54,6 +54,8 @@ function App() {
   // Notification state
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsNextUrl, setNotificationsNextUrl] = useState(null);
   const notificationPollRef = useRef(null);
 
   const toggleNav = useCallback(() => {
@@ -140,6 +142,7 @@ function App() {
   const deliverablePollRef = useRef({});
 
   const authReady = !authLoading && isAuthenticated;
+
 
   const login = useCallback(
     () => {
@@ -261,18 +264,34 @@ function App() {
     }
   }, [authorizedFetch, baseUrl, playNotificationSound]);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!baseUrl) return;
-    try {
-      const response = await authorizedFetch(`${baseUrl}/notifications/`);
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.results || []);
+  const fetchNotifications = useCallback(
+    async (nextUrl) => {
+      if (!baseUrl) return;
+      const url = nextUrl || `${baseUrl}/notifications/`;
+      setNotificationsLoading(true);
+      try {
+        const response = await authorizedFetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications((prev) =>
+            nextUrl ? [...prev, ...(data.results || [])] : data.results || []
+          );
+          setNotificationsNextUrl(data.next);
+        }
+      } catch {
+        // Silently ignore
+      } finally {
+        setNotificationsLoading(false);
       }
-    } catch {
-      // Silently ignore
+    },
+    [authorizedFetch, baseUrl]
+  );
+
+  const fetchMoreNotifications = useCallback(() => {
+    if (notificationsNextUrl && !notificationsLoading) {
+      fetchNotifications(notificationsNextUrl);
     }
-  }, [authorizedFetch, baseUrl]);
+  }, [notificationsNextUrl, notificationsLoading, fetchNotifications]);
 
   // Apply theme to document — dark on landing page when not logged in
   const isOnLandingPage = !authReady || showLandingPage;
@@ -1071,6 +1090,9 @@ function App() {
               unreadCount={unreadCount}
               notifications={notifications}
               onOpen={fetchNotifications}
+              loading={notificationsLoading}
+              hasMore={!!notificationsNextUrl}
+              onLoadMore={fetchMoreNotifications}
             />
             <div className="avatar-menu">
               {user?.picture ? (
@@ -1287,7 +1309,7 @@ function App() {
                 </div>
               ) : null}
 
-              <div className="d-flex align-items-center justify-content-between mb-4">
+              <div className="d-flex align-items-center justify-content-between mb-4 page-header-sticky">
                 <h2 className="h4 mb-0">{t("app.analysisTitle")}</h2>
                 <button
                   type="button"

@@ -22,7 +22,11 @@ The API container mounts `./api:/api` so local edits are hot-reloaded. Tests run
 
 ## General Rules
 
-If any change/addition on backend code, we should write/fix unit tests until the coverage is 100%. This is MANDATORY. No exceptions. If you add a new function, you must add tests for it. If you change existing code, you must ensure all tests pass and coverage is maintained. If coverage drops, you must add tests to bring it back up. This is critical for maintaining code quality and preventing regressions. Always run tests and check coverage before pushing code. Always run the full test suite after making changes, not just the tests you think are affected. This ensures we catch any unintended consequences. If you see a test failure, investigate and fix it before proceeding. Never ignore failing tests or push code with known test failures. This is non-negotiable.
+1. If any change/addition on backend code, we should write/fix unit tests until the coverage is 100%. This is MANDATORY. No exceptions. If you add a new function, you must add tests for it. If you change existing code, you must ensure all tests pass and coverage is maintained. If coverage drops, you must add tests to bring it back up. This is critical for maintaining code quality and preventing regressions. Always run tests and check coverage before pushing code. Always run the full test suite after making changes, not just the tests you think are affected. This ensures we catch any unintended consequences. If you see a test failure, investigate and fix it before proceeding. Never ignore failing tests or push code with known test failures. This is non-negotiable.
+
+2. Keep the codebase DRY (Don't Repeat Yourself). If you find yourself copying and pasting code, consider refactoring to create reusable functions or classes. This applies to both backend and frontend code. For example, if you have similar logic for handling S3 uploads in multiple places, consider creating a utility function in `aws.py` that can be reused across serializers or services.
+
+3. When writing code respect the black instructions on the pyproject.toml file. This ensures consistent code formatting across the codebase. Black will be run automatically on pre-commit, but you should also run it manually before pushing code to ensure everything is formatted correctly. You can run `black api svc --config pyproject.toml` to format the backend code. For the frontend, you can run `npm run format` inside the `ui` container to format the React code.
 
 ## Commands
 

@@ -62,12 +62,10 @@ def _aggregate_severity_breakdown(analyses_qs):
 
 def _area_comparison(analyses_qs):
     """Total burned ha per area of interest, sorted descending."""
-    area_burned = defaultdict(
-        lambda: {"area_name": "", "total_burned_ha": Decimal(0)}
-    )
-    for run in analyses_qs.filter(
-        severity_data__isnull=False
-    ).select_related("area_of_interest"):
+    area_burned = defaultdict(lambda: {"area_name": "", "total_burned_ha": Decimal(0)})
+    for run in analyses_qs.filter(severity_data__isnull=False).select_related(
+        "area_of_interest"
+    ):
         data = run.severity_data
         if not isinstance(data, dict):
             continue
@@ -122,9 +120,9 @@ def _largest_fire(analyses_qs):
     """Single run with the highest Total Burned Area."""
     max_burned = None
     max_area_name = None
-    for run in analyses_qs.filter(
-        severity_data__isnull=False
-    ).select_related("area_of_interest"):
+    for run in analyses_qs.filter(severity_data__isnull=False).select_related(
+        "area_of_interest"
+    ):
         data = run.severity_data
         if not isinstance(data, dict):
             continue
@@ -185,9 +183,9 @@ def _areas_geo(analyses_qs):
     """Aggregate geo data for all areas with analyses."""
     area_data = {}
     polygon_paths = {}
-    for run in analyses_qs.filter(
-        severity_data__isnull=False
-    ).select_related("area_of_interest"):
+    for run in analyses_qs.filter(severity_data__isnull=False).select_related(
+        "area_of_interest"
+    ):
         aoi = run.area_of_interest
         if aoi.centroid_lat is None or aoi.centroid_lng is None:
             continue
@@ -242,12 +240,8 @@ def get_dashboard_stats(user):
     total_areas = user_analyses.values("area_of_interest").distinct().count()
 
     total_analyzed_ha = _sum_severity_totals(user_analyses, "Total Area")
-    total_burned_ha = _sum_severity_totals(
-        user_analyses, "Total Burned Area"
-    )
-    analyses_this_month = user_analyses.filter(
-        created_at__gte=month_start
-    ).count()
+    total_burned_ha = _sum_severity_totals(user_analyses, "Total Burned Area")
+    analyses_this_month = user_analyses.filter(created_at__gte=month_start).count()
 
     recent_analyses = user_analyses.select_related(
         "area_of_interest", "area_of_interest__country", "user"

@@ -37,7 +37,11 @@ def restore_widgets(apps, schema_editor):
         widgets = profile.dashboard_widgets
         if not isinstance(widgets, list):
             continue
-        missing = [w for w in ("avg_severity", "most_analyzed", "largest_fire") if w not in widgets]
+        missing = [
+            w
+            for w in ("avg_severity", "most_analyzed", "largest_fire")
+            if w not in widgets
+        ]
         if missing:
             # Insert before recent_analyses if present, otherwise append
             try:

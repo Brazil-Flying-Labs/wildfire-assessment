@@ -262,61 +262,19 @@ class ProcessorTests(TestCase):
             )
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
-    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
-    @patch("wildfire_assessment.svc.processor.ee")
-    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.Deliverable")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
-    def test_process_scientific_deliverable_unmapped_deliverable(
-        self,
-        mock_secret,
-        mock_deliverable,
-        mock_download,
-        mock_assessment,
-        mock_ee,
-        _mock_sleep,
-        _mock_send,
-        mock_unlink,
-    ):
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
-        mock_download.return_value = '{"type": "Polygon"}'
-        sentinel = object()
-        mock_deliverable.__getitem__.return_value = sentinel
-        mock_deliverable.RGB_PRE_FIRE = object()
-        mock_deliverable.RGB_POST_FIRE = object()
-        mock_deliverable.DNBR = object()
-        mock_deliverable.RBR = object()
-        mock_deliverable.DNDVI = object()
-
-        assessment_instance = MagicMock()
-        assessment_instance.run.return_value = {
-            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
-        }
-        mock_assessment.return_value = assessment_instance
-        mock_ee.data.getTaskStatus.return_value = [[{"state": "COMPLETED"}]]
-
-        with self.assertRaises(ValueError):
-            processor.process_scientific_deliverable(
-                pre_fire_date=self.pre_fire_date,
-                post_fire_date=self.post_fire_date,
-                polygon_path=self.polygon_path,
-                deliverable_name="RGB_PRE_FIRE",
-                email=self.email,
-                reserve_name=self.reserve_name,
-            )
-
-    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_missing_statuses(
-        self, mock_secret, mock_download, mock_assessment, mock_ee, _mock_sleep, mock_unlink
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_unlink,
     ):
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
@@ -346,7 +304,13 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_failed_status(
-        self, mock_secret, mock_download, mock_assessment, mock_ee, _mock_sleep, mock_unlink
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_unlink,
     ):
         mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
@@ -377,7 +341,14 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_process_scientific_deliverable_deliverable_keys(
-        self, mock_secret, mock_download, mock_assessment, mock_ee, _mock_sleep, mock_send, mock_unlink
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send,
+        mock_unlink,
     ):
         mock_secret.return_value = json.dumps(
             {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
@@ -1245,9 +1216,7 @@ class DashboardServiceTests(TestCase):
             post_fire_date="2024-02-15",
         )
         stats = dashboard_service.get_dashboard_stats(self.user)
-        self.assertEqual(
-            stats["most_analyzed_area"]["area_name"], "Dash Area"
-        )
+        self.assertEqual(stats["most_analyzed_area"]["area_name"], "Dash Area")
         self.assertEqual(stats["most_analyzed_area"]["run_count"], 2)
 
     def test_most_analyzed_area_none_when_empty(self):
@@ -1331,7 +1300,9 @@ class DashboardServiceTests(TestCase):
         self.area.centroid_lat = -15.5
         self.area.centroid_lng = -47.8
         self.area.save()
-        mock_download.return_value = '{"type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,0]]]}'
+        mock_download.return_value = (
+            '{"type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,0]]]}'
+        )
         AnalysisRun.objects.create(
             user=self.user,
             area_of_interest=self.area,

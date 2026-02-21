@@ -6,53 +6,56 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('wildfire_assessment', '0009_analysisrun_dnbr_url_analysisrun_dndvi_url_and_more'),
+        (
+            "wildfire_assessment",
+            "0009_analysisrun_dnbr_url_analysisrun_dndvi_url_and_more",
+        ),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='analysisrun',
-            name='dnbr_url',
+            model_name="analysisrun",
+            name="dnbr_url",
         ),
         migrations.RemoveField(
-            model_name='analysisrun',
-            name='dndvi_url',
+            model_name="analysisrun",
+            name="dndvi_url",
         ),
         migrations.RemoveField(
-            model_name='analysisrun',
-            name='rbr_url',
+            model_name="analysisrun",
+            name="rbr_url",
         ),
         migrations.RemoveField(
-            model_name='analysisrun',
-            name='rgb_post_fire_url',
+            model_name="analysisrun",
+            name="rgb_post_fire_url",
         ),
         migrations.RemoveField(
-            model_name='analysisrun',
-            name='rgb_pre_fire_url',
+            model_name="analysisrun",
+            name="rgb_pre_fire_url",
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='dnbr_image',
+            model_name="analysisrun",
+            name="dnbr_image",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='dndvi_image',
+            model_name="analysisrun",
+            name="dndvi_image",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='rbr_image',
+            model_name="analysisrun",
+            name="rbr_image",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='rgb_post_fire_image',
+            model_name="analysisrun",
+            name="rgb_post_fire_image",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
         migrations.AddField(
-            model_name='analysisrun',
-            name='rgb_pre_fire_image',
+            model_name="analysisrun",
+            name="rgb_pre_fire_image",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]

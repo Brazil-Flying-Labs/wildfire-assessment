@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('wildfire_assessment', '0006_userprofile_theme'),
+        ("wildfire_assessment", "0006_userprofile_theme"),
     ]
 
     operations = [

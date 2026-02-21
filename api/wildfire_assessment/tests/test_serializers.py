@@ -20,6 +20,9 @@ from wildfire_assessment.serializers import (
     AreaOfInterestUpdateSerializer,
     NotificationSerializer,
     UserMeSerializer,
+    check_duplicate_area_name,
+    compute_centroid,
+    generate_s3_filename,
 )
 
 
@@ -44,7 +47,18 @@ class AreaOfInterestSerializerTests(TestCase):
         )
         self.assertEqual(
             set(serializer.data.keys()),
-            {"id", "name", "polygon_path", "municipio", "site", "codigo_ibge", "area_ha", "country", "country_name", "country_code"},
+            {
+                "id",
+                "name",
+                "polygon_path",
+                "municipio",
+                "site",
+                "codigo_ibge",
+                "area_ha",
+                "country",
+                "country_name",
+                "country_code",
+            },
         )
 
     def test_field_values(self):
@@ -65,8 +79,11 @@ class AreaOfInterestSerializerTests(TestCase):
 class UserMeSerializerTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="tester", email="tester@example.com", password="password",
-            first_name="Test", last_name="User",
+            username="tester",
+            email="tester@example.com",
+            password="password",
+            first_name="Test",
+            last_name="User",
         )
         # A UserProfile is auto-created via post_save signal
 
@@ -74,7 +91,15 @@ class UserMeSerializerTests(TestCase):
         serializer = UserMeSerializer(self.user)
         self.assertEqual(
             set(serializer.data.keys()),
-            {"email", "first_name", "last_name", "default_language", "theme", "dashboard_widgets", "authorized_countries"},
+            {
+                "email",
+                "first_name",
+                "last_name",
+                "default_language",
+                "theme",
+                "dashboard_widgets",
+                "authorized_countries",
+            },
         )
 
     def test_read_only_fields(self):
@@ -121,12 +146,12 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         # Valid polygon geometry for tests
         self.valid_polygon = {
             "type": "Polygon",
-            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]
+            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
         }
         self.valid_feature = {
             "type": "Feature",
             "geometry": self.valid_polygon,
-            "properties": {}
+            "properties": {},
         }
 
     def test_validate_country_authorized(self):
@@ -261,7 +286,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "MultiPolygon",
-                    "coordinates": [[[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]]
+                    "coordinates": [[[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]],
                 },
             },
             context={"request": request},
@@ -277,7 +302,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "FeatureCollection",
-                    "features": [self.valid_feature]
+                    "features": [self.valid_feature],
                 },
             },
             context={"request": request},
@@ -293,7 +318,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "coordinates": [[[200, 0], [201, 0], [201, 1], [200, 1], [200, 0]]]
+                    "coordinates": [[[200, 0], [201, 0], [201, 1], [200, 1], [200, 0]]],
                 },
             },
             context={"request": request},
@@ -311,7 +336,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "coordinates": [[[0, 100], [1, 100], [1, 101], [0, 101], [0, 100]]]
+                    "coordinates": [[[0, 100], [1, 100], [1, 101], [0, 101], [0, 100]]],
                 },
             },
             context={"request": request},
@@ -330,7 +355,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "coordinates": [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]]
+                    "coordinates": [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -338,7 +363,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("geojson", serializer.errors)
 
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_create_saves_geojson_file(self, mock_upload):
         request = self.factory.post("/")
         request.user = self.user
@@ -379,10 +404,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             data={
                 "name": "Test Area",
                 "country": self.country.id,
-                "geojson": {
-                    "type": "FeatureCollection",
-                    "features": ["not a dict"]
-                },
+                "geojson": {"type": "FeatureCollection", "features": ["not a dict"]},
             },
             context={"request": request},
         )
@@ -400,7 +422,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Feature",
                     "geometry": "not a dict",
-                    "properties": {}
+                    "properties": {},
                 },
             },
             context={"request": request},
@@ -419,7 +441,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Feature",
                     "geometry": {"coordinates": [[0, 0]]},
-                    "properties": {}
+                    "properties": {},
                 },
             },
             context={"request": request},
@@ -438,7 +460,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Feature",
                     "geometry": {"type": "Polygon"},
-                    "properties": {}
+                    "properties": {},
                 },
             },
             context={"request": request},
@@ -457,7 +479,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Feature",
                     "geometry": {"type": "Polygon", "coordinates": "invalid"},
-                    "properties": {}
+                    "properties": {},
                 },
             },
             context={"request": request},
@@ -476,7 +498,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Feature",
                     "geometry": {"type": "Polygon", "coordinates": []},
-                    "properties": {}
+                    "properties": {},
                 },
             },
             context={"request": request},
@@ -492,10 +514,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             data={
                 "name": "Test Area",
                 "country": self.country.id,
-                "geojson": {
-                    "type": "Point",
-                    "coordinates": [10, 20]
-                },
+                "geojson": {"type": "Point", "coordinates": [10, 20]},
             },
             context={"request": request},
         )
@@ -512,7 +531,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "LineString",
-                    "coordinates": [[0, 0], [1, 1], [2, 2]]
+                    "coordinates": [[0, 0], [1, 1], [2, 2]],
                 },
             },
             context={"request": request},
@@ -532,9 +551,9 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "type": "Feature",
                     "geometry": {
                         "type": "LineString",
-                        "coordinates": [[0, 0], [1, 1], [2, 2]]
+                        "coordinates": [[0, 0], [1, 1], [2, 2]],
                     },
-                    "properties": {}
+                    "properties": {},
                 },
             },
             context={"request": request},
@@ -542,7 +561,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("geojson", serializer.errors)
 
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_duplicate_name_same_country_rejected(self, _mock_upload):
         """Test that duplicate area name in the same country is rejected."""
         AreaOfInterest.objects.create(
@@ -561,7 +580,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("name", serializer.errors)
 
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_same_name_different_country_allowed(self, _mock_upload):
         """Test that the same area name is allowed in a different country."""
         UserCountry.objects.create(user=self.user, country=self.other_country)
@@ -620,10 +639,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             data={
                 "name": "Test Area",
                 "country": self.country.id,
-                "geojson": {
-                    "type": "Polygon",
-                    "coordinates": [[]]
-                },
+                "geojson": {"type": "Polygon", "coordinates": [[]]},
             },
             context={"request": request},
         )
@@ -668,8 +684,8 @@ class AreaOfInterestUpdateSerializerTests(TestCase):
         self.assertEqual(updated.name, "Updated Name")
         self.assertEqual(updated.polygon_path, "test.geojson")  # unchanged
 
-    @patch("wildfire_assessment.svc.aws.delete_polygon_from_s3")
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_update_with_new_geojson(self, mock_upload, mock_delete):
         """Test updating with a new GeoJSON file."""
         area = AreaOfInterest.objects.create(
@@ -746,7 +762,7 @@ class AnalysisRunSerializerTests(TestCase):
             name="Img Area", polygon_path="img.geojson", country=self.country
         )
 
-    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.serializers.get_presigned_image_url")
     def test_serializer_generates_presigned_urls(self, mock_presign):
         mock_presign.side_effect = lambda key, **kw: f"https://s3.example.com/{key}"
         run = AnalysisRun.objects.create(
@@ -762,7 +778,9 @@ class AnalysisRunSerializerTests(TestCase):
         )
         data = AnalysisRunSerializer(run).data
         self.assertEqual(data["rgb_pre_fire_url"], "https://s3.example.com/abc/pre.jpg")
-        self.assertEqual(data["rgb_post_fire_url"], "https://s3.example.com/abc/post.jpg")
+        self.assertEqual(
+            data["rgb_post_fire_url"], "https://s3.example.com/abc/post.jpg"
+        )
         self.assertEqual(data["dndvi_url"], "https://s3.example.com/abc/dndvi.jpg")
         self.assertEqual(data["dnbr_url"], "https://s3.example.com/abc/dnbr.jpg")
         self.assertEqual(data["rbr_url"], "https://s3.example.com/abc/rbr.jpg")
@@ -790,23 +808,29 @@ class AreaOfInterestCreateCentroidTests(TestCase):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.factory = APIRequestFactory()
 
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_create_centroid_from_feature_collection(self, _mock_upload):
         request = self.factory.post("/")
         request.user = self.user
         geojson = {
             "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
-                },
-                "properties": {},
-            }],
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
+                    },
+                    "properties": {},
+                }
+            ],
         }
         serializer = AreaOfInterestCreateSerializer(
-            data={"name": "FC Centroid", "country": self.country.id, "geojson": geojson},
+            data={
+                "name": "FC Centroid",
+                "country": self.country.id,
+                "geojson": geojson,
+            },
             context={"request": request},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
@@ -816,7 +840,7 @@ class AreaOfInterestCreateCentroidTests(TestCase):
         self.assertAlmostEqual(float(instance.centroid_lat), 1.0, places=5)
         self.assertAlmostEqual(float(instance.centroid_lng), 1.0, places=5)
 
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_create_centroid_from_raw_polygon(self, _mock_upload):
         request = self.factory.post("/")
         request.user = self.user
@@ -825,7 +849,11 @@ class AreaOfInterestCreateCentroidTests(TestCase):
             "coordinates": [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]],
         }
         serializer = AreaOfInterestCreateSerializer(
-            data={"name": "Raw Centroid", "country": self.country.id, "geojson": geojson},
+            data={
+                "name": "Raw Centroid",
+                "country": self.country.id,
+                "geojson": geojson,
+            },
             context={"request": request},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
@@ -833,7 +861,7 @@ class AreaOfInterestCreateCentroidTests(TestCase):
         self.assertIsNotNone(instance.centroid_lat)
         self.assertAlmostEqual(float(instance.centroid_lat), 2.0, places=5)
 
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_create_centroid_exception_silenced(self, _mock_upload):
         """Test that centroid computation exception doesn't break create."""
         request = self.factory.post("/")
@@ -847,11 +875,17 @@ class AreaOfInterestCreateCentroidTests(TestCase):
             "properties": {},
         }
         serializer = AreaOfInterestCreateSerializer(
-            data={"name": "Error Centroid", "country": self.country.id, "geojson": geojson},
+            data={
+                "name": "Error Centroid",
+                "country": self.country.id,
+                "geojson": geojson,
+            },
             context={"request": request},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        with patch("shapely.geometry.shape", side_effect=Exception("bad")):
+        with patch(
+            "wildfire_assessment.serializers.shape", side_effect=Exception("bad")
+        ):
             instance = serializer.save()
         self.assertEqual(instance.name, "Error Centroid")
         # Centroid should be None since the exception was silenced
@@ -873,7 +907,7 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
             "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
         }
 
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_update_with_geojson_no_existing_polygon(self, _mock_upload):
         """Test update when instance has no existing polygon_path."""
         area = AreaOfInterest.objects.create(
@@ -891,13 +925,15 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
         # Should not call delete since polygon_path is empty
-        with patch("wildfire_assessment.svc.aws.delete_polygon_from_s3") as mock_delete:
+        with patch(
+            "wildfire_assessment.serializers.delete_polygon_from_s3"
+        ) as mock_delete:
             updated = serializer.save()
         mock_delete.assert_not_called()
         self.assertTrue(updated.polygon_path.endswith(".geojson"))
 
-    @patch("wildfire_assessment.svc.aws.delete_polygon_from_s3")
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_update_centroid_from_feature(self, _mock_upload, _mock_delete):
         """Test centroid computation from a Feature GeoJSON on update."""
         area = AreaOfInterest.objects.create(
@@ -924,8 +960,8 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         self.assertAlmostEqual(float(updated.centroid_lat), 2.0, places=5)
         self.assertAlmostEqual(float(updated.centroid_lng), 2.0, places=5)
 
-    @patch("wildfire_assessment.svc.aws.delete_polygon_from_s3")
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_update_centroid_from_feature_collection(self, _mock_upload, _mock_delete):
         area = AreaOfInterest.objects.create(
             name="FC Update", polygon_path="old.geojson", country=self.country
@@ -934,14 +970,16 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         request.user = self.user
         geojson = {
             "type": "FeatureCollection",
-            "features": [{
-                "type": "Feature",
-                "geometry": {
-                    "type": "Polygon",
-                    "coordinates": [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]],
-                },
-                "properties": {},
-            }],
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]],
+                    },
+                    "properties": {},
+                }
+            ],
         }
         serializer = AreaOfInterestUpdateSerializer(
             area,
@@ -953,8 +991,8 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         updated = serializer.save()
         self.assertAlmostEqual(float(updated.centroid_lat), 2.0, places=5)
 
-    @patch("wildfire_assessment.svc.aws.delete_polygon_from_s3")
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_update_centroid_from_raw_geometry(self, _mock_upload, _mock_delete):
         area = AreaOfInterest.objects.create(
             name="Raw Update", polygon_path="old.geojson", country=self.country
@@ -971,8 +1009,8 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         updated = serializer.save()
         self.assertAlmostEqual(float(updated.centroid_lat), 1.0, places=5)
 
-    @patch("wildfire_assessment.svc.aws.delete_polygon_from_s3")
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_update_centroid_exception_silenced(self, _mock_upload, _mock_delete):
         area = AreaOfInterest.objects.create(
             name="Error Update", polygon_path="old.geojson", country=self.country
@@ -986,7 +1024,9 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
             context={"request": request},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        with patch("shapely.geometry.shape", side_effect=Exception("bad")):
+        with patch(
+            "wildfire_assessment.serializers.shape", side_effect=Exception("bad")
+        ):
             updated = serializer.save()
         self.assertIsNone(updated.centroid_lat)
 
@@ -1081,3 +1121,80 @@ class NotificationSerializerTests(TestCase):
         serializer = NotificationSerializer(notif)
         self.assertIsNone(serializer.data["analysis_run_id"])
         self.assertEqual(serializer.data["area_name"], "")
+
+
+class HelperFunctionTests(TestCase):
+    """Tests for module-level helper functions extracted during DRY refactoring."""
+
+    def test_generate_s3_filename_sanitizes_name(self):
+        filename = generate_s3_filename("My Area (Test)")
+        self.assertTrue(filename.endswith(".geojson"))
+        self.assertNotIn(" ", filename)
+        self.assertNotIn("(", filename)
+
+    def test_generate_s3_filename_unique(self):
+        f1 = generate_s3_filename("Area")
+        f2 = generate_s3_filename("Area")
+        self.assertNotEqual(f1, f2)
+
+    def test_compute_centroid_polygon(self):
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+        }
+        result = compute_centroid(geojson)
+        self.assertIsNotNone(result)
+        lat, lng = result
+        self.assertAlmostEqual(lat, 0.5, places=5)
+        self.assertAlmostEqual(lng, 0.5, places=5)
+
+    def test_compute_centroid_feature(self):
+        geojson = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
+            },
+            "properties": {},
+        }
+        result = compute_centroid(geojson)
+        self.assertIsNotNone(result)
+
+    def test_compute_centroid_feature_collection(self):
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                    },
+                    "properties": {},
+                }
+            ],
+        }
+        result = compute_centroid(geojson)
+        self.assertIsNotNone(result)
+
+    def test_compute_centroid_invalid_returns_none(self):
+        result = compute_centroid({"type": "Invalid"})
+        self.assertIsNone(result)
+
+    def test_check_duplicate_area_name_found(self):
+        country = Country.objects.create(name="Dup Country", code="DC")
+        AreaOfInterest.objects.create(
+            name="Dup Area", polygon_path="dup.geojson", country=country
+        )
+        self.assertTrue(check_duplicate_area_name("Dup Area", country))
+
+    def test_check_duplicate_area_name_not_found(self):
+        country = Country.objects.create(name="NoDup Country", code="ND")
+        self.assertFalse(check_duplicate_area_name("New Area", country))
+
+    def test_check_duplicate_area_name_excludes_instance(self):
+        country = Country.objects.create(name="Excl Country", code="EC")
+        area = AreaOfInterest.objects.create(
+            name="Same Name", polygon_path="same.geojson", country=country
+        )
+        self.assertFalse(check_duplicate_area_name("Same Name", country, instance=area))

@@ -13,6 +13,7 @@ from wildfire_assessment.models import (
     Country,
     Notification,
     UserCountry,
+    UserProfile,
 )
 from wildfire_assessment.views import health_status
 
@@ -139,9 +140,7 @@ class WildfireAssessmentTests(APITestCase):
     def test_scientific_deliverable_handles_all_deliverables(self, mock_process):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
-        url = reverse(
-            "areaofinterest-scientific-deliverable", args=[self.reserve.id]
-        )
+        url = reverse("areaofinterest-scientific-deliverable", args=[self.reserve.id])
 
         for deliverable in [
             "RGB_PRE_FIRE",
@@ -166,7 +165,8 @@ class WildfireAssessmentTests(APITestCase):
 
         # Invalid deliverable
         response = self.client.post(
-            f"{url}?" + urlencode(
+            f"{url}?"
+            + urlencode(
                 {
                     "pre_fire_date": "2023-01-01",
                     "post_fire_date": "2023-01-15",
@@ -209,7 +209,7 @@ class WildfireAssessmentTests(APITestCase):
         data = response.json()
         self.assertEqual(data["count"], 0)
 
-    @patch("wildfire_assessment.svc.aws.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_create_area_of_interest_success(self, mock_upload):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
@@ -219,7 +219,10 @@ class WildfireAssessmentTests(APITestCase):
             "country": self.country.id,
             "geojson": {
                 "type": "Feature",
-                "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                },
                 "properties": {},
             },
         }
@@ -237,7 +240,10 @@ class WildfireAssessmentTests(APITestCase):
             "country": self.other_country.id,  # User doesn't have access
             "geojson": {
                 "type": "Feature",
-                "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                },
                 "properties": {},
             },
         }
@@ -288,12 +294,12 @@ class WildfireAssessmentTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_delete_area_of_interest_with_file_cleanup(self):
-        from unittest.mock import patch
-
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
 
-        with patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3") as mock_delete:
+        with patch(
+            "wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3"
+        ) as mock_delete:
             mock_delete.return_value = True
             url = reverse("areaofinterest-detail", args=[self.reserve.id])
             response = self.client.delete(url)
@@ -301,13 +307,13 @@ class WildfireAssessmentTests(APITestCase):
             mock_delete.assert_called_once_with(self.reserve.polygon_path)
 
     def test_delete_area_of_interest_file_deletion_error(self):
-        from unittest.mock import patch
-
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
 
         # Simulate S3 deletion failure
-        with patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3") as mock_delete:
+        with patch(
+            "wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3"
+        ) as mock_delete:
             mock_delete.return_value = False
             url = reverse("areaofinterest-detail", args=[self.reserve.id])
             response = self.client.delete(url)
@@ -317,8 +323,6 @@ class WildfireAssessmentTests(APITestCase):
 
     def test_delete_area_of_interest_permission_check_in_destroy(self):
         """Test the defensive permission check in destroy method."""
-        from unittest.mock import patch
-
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
 
@@ -580,8 +584,6 @@ class AnalysisRunViewSetTests(APITestCase):
     """Tests for the AnalysisRun ViewSet."""
 
     def setUp(self):
-        from wildfire_assessment.models import AnalysisRun
-
         self.country = Country.objects.create(name="Test Country", code="TC")
         self.other_country = Country.objects.create(name="Other Country", code="OC")
         self.area = AreaOfInterest.objects.create(
@@ -668,8 +670,6 @@ class DashboardViewTests(APITestCase):
     """Tests for the Dashboard View."""
 
     def setUp(self):
-        from wildfire_assessment.models import AnalysisRun
-
         self.country = Country.objects.create(name="Test Country", code="TC")
         self.area = AreaOfInterest.objects.create(
             name="Test Area",
@@ -744,8 +744,6 @@ class AnalysisRunTaskStatusTests(APITestCase):
     """Tests for the task_status action on AnalysisRunViewSet."""
 
     def setUp(self):
-        from wildfire_assessment.models import AnalysisRun
-
         self.country = Country.objects.create(name="Task Country", code="TK")
         self.area = AreaOfInterest.objects.create(
             name="Task Area",
@@ -771,7 +769,7 @@ class AnalysisRunTaskStatusTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("task_id is required", response.json()["error"])
 
-    @patch("celery.result.AsyncResult")
+    @patch("wildfire_assessment.views.AsyncResult")
     def test_task_status_pending(self, mock_async):
         mock_result = SimpleNamespace(state="PENDING", result=None)
         mock_async.return_value = mock_result
@@ -781,7 +779,7 @@ class AnalysisRunTaskStatusTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["state"], "PENDING")
 
-    @patch("celery.result.AsyncResult")
+    @patch("wildfire_assessment.views.AsyncResult")
     def test_task_status_success_with_deliverable(self, mock_async):
         mock_result = SimpleNamespace(state="SUCCESS", result=None)
         mock_async.return_value = mock_result
@@ -793,7 +791,7 @@ class AnalysisRunTaskStatusTests(APITestCase):
         self.assertEqual(data["state"], "SUCCESS")
         self.assertEqual(data["url"], "http://example.com/dnbr.tif")
 
-    @patch("celery.result.AsyncResult")
+    @patch("wildfire_assessment.views.AsyncResult")
     def test_task_status_success_without_deliverable(self, mock_async):
         mock_result = SimpleNamespace(state="SUCCESS", result=None)
         mock_async.return_value = mock_result
@@ -805,7 +803,7 @@ class AnalysisRunTaskStatusTests(APITestCase):
         self.assertEqual(data["state"], "SUCCESS")
         self.assertNotIn("url", data)
 
-    @patch("celery.result.AsyncResult")
+    @patch("wildfire_assessment.views.AsyncResult")
     def test_task_status_failure(self, mock_async):
         mock_result = SimpleNamespace(state="FAILURE", result=RuntimeError("Task boom"))
         mock_async.return_value = mock_result
@@ -817,7 +815,7 @@ class AnalysisRunTaskStatusTests(APITestCase):
         self.assertEqual(data["state"], "FAILURE")
         self.assertIn("Task boom", data["error"])
 
-    @patch("celery.result.AsyncResult")
+    @patch("wildfire_assessment.views.AsyncResult")
     def test_task_status_failure_no_result(self, mock_async):
         mock_result = SimpleNamespace(state="FAILURE", result=None)
         mock_async.return_value = mock_result
@@ -832,8 +830,6 @@ class ScientificDeliverableWithRunIdTests(APITestCase):
     """Tests for scientific_deliverable with analysis_run_id persistence."""
 
     def setUp(self):
-        from wildfire_assessment.models import AnalysisRun
-
         self.country = Country.objects.create(name="Sci Country", code="SC")
         self.area = AreaOfInterest.objects.create(
             name="Sci Area",
@@ -853,18 +849,16 @@ class ScientificDeliverableWithRunIdTests(APITestCase):
 
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     def test_scientific_deliverable_persists_task_id(self, mock_process):
-        from wildfire_assessment.models import AnalysisRun
-
         self.client.force_authenticate(user=self.user)
-        url = reverse(
-            "areaofinterest-scientific-deliverable", args=[self.area.id]
+        url = reverse("areaofinterest-scientific-deliverable", args=[self.area.id])
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "deliverable": "DNBR",
+                "analysis_run_id": self.analysis.id,
+            }
         )
-        query = urlencode({
-            "pre_fire_date": "2023-01-01",
-            "post_fire_date": "2023-01-15",
-            "deliverable": "DNBR",
-            "analysis_run_id": self.analysis.id,
-        })
         mock_process.return_value = SimpleNamespace(id="celery-task-xyz")
         response = self.client.post(f"{url}?{query}")
 
@@ -875,14 +869,14 @@ class ScientificDeliverableWithRunIdTests(APITestCase):
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     def test_scientific_deliverable_without_run_id(self, mock_process):
         self.client.force_authenticate(user=self.user)
-        url = reverse(
-            "areaofinterest-scientific-deliverable", args=[self.area.id]
+        url = reverse("areaofinterest-scientific-deliverable", args=[self.area.id])
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "deliverable": "DNBR",
+            }
         )
-        query = urlencode({
-            "pre_fire_date": "2023-01-01",
-            "post_fire_date": "2023-01-15",
-            "deliverable": "DNBR",
-        })
         mock_process.return_value = SimpleNamespace(id="celery-task-abc")
         response = self.client.post(f"{url}?{query}")
 
@@ -1019,8 +1013,6 @@ class UserMeViewExtendedTests(APITestCase):
 
     def test_get_theme_without_profile(self):
         """Test that theme defaults to 'dark' when user has no profile."""
-        from wildfire_assessment.models import UserProfile
-
         # Delete the auto-created profile
         UserProfile.objects.filter(user=self.user).delete()
         self.client.force_authenticate(user=self.user)
@@ -1045,7 +1037,6 @@ class UserMeViewExtendedTests(APITestCase):
         self.assertIsNone(response.json()["dashboard_widgets"])
 
     def test_get_authorized_countries(self):
-        from wildfire_assessment.models import UserCountry
         country = Country.objects.create(name="Auth Country", code="AU")
         UserCountry.objects.create(user=self.user, country=country)
         self.client.force_authenticate(user=self.user)
@@ -1060,11 +1051,11 @@ class AnalysisRunDeleteTests(APITestCase):
     """Tests for deleting analysis runs."""
 
     def setUp(self):
-        from wildfire_assessment.models import AnalysisRun
-
         self.country = Country.objects.create(name="Del Country", code="DL")
         self.area = AreaOfInterest.objects.create(
-            name="Del Area", polygon_path="del.json", country=self.country,
+            name="Del Area",
+            polygon_path="del.json",
+            country=self.country,
         )
         self.user = User.objects.create_user(
             username="deluser", email="del@example.com", password="password"
@@ -1078,8 +1069,6 @@ class AnalysisRunDeleteTests(APITestCase):
         )
 
     def test_delete_analysis_run(self):
-        from wildfire_assessment.models import AnalysisRun
-
         self.client.force_authenticate(user=self.user)
         url = reverse("analysisrun-detail", args=[self.analysis.id])
         response = self.client.delete(url)

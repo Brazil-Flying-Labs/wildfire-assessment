@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "./LanguageContext";
 
 function NotificationBell({
@@ -6,28 +7,68 @@ function NotificationBell({
   unreadCount,
   notifications,
   onOpen,
+  loading,
+  hasMore,
+  onLoadMore,
 }) {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef(null);
+  const [position, setPosition] = useState(null);
+  const triggerRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const bodyRef = useRef(null);
 
   const toggle = useCallback(() => {
     const willOpen = !isOpen;
     setIsOpen(willOpen);
-    if (willOpen && onOpen) onOpen();
+    if (willOpen) {
+      // Calculate position from the trigger button
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setPosition({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+      }
+      if (onOpen) onOpen();
+    }
   }, [isOpen, onOpen]);
 
-  // Close on outside click
+  // Lock body scroll while dropdown is open on mobile
+  useEffect(() => {
+    if (!isOpen || window.innerWidth >= 768) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  // Close on outside click (check both the trigger button and the portal dropdown)
   useEffect(() => {
     if (!isOpen) return;
     const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+      const inTrigger =
+        triggerRef.current && triggerRef.current.contains(e.target);
+      const inDropdown =
+        dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!inTrigger && !inDropdown) {
         setIsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [isOpen]);
+
+  // Infinite scroll
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!body || !isOpen) return;
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = body;
+      if (scrollHeight - scrollTop - clientHeight < 50 && hasMore && !loading) {
+        onLoadMore();
+      }
+    };
+    body.addEventListener("scroll", handleScroll);
+    return () => body.removeEventListener("scroll", handleScroll);
+  }, [isOpen, hasMore, loading, onLoadMore]);
 
   const handleNotificationClick = useCallback(
     (notification) => {
@@ -57,8 +98,76 @@ function NotificationBell({
     [t]
   );
 
+  // Inline positioning for desktop (portal); mobile overrides via CSS
+  const dropdownStyle = position
+    ? { top: position.top, right: position.right }
+    : {};
+
+  const dropdown = isOpen && (
+    <div
+      className="notification-dropdown"
+      ref={dropdownRef}
+      style={dropdownStyle}
+    >
+      <div className="notification-dropdown-header">
+        <span className="fw-semibold">{t("notifications.title")}</span>
+      </div>
+      <div className="notification-dropdown-body" ref={bodyRef}>
+        {loading && notifications.length === 0 ? (
+          <div className="notification-empty">
+            <div
+              className="spinner-border spinner-border-sm text-primary"
+              role="status"
+            >
+              <span className="visually-hidden">
+                {t("common.loading")}
+              </span>
+            </div>
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="notification-empty">
+            {t("notifications.empty")}
+          </div>
+        ) : (
+          <>
+            {notifications.map((n) => (
+              <button
+                key={n.id}
+                type="button"
+                className={`notification-item${n.is_read ? "" : " is-unread"}`}
+                onClick={() => handleNotificationClick(n)}
+              >
+                <div className="notification-item-text">
+                  {t("notifications.deliverableReady", {
+                    deliverable: n.deliverable_name,
+                    area: n.area_name,
+                  })}
+                </div>
+                <div className="notification-item-time">
+                  {formatTimeAgo(n.created_at)}
+                </div>
+              </button>
+            ))}
+            {loading && (
+              <div className="notification-empty">
+                <div
+                  className="spinner-border spinner-border-sm text-primary"
+                  role="status"
+                >
+                  <span className="visually-hidden">
+                    {t("common.loading")}
+                  </span>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="notification-bell" ref={menuRef}>
+    <div className="notification-bell" ref={triggerRef}>
       <button
         type="button"
         className="notification-bell-trigger"
@@ -84,39 +193,7 @@ function NotificationBell({
           </span>
         )}
       </button>
-      {isOpen && (
-        <div className="notification-dropdown">
-          <div className="notification-dropdown-header">
-            <span className="fw-semibold">{t("notifications.title")}</span>
-          </div>
-          <div className="notification-dropdown-body">
-            {notifications.length === 0 ? (
-              <div className="notification-empty">
-                {t("notifications.empty")}
-              </div>
-            ) : (
-              notifications.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  className={`notification-item${n.is_read ? "" : " is-unread"}`}
-                  onClick={() => handleNotificationClick(n)}
-                >
-                  <div className="notification-item-text">
-                    {t("notifications.deliverableReady", {
-                      deliverable: n.deliverable_name,
-                      area: n.area_name,
-                    })}
-                  </div>
-                  <div className="notification-item-time">
-                    {formatTimeAgo(n.created_at)}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+      {createPortal(dropdown, document.body)}
     </div>
   );
 }
