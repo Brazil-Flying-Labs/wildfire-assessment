@@ -335,7 +335,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack }) {
                         <span className="d-flex align-items-center gap-2">
                           {severityColorMap[name] && (
                             <span
-                              className="d-inline-block rounded"
+                              className="d-inline-block rounded severity-color"
                               style={{
                                 width: '12px',
                                 height: '12px',

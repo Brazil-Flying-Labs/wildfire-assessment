@@ -1578,8 +1578,22 @@
   * {
     box-shadow: none !important;
     text-shadow: none !important;
+    background-color: transparent !important;
+  }
+
+  body,
+  .app-root,
+  .app-main,
+  .card,
+  .card-body,
+  .card-header {
+    background-color: #fff !important;
+  }
+
+  .severity-color {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    background-color: inherit !important;
   }
 
   .card {
@@ -1588,7 +1602,6 @@
   }
 
   .card-header {
-    background-color: #fff !important;
     border-bottom: 1px solid #000 !important;
   }
 
