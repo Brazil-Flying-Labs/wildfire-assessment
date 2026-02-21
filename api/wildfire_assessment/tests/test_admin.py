@@ -160,3 +160,131 @@ class AnalysisRunAdminTests(TestCase):
         admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
         html = str(admin_instance.image_previews(analysis_empty))
         self.assertIn("No images available", html)
+
+    def test_has_add_permission_returns_false(self):
+        from wildfire_assessment.admin import AnalysisRunAdmin
+
+        admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
+        from django.test import RequestFactory
+        request = RequestFactory().get("/")
+        self.assertFalse(admin_instance.has_add_permission(request))
+
+    def test_has_change_permission_returns_false(self):
+        from wildfire_assessment.admin import AnalysisRunAdmin
+
+        admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
+        from django.test import RequestFactory
+        request = RequestFactory().get("/")
+        self.assertFalse(admin_instance.has_change_permission(request))
+        self.assertFalse(admin_instance.has_change_permission(request, obj=self.analysis))
+
+    def test_has_delete_permission_returns_false(self):
+        from wildfire_assessment.admin import AnalysisRunAdmin
+
+        admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
+        from django.test import RequestFactory
+        request = RequestFactory().get("/")
+        self.assertFalse(admin_instance.has_delete_permission(request))
+        self.assertFalse(admin_instance.has_delete_permission(request, obj=self.analysis))
+
+
+class AreaOfInterestAdminFormValidationTests(TestCase):
+    """Tests for admin form GeoJSON validation and duplicate detection."""
+
+    def setUp(self):
+        self.country = Country.objects.create(name="Val Country", code="VC")
+
+    def test_clean_geojson_file_invalid_json(self):
+        uploaded_file = SimpleUploadedFile(
+            "bad.geojson", b"not valid json", content_type="application/json"
+        )
+        form = AreaOfInterestAdminForm(
+            data={"name": "Test Area", "country": self.country.id},
+            files={"geojson_file": uploaded_file},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("geojson_file", form.errors)
+        self.assertIn("Invalid JSON", form.errors["geojson_file"][0])
+
+    def test_clean_geojson_file_feature_unsupported_geometry(self):
+        geojson = b'{"type": "Feature", "geometry": {"type": "Point", "coordinates": [0, 0]}, "properties": {}}'
+        uploaded_file = SimpleUploadedFile(
+            "point.geojson", geojson, content_type="application/json"
+        )
+        form = AreaOfInterestAdminForm(
+            data={"name": "Test Area", "country": self.country.id},
+            files={"geojson_file": uploaded_file},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("geojson_file", form.errors)
+        self.assertIn("Unsupported geometry type", form.errors["geojson_file"][0])
+
+    def test_clean_geojson_file_featurecollection_unsupported_geometry(self):
+        import json
+        geojson = json.dumps({
+            "type": "FeatureCollection",
+            "features": [
+                {"type": "Feature", "geometry": {"type": "LineString", "coordinates": [[0, 0], [1, 1]]}, "properties": {}}
+            ]
+        }).encode("utf-8")
+        uploaded_file = SimpleUploadedFile(
+            "lines.geojson", geojson, content_type="application/json"
+        )
+        form = AreaOfInterestAdminForm(
+            data={"name": "Test Area", "country": self.country.id},
+            files={"geojson_file": uploaded_file},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("geojson_file", form.errors)
+        self.assertIn("Feature[0]", form.errors["geojson_file"][0])
+
+    def test_clean_geojson_file_unsupported_top_level_type(self):
+        geojson = b'{"type": "Point", "coordinates": [0, 0]}'
+        uploaded_file = SimpleUploadedFile(
+            "point.geojson", geojson, content_type="application/json"
+        )
+        form = AreaOfInterestAdminForm(
+            data={"name": "Test Area", "country": self.country.id},
+            files={"geojson_file": uploaded_file},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("geojson_file", form.errors)
+        self.assertIn("Unsupported GeoJSON type", form.errors["geojson_file"][0])
+
+    def test_clean_duplicate_name_in_same_country(self):
+        AreaOfInterest.objects.create(
+            name="Duplicate Area", polygon_path="dup.geojson", country=self.country
+        )
+        form = AreaOfInterestAdminForm(
+            data={"name": "Duplicate Area", "country": self.country.id},
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("already exists", str(form.errors))
+
+    def test_clean_duplicate_name_allowed_for_same_instance(self):
+        area = AreaOfInterest.objects.create(
+            name="Existing Area", polygon_path="exist.geojson", country=self.country
+        )
+        form = AreaOfInterestAdminForm(
+            instance=area,
+            data={"name": "Existing Area", "country": self.country.id},
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+
+    @patch("wildfire_assessment.admin.upload_polygon_to_s3")
+    def test_clean_geojson_file_valid_feature_collection(self, _mock_upload):
+        import json
+        geojson = json.dumps({
+            "type": "FeatureCollection",
+            "features": [
+                {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}, "properties": {}}
+            ]
+        }).encode("utf-8")
+        uploaded_file = SimpleUploadedFile(
+            "fc.geojson", geojson, content_type="application/json"
+        )
+        form = AreaOfInterestAdminForm(
+            data={"name": "FC Area", "country": self.country.id},
+            files={"geojson_file": uploaded_file},
+        )
+        self.assertTrue(form.is_valid(), form.errors)

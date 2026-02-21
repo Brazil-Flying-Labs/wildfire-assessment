@@ -453,6 +453,121 @@ class AwsUtilsTests(TestCase):
         self.assertFalse(key.startswith("'"))
         self.assertEqual(json.loads(key)["key"], 123)
 
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_get_gee_private_key_json_dict_value(self, mock_secret):
+        """Test when GEE_PRIVATE_KEY_JSON is already a dict (not a string)."""
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": {"key": "value"}}
+        )
+        result = processor.get_gee_private_key_json()
+        self.assertEqual(result, {"key": "value"})
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_updates_analysis_run(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+        mock_unlink,
+    ):
+        """Test that analysis_run_id triggers DB update with URL and task ID clearance."""
+        user = User.objects.create_user(
+            username="runuser", email=self.email, password="pw"
+        )
+        country = Country.objects.create(name="Run Country", code="RN")
+        area = AreaOfInterest.objects.create(
+            name="Run Area", polygon_path="run.geojson", country=country
+        )
+        analysis_run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            scientific_dnbr_task_id="old-task-id",
+        )
+
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr.tif"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        result_status = processor.process_scientific_deliverable(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+            deliverable_name=Deliverable.DNBR.name,
+            email=self.email,
+            reserve_name=self.reserve_name,
+            analysis_run_id=analysis_run.id,
+        )
+
+        self.assertEqual(result_status, "COMPLETED")
+        analysis_run.refresh_from_db()
+        self.assertEqual(analysis_run.scientific_dnbr_url, "http://files/dnbr.tif")
+        self.assertIsNone(analysis_run.scientific_dnbr_task_id)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_scientific_deliverable_db_update_failure(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+        mock_unlink,
+    ):
+        """Test that DB update failure is handled gracefully."""
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr.tif"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        with patch.object(AnalysisRun.objects, "filter") as mock_filter:
+            mock_filter.return_value.update.side_effect = Exception("DB error")
+            result_status = processor.process_scientific_deliverable(
+                pre_fire_date=self.pre_fire_date,
+                post_fire_date=self.post_fire_date,
+                polygon_path=self.polygon_path,
+                deliverable_name=Deliverable.DNBR.name,
+                email=self.email,
+                reserve_name=self.reserve_name,
+                analysis_run_id=999,
+            )
+        # Should still complete despite DB error
+        self.assertEqual(result_status, "COMPLETED")
+
 
 class AreaOfInterestServiceTests(TestCase):
     def setUp(self):
@@ -991,3 +1106,188 @@ class DashboardServiceTests(TestCase):
     def test_largest_fire_none_when_empty(self):
         stats = dashboard_service.get_dashboard_stats(self.user)
         self.assertIsNone(stats["largest_fire"])
+
+    def test_severity_trend(self):
+        """Test severity_trend returns weighted average per day."""
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={
+                "Unburned": {"area_ha": 50.0},
+                "High Severity": {"area_ha": 50.0},
+            },
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        trend = stats["severity_trend"]
+        self.assertIsInstance(trend, list)
+        self.assertGreaterEqual(len(trend), 1)
+        self.assertIn("date", trend[0])
+        self.assertIn("avg_severity", trend[0])
+        # (0*50 + 3*50) / (50+50) = 1.50
+        self.assertEqual(trend[0]["avg_severity"], 1.50)
+
+    def test_severity_trend_empty(self):
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertEqual(stats["severity_trend"], [])
+
+    def test_severity_trend_skips_non_dict_data(self):
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data="not a dict",
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertEqual(stats["severity_trend"], [])
+
+    @patch("wildfire_assessment.svc.dashboard.download_polygon_from_s3")
+    def test_areas_geo_with_centroid(self, mock_download):
+        """Test _areas_geo returns geo data for areas with centroids."""
+        self.area.centroid_lat = -15.5
+        self.area.centroid_lng = -47.8
+        self.area.save()
+        mock_download.return_value = '{"type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,0]]]}'
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={"Total Burned Area": {"area_ha": 100.0}},
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        geo = stats["areas_geo"]
+        self.assertEqual(len(geo), 1)
+        self.assertEqual(geo[0]["name"], "Dash Area")
+        self.assertEqual(geo[0]["lat"], -15.5)
+        self.assertEqual(geo[0]["lng"], -47.8)
+        self.assertEqual(geo[0]["total_burned_ha"], 100.0)
+        self.assertEqual(geo[0]["run_count"], 1)
+        self.assertIsNotNone(geo[0]["geometry"])
+
+    def test_areas_geo_skips_area_without_centroid(self):
+        """Test that areas without centroids are excluded."""
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={"Total Burned Area": {"area_ha": 100.0}},
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        self.assertEqual(stats["areas_geo"], [])
+
+    @patch("wildfire_assessment.svc.dashboard.download_polygon_from_s3")
+    def test_areas_geo_s3_download_failure(self, mock_download):
+        """Test that S3 download failure is handled gracefully."""
+        self.area.centroid_lat = -15.5
+        self.area.centroid_lng = -47.8
+        self.area.save()
+        mock_download.side_effect = Exception("S3 error")
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={"Total Burned Area": {"area_ha": 100.0}},
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        geo = stats["areas_geo"]
+        self.assertEqual(len(geo), 1)
+        self.assertIsNone(geo[0]["geometry"])
+
+    @patch("wildfire_assessment.svc.dashboard.download_polygon_from_s3")
+    def test_areas_geo_multiple_runs_same_area(self, mock_download):
+        """Test aggregation across multiple runs for the same area."""
+        self.area.centroid_lat = -15.5
+        self.area.centroid_lng = -47.8
+        self.area.save()
+        mock_download.return_value = '{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,0]]]}}'
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={"Total Burned Area": {"area_ha": 100.0}},
+        )
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+            severity_data={"Total Burned Area": {"area_ha": 200.0}},
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        geo = stats["areas_geo"]
+        self.assertEqual(len(geo), 1)
+        self.assertEqual(geo[0]["total_burned_ha"], 300.0)
+        self.assertEqual(geo[0]["run_count"], 2)
+        # Geometry extracted from Feature
+        self.assertIsNotNone(geo[0]["geometry"])
+
+    @patch("wildfire_assessment.svc.dashboard.download_polygon_from_s3")
+    def test_areas_geo_empty_polygon_path(self, mock_download):
+        """Test that areas with empty polygon_path are skipped for S3 download."""
+        area2 = AreaOfInterest.objects.create(
+            name="No Path",
+            polygon_path="",
+            country=self.country,
+            centroid_lat=-10.0,
+            centroid_lng=-40.0,
+        )
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=area2,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={"Total Burned Area": {"area_ha": 50.0}},
+        )
+        stats = dashboard_service.get_dashboard_stats(self.user)
+        geo = stats["areas_geo"]
+        self.assertEqual(len(geo), 1)
+        mock_download.assert_not_called()
+        self.assertIsNone(geo[0]["geometry"])
+
+
+class ExtractGeometryTests(TestCase):
+    """Tests for _extract_geometry helper function."""
+
+    def test_feature_collection(self):
+        data = {
+            "type": "FeatureCollection",
+            "features": [{"geometry": {"type": "Polygon", "coordinates": []}}],
+        }
+        result = dashboard_service._extract_geometry(data)
+        self.assertEqual(result["type"], "Polygon")
+
+    def test_feature_collection_empty(self):
+        data = {"type": "FeatureCollection", "features": []}
+        result = dashboard_service._extract_geometry(data)
+        self.assertIsNone(result)
+
+    def test_feature(self):
+        data = {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": []}}
+        result = dashboard_service._extract_geometry(data)
+        self.assertEqual(result["type"], "Polygon")
+
+    def test_bare_polygon(self):
+        data = {"type": "Polygon", "coordinates": []}
+        result = dashboard_service._extract_geometry(data)
+        self.assertEqual(result, data)
+
+    def test_bare_multipolygon(self):
+        data = {"type": "MultiPolygon", "coordinates": []}
+        result = dashboard_service._extract_geometry(data)
+        self.assertEqual(result, data)
+
+    def test_unsupported_type(self):
+        data = {"type": "Point", "coordinates": [0, 0]}
+        result = dashboard_service._extract_geometry(data)
+        self.assertIsNone(result)
+
+    def test_missing_type(self):
+        data = {"coordinates": [0, 0]}
+        result = dashboard_service._extract_geometry(data)
+        self.assertIsNone(result)

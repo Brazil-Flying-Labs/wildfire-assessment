@@ -6,6 +6,8 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
   const [areas, setAreas] = useState([]);
   const [authorizedCountries, setAuthorizedCountries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
   const [error, setError] = useState(null);
   const [submitError, setSubmitError] = useState(null);
   const [submitSuccess, setSubmitSuccess] = useState(null);
@@ -40,7 +42,11 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
   const loadAreas = useCallback(async (page = 1, search = "") => {
     if (!baseUrl) return;
 
-    setLoading(true);
+    if (hasLoadedRef.current) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -64,7 +70,9 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
       console.error("Error loading areas:", err);
       setError(err.message);
     } finally {
+      hasLoadedRef.current = true;
       setLoading(false);
+      setRefreshing(false);
     }
   }, [authorizedFetch, baseUrl, t]);
 
@@ -468,7 +476,14 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
       )}
 
       {/* Areas Table */}
-      <div className="card shadow-sm">
+      <div className="card shadow-sm widget-refresh-wrapper">
+        {refreshing && (
+          <div className="widget-refresh-overlay">
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">{t("common.loading")}</span>
+            </div>
+          </div>
+        )}
         <div className="card-header">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <h3 className="h5 mb-0">{t("areas.existingAreas")}</h3>

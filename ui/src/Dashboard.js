@@ -146,6 +146,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const [stats, setStats] = useState(null);
   const [visibleIds, setVisibleIds] = useState(() => readLayout() || DEFAULT_WIDGET_IDS);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const backendSyncedRef = useRef(false);
 
@@ -202,6 +203,14 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       alert(t("dashboard.errorDeletingAnalysis"));
     }
   }, [authorizedFetch, baseUrl, loadDashboard, t]);
+
+  const toggleMenu = useCallback((id) => {
+    setOpenMenuId((prev) => (prev === id ? null : id));
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setOpenMenuId(null);
+  }, []);
 
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "-";
@@ -483,18 +492,61 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                         <td className="d-none d-lg-table-cell">
                           {formatDate(analysis.created_at)}
                         </td>
-                        <td onClick={(e) => e.stopPropagation()} className="text-center">
-                          <button
-                            className="btn btn-link btn-sm text-danger p-0"
-                            title={t("dashboard.deleteAnalysis")}
-                            aria-label={t("dashboard.deleteAnalysis")}
-                            onClick={() => setDeleteConfirmId(analysis.id)}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
-                            </svg>
-                          </button>
+                        <td onClick={(e) => e.stopPropagation()} className="text-end">
+                          {deleteConfirmId === analysis.id ? (
+                            <div className="d-flex gap-1 justify-content-end">
+                              <button
+                                type="button"
+                                className="btn btn-danger btn-sm"
+                                onClick={() => handleDeleteAnalysis(analysis.id)}
+                              >
+                                {t("dashboard.confirmDeleteAnalysis")}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm"
+                                onClick={() => setDeleteConfirmId(null)}
+                              >
+                                {t("dashboard.cancelDeleteAnalysis")}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="kebab-menu">
+                              <button
+                                type="button"
+                                className="btn btn-link text-secondary p-1 kebab-trigger"
+                                onClick={() => toggleMenu(analysis.id)}
+                                aria-label={t("areas.actions")}
+                              >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                  <circle cx="12" cy="5" r="2" />
+                                  <circle cx="12" cy="12" r="2" />
+                                  <circle cx="12" cy="19" r="2" />
+                                </svg>
+                              </button>
+                              {openMenuId === analysis.id && (
+                                <>
+                                  <div className="kebab-backdrop" onClick={closeMenu}></div>
+                                  <div className="kebab-dropdown">
+                                    <button
+                                      type="button"
+                                      className="kebab-item text-danger"
+                                      onClick={() => {
+                                        closeMenu();
+                                        setDeleteConfirmId(analysis.id);
+                                      }}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                      </svg>
+                                      {t("dashboard.deleteAnalysis")}
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -520,8 +572,66 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                     }}
                   >
                     <div className="mobile-card-header">
-                      <span className="mobile-card-title">{analysis.area_name}</span>
-                      <span className="mobile-card-badge">{analysis.country_name || "-"}</span>
+                      <div className="mobile-card-header-text">
+                        <span className="mobile-card-title">{analysis.area_name}</span>
+                        <span className="mobile-card-badge">{analysis.country_name || "-"}</span>
+                      </div>
+                      <div className="mobile-card-actions" onClick={(e) => e.stopPropagation()}>
+                        {deleteConfirmId === analysis.id ? (
+                          <div className="d-flex gap-1">
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm"
+                              onClick={() => handleDeleteAnalysis(analysis.id)}
+                            >
+                              {t("dashboard.confirmDeleteAnalysis")}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline-secondary btn-sm"
+                              onClick={() => setDeleteConfirmId(null)}
+                            >
+                              {t("dashboard.cancelDeleteAnalysis")}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="kebab-menu">
+                            <button
+                              type="button"
+                              className="btn btn-link text-secondary p-1 kebab-trigger"
+                              onClick={() => toggleMenu(analysis.id)}
+                              aria-label={t("areas.actions")}
+                            >
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2" />
+                                <circle cx="12" cy="12" r="2" />
+                                <circle cx="12" cy="19" r="2" />
+                              </svg>
+                            </button>
+                            {openMenuId === analysis.id && (
+                              <>
+                                <div className="kebab-backdrop" onClick={closeMenu}></div>
+                                <div className="kebab-dropdown">
+                                  <button
+                                    type="button"
+                                    className="kebab-item text-danger"
+                                    onClick={() => {
+                                      closeMenu();
+                                      setDeleteConfirmId(analysis.id);
+                                    }}
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                      <polyline points="3 6 5 6 21 6" />
+                                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    </svg>
+                                    {t("dashboard.deleteAnalysis")}
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="mobile-card-body">
                       <div className="mobile-card-row">
@@ -540,19 +650,6 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                         <span className="mobile-card-label">{t("dashboard.runDate")}</span>
                         <span>{formatDate(analysis.created_at)}</span>
                       </div>
-                      <div className="mobile-card-row" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          className="btn btn-link btn-sm text-danger p-0 ms-auto"
-                          title={t("dashboard.deleteAnalysis")}
-                          aria-label={t("dashboard.deleteAnalysis")}
-                          onClick={() => setDeleteConfirmId(analysis.id)}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
-                          </svg>
-                        </button>
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -568,7 +665,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
     severity_trend: () => (
       <SeverityTrendWidget severityTrend={stats?.severity_trend} />
     ),
-  }), [stats, t, formatNumber, formatDate, onAnalysisClick, deleteConfirmId, handleDeleteAnalysis]);
+  }), [stats, t, formatNumber, formatDate, onAnalysisClick, deleteConfirmId, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu]);
 
   if (loading) {
     return (
@@ -606,7 +703,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         {renderer()}
         {refreshing && (
           <div className="widget-refresh-overlay">
-            <div className="spinner-border spinner-border-sm text-primary" role="status">
+            <div className="spinner-border text-primary" role="status">
               <span className="visually-hidden">{t("common.loading")}</span>
             </div>
           </div>
@@ -614,49 +711,6 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       </div>
     );
   };
-
-  const deleteModal = deleteConfirmId != null && (
-    <>
-      <div
-        className="modal-backdrop fade show"
-        onClick={() => setDeleteConfirmId(null)}
-      ></div>
-      <div className="modal fade show d-block" tabIndex="-1" role="dialog">
-        <div className="modal-dialog modal-dialog-centered" role="document">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">{t("dashboard.deleteAnalysis")}</h5>
-              <button
-                type="button"
-                className="btn-close"
-                onClick={() => setDeleteConfirmId(null)}
-                aria-label={t("common.close")}
-              ></button>
-            </div>
-            <div className="modal-body">
-              <p>{t("dashboard.confirmDeleteAnalysisMsg")}</p>
-            </div>
-            <div className="modal-footer">
-              <button
-                type="button"
-                className="btn btn-outline-secondary"
-                onClick={() => setDeleteConfirmId(null)}
-              >
-                {t("dashboard.cancelDeleteAnalysis")}
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                onClick={() => handleDeleteAnalysis(deleteConfirmId)}
-              >
-                {t("dashboard.confirmDeleteAnalysis")}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
 
   /* Mobile: all widgets, original order, no DnD */
   if (!isDesktop) {
@@ -670,7 +724,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
             </div>
           ))}
         </div>
-        {deleteModal}
+
       </div>
     );
   }
@@ -763,7 +817,6 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         </>
       )}
 
-      {deleteModal}
     </div>
   );
 }

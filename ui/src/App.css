@@ -928,7 +928,8 @@
 }
 
 .areas-management .table-responsive {
-  overflow: visible;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .areas-table td {
@@ -1777,6 +1778,9 @@
 
 .widget-refresh-wrapper {
   position: relative;
+}
+
+.dashboard-grid .widget-refresh-wrapper {
   height: 100%;
 }
 

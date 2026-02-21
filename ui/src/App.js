@@ -10,7 +10,7 @@ import AreasOfInterest from "./AreasOfInterest";
 import Dashboard from "./Dashboard";
 import UserProfile from "./UserProfile";
 
-const UI_VERSION = "1.3.0";
+const UI_VERSION = "1.4.8";
 
 function App() {
   const { t, language } = useLanguage();

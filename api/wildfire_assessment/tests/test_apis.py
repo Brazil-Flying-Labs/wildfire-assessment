@@ -734,6 +734,156 @@ class DashboardViewTests(APITestCase):
         self.assertIn("largest_fire", data)
 
 
+class AnalysisRunTaskStatusTests(APITestCase):
+    """Tests for the task_status action on AnalysisRunViewSet."""
+
+    def setUp(self):
+        from wildfire_assessment.models import AnalysisRun
+
+        self.country = Country.objects.create(name="Task Country", code="TK")
+        self.area = AreaOfInterest.objects.create(
+            name="Task Area",
+            polygon_path="polygon.json",
+            country=self.country,
+        )
+        self.user = User.objects.create_user(
+            username="taskuser", email="task@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            scientific_dnbr_url="http://example.com/dnbr.tif",
+        )
+
+    def test_task_status_requires_task_id(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("task_id is required", response.json()["error"])
+
+    @patch("celery.result.AsyncResult")
+    def test_task_status_pending(self, mock_async):
+        mock_result = SimpleNamespace(state="PENDING", result=None)
+        mock_async.return_value = mock_result
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(f"{url}?task_id=abc-123")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["state"], "PENDING")
+
+    @patch("celery.result.AsyncResult")
+    def test_task_status_success_with_deliverable(self, mock_async):
+        mock_result = SimpleNamespace(state="SUCCESS", result=None)
+        mock_async.return_value = mock_result
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(f"{url}?task_id=abc-123&deliverable=DNBR")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["state"], "SUCCESS")
+        self.assertEqual(data["url"], "http://example.com/dnbr.tif")
+
+    @patch("celery.result.AsyncResult")
+    def test_task_status_success_without_deliverable(self, mock_async):
+        mock_result = SimpleNamespace(state="SUCCESS", result=None)
+        mock_async.return_value = mock_result
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(f"{url}?task_id=abc-123")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["state"], "SUCCESS")
+        self.assertNotIn("url", data)
+
+    @patch("celery.result.AsyncResult")
+    def test_task_status_failure(self, mock_async):
+        mock_result = SimpleNamespace(state="FAILURE", result=RuntimeError("Task boom"))
+        mock_async.return_value = mock_result
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(f"{url}?task_id=abc-123")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["state"], "FAILURE")
+        self.assertIn("Task boom", data["error"])
+
+    @patch("celery.result.AsyncResult")
+    def test_task_status_failure_no_result(self, mock_async):
+        mock_result = SimpleNamespace(state="FAILURE", result=None)
+        mock_async.return_value = mock_result
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(f"{url}?task_id=abc-123")
+        data = response.json()
+        self.assertEqual(data["error"], "Task failed")
+
+
+class ScientificDeliverableWithRunIdTests(APITestCase):
+    """Tests for scientific_deliverable with analysis_run_id persistence."""
+
+    def setUp(self):
+        from wildfire_assessment.models import AnalysisRun
+
+        self.country = Country.objects.create(name="Sci Country", code="SC")
+        self.area = AreaOfInterest.objects.create(
+            name="Sci Area",
+            polygon_path="polygon.json",
+            country=self.country,
+        )
+        self.user = User.objects.create_user(
+            username="sciuser", email="sci@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    def test_scientific_deliverable_persists_task_id(self, mock_process):
+        from wildfire_assessment.models import AnalysisRun
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse(
+            "areaofinterest-scientific-deliverable", args=[self.area.id]
+        )
+        query = urlencode({
+            "pre_fire_date": "2023-01-01",
+            "post_fire_date": "2023-01-15",
+            "deliverable": "DNBR",
+            "analysis_run_id": self.analysis.id,
+        })
+        mock_process.return_value = SimpleNamespace(id="celery-task-xyz")
+        response = self.client.post(f"{url}?{query}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.analysis.refresh_from_db()
+        self.assertEqual(self.analysis.scientific_dnbr_task_id, "celery-task-xyz")
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    def test_scientific_deliverable_without_run_id(self, mock_process):
+        self.client.force_authenticate(user=self.user)
+        url = reverse(
+            "areaofinterest-scientific-deliverable", args=[self.area.id]
+        )
+        query = urlencode({
+            "pre_fire_date": "2023-01-01",
+            "post_fire_date": "2023-01-15",
+            "deliverable": "DNBR",
+        })
+        mock_process.return_value = SimpleNamespace(id="celery-task-abc")
+        response = self.client.post(f"{url}?{query}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["task_id"], "celery-task-abc")
+
+
 class AreaOfInterestUpdateTests(APITestCase):
     """Tests for updating areas of interest."""
 
@@ -871,3 +1021,61 @@ class UserMeViewExtendedTests(APITestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["theme"], "dark")
+
+    def test_patch_dashboard_widgets(self):
+        self.client.force_authenticate(user=self.user)
+        widgets = ["summary", "severity_breakdown", "area_comparison"]
+        response = self.client.patch(
+            self.url, {"dashboard_widgets": widgets}, format="json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.dashboard_widgets, widgets)
+
+    def test_get_dashboard_widgets_default(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.json()["dashboard_widgets"])
+
+    def test_get_authorized_countries(self):
+        from wildfire_assessment.models import UserCountry
+        country = Country.objects.create(name="Auth Country", code="AU")
+        UserCountry.objects.create(user=self.user, country=country)
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        countries = response.json()["authorized_countries"]
+        self.assertEqual(len(countries), 1)
+        self.assertEqual(countries[0]["code"], "AU")
+
+
+class AnalysisRunDeleteTests(APITestCase):
+    """Tests for deleting analysis runs."""
+
+    def setUp(self):
+        from wildfire_assessment.models import AnalysisRun
+
+        self.country = Country.objects.create(name="Del Country", code="DL")
+        self.area = AreaOfInterest.objects.create(
+            name="Del Area", polygon_path="del.json", country=self.country,
+        )
+        self.user = User.objects.create_user(
+            username="deluser", email="del@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+
+    def test_delete_analysis_run(self):
+        from wildfire_assessment.models import AnalysisRun
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-detail", args=[self.analysis.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(AnalysisRun.objects.filter(id=self.analysis.id).exists())
