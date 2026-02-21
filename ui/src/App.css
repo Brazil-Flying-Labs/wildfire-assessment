@@ -535,15 +535,17 @@
     top: 60px !important;
     left: 0 !important;
     right: 0 !important;
+    bottom: 0 !important;
     width: 100%;
-    max-height: calc(100vh - 60px);
+    max-height: none;
     border-radius: 0;
     border-left: none;
     border-right: none;
   }
 
   .notification-dropdown-body {
-    max-height: calc(100vh - 60px - 42px);
+    flex: 1;
+    max-height: none;
   }
 
   /* Hide header avatar on mobile — shown in sidebar instead */
