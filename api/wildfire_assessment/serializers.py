@@ -509,7 +509,7 @@ class LargestFireSerializer(serializers.Serializer):
 
 
 class SeverityTrendItemSerializer(serializers.Serializer):
-    month = serializers.CharField()
+    date = serializers.CharField()
     avg_severity = serializers.FloatField()
 
 
@@ -521,6 +521,7 @@ class AreaGeoSerializer(serializers.Serializer):
     total_burned_ha = serializers.FloatField()
     last_analysis_date = serializers.CharField(allow_null=True)
     run_count = serializers.IntegerField()
+    geometry = serializers.JSONField(allow_null=True)
 
 
 class DashboardStatsSerializer(serializers.Serializer):

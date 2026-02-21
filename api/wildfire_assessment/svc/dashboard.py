@@ -1,9 +1,15 @@
+import json
+import logging
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
 
 from django.db.models import Count
 from django.utils import timezone
 from wildfire_assessment.models import AnalysisRun
+from wildfire_assessment.svc.aws import download_polygon_from_s3
+
+logger = logging.getLogger(__name__)
 
 SEVERITY_KEYS = [
     "Unburned",
@@ -134,35 +140,51 @@ def _largest_fire(analyses_qs):
 
 
 def _severity_trend(analyses_qs):
-    """Weighted average severity per month, sorted chronologically."""
-    monthly = defaultdict(lambda: {"weighted_sum": Decimal(0), "total_area": Decimal(0)})
-    for run in analyses_qs.filter(severity_data__isnull=False):
+    """Weighted average severity per day, limited to the last 180 days."""
+    cutoff = timezone.now() - timedelta(days=180)
+    daily = defaultdict(lambda: {"weighted_sum": Decimal(0), "total_area": Decimal(0)})
+    for run in analyses_qs.filter(severity_data__isnull=False, created_at__gte=cutoff):
         data = run.severity_data
         if not isinstance(data, dict):
             continue
-        month_key = run.created_at.strftime("%Y-%m") if run.created_at else None
-        if not month_key:
+        day_key = run.created_at.strftime("%Y-%m-%d") if run.created_at else None
+        if not day_key:
             continue
         for key, weight in SEVERITY_WEIGHTS.items():
             val = data.get(key, {}).get("area_ha")
             if val is not None:
                 area = Decimal(str(val))
-                monthly[month_key]["weighted_sum"] += Decimal(str(weight)) * area
-                monthly[month_key]["total_area"] += area
+                daily[day_key]["weighted_sum"] += Decimal(str(weight)) * area
+                daily[day_key]["total_area"] += area
     result = []
-    for month_key in sorted(monthly.keys()):
-        entry = monthly[month_key]
+    for day_key in sorted(daily.keys()):
+        entry = daily[day_key]
         if entry["total_area"] > 0:
             avg = float(
                 (entry["weighted_sum"] / entry["total_area"]).quantize(Decimal("0.01"))
             )
-            result.append({"month": month_key, "avg_severity": avg})
+            result.append({"date": day_key, "avg_severity": avg})
     return result
+
+
+def _extract_geometry(geojson_data):
+    """Extract geometry from a GeoJSON object (Feature, FeatureCollection, or bare geometry)."""
+    geojson_type = geojson_data.get("type", "")
+    if geojson_type == "FeatureCollection":
+        features = geojson_data.get("features", [])
+        if features:
+            return features[0].get("geometry")
+    elif geojson_type == "Feature":
+        return geojson_data.get("geometry")
+    elif geojson_type in ("Polygon", "MultiPolygon"):
+        return geojson_data
+    return None
 
 
 def _areas_geo(analyses_qs):
     """Aggregate geo data for all areas with analyses."""
     area_data = {}
+    polygon_paths = {}
     for run in analyses_qs.filter(
         severity_data__isnull=False
     ).select_related("area_of_interest"):
@@ -178,7 +200,9 @@ def _areas_geo(analyses_qs):
                 "total_burned_ha": Decimal(0),
                 "last_analysis_date": None,
                 "run_count": 0,
+                "geometry": None,
             }
+            polygon_paths[aoi.id] = aoi.polygon_path
         entry = area_data[aoi.id]
         burned = run.severity_data.get("Total Burned Area", {}).get("area_ha")
         if burned is not None:
@@ -190,6 +214,18 @@ def _areas_geo(analyses_qs):
             or run_date > entry["last_analysis_date"]
         ):
             entry["last_analysis_date"] = run_date
+
+    # Download polygon geometries from S3
+    for area_id, path in polygon_paths.items():
+        if not path:
+            continue
+        try:
+            raw = download_polygon_from_s3(path)
+            geojson_data = json.loads(raw)
+            area_data[area_id]["geometry"] = _extract_geometry(geojson_data)
+        except Exception:
+            logger.warning("Failed to download polygon for area %s", area_id)
+
     for entry in area_data.values():
         entry["total_burned_ha"] = float(entry["total_burned_ha"])
     return list(area_data.values())

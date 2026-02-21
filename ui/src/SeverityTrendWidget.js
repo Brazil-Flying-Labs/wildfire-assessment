@@ -25,10 +25,20 @@ function severityColor(value) {
   return "#7f1d1d";
 }
 
-function formatMonth(monthStr, language) {
-  const [year, month] = monthStr.split("-");
-  const date = new Date(year, parseInt(month, 10) - 1);
+function formatDate(dateStr, language) {
+  const [year, month, day] = dateStr.split("-");
+  const date = new Date(year, parseInt(month, 10) - 1, parseInt(day, 10));
   return date.toLocaleDateString(language === "pt-BR" ? "pt-BR" : language, {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+function formatDateFull(dateStr, language) {
+  const [year, month, day] = dateStr.split("-");
+  const date = new Date(year, parseInt(month, 10) - 1, parseInt(day, 10));
+  return date.toLocaleDateString(language === "pt-BR" ? "pt-BR" : language, {
+    day: "numeric",
     month: "short",
     year: "numeric",
   });
@@ -43,7 +53,7 @@ export default function SeverityTrendWidget({ severityTrend }) {
     if (!severityTrend || severityTrend.length === 0) return [];
     return severityTrend.map((item) => ({
       ...item,
-      label: formatMonth(item.month, language),
+      label: formatDate(item.date, language),
     }));
   }, [severityTrend, language]);
 
@@ -61,7 +71,7 @@ export default function SeverityTrendWidget({ severityTrend }) {
           color: "var(--text-primary, #212529)",
         }}
       >
-        <div className="fw-bold mb-1">{formatMonth(data.month, language)}</div>
+        <div className="fw-bold mb-1">{formatDateFull(data.date, language)}</div>
         <div>
           {t("dashboard.severityTrendAvg")}: <strong style={{ color: severityColor(val) }}>{val.toFixed(2)}</strong>
         </div>

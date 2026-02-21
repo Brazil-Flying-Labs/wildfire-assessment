@@ -4,7 +4,7 @@ import uuid
 from django.http import JsonResponse, StreamingHttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
-from rest_framework import generics, permissions, status, viewsets
+from rest_framework import generics, mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
@@ -303,11 +303,11 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         return Response({"task_id": task.id})
 
 
-class AnalysisRunViewSet(viewsets.ReadOnlyModelViewSet):
+class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet):
     """
-    ViewSet for AnalysisRun read operations.
+    ViewSet for AnalysisRun read and delete operations.
 
-    Supports list and retrieve operations.
+    Supports list, retrieve, and destroy operations.
     Users can only access analyses for areas in countries they are authorized for.
     """
 

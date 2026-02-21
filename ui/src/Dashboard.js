@@ -141,20 +141,28 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const { t } = useLanguage();
   const isDesktop = useIsDesktop();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
   const [visibleIds, setVisibleIds] = useState(() => readLayout() || DEFAULT_WIDGET_IDS);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const backendSyncedRef = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
+  const hasLoadedRef = useRef(false);
+
   const loadDashboard = useCallback(async () => {
     if (!baseUrl) return;
 
-    setLoading(true);
+    if (hasLoadedRef.current) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -162,6 +170,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       if (response.ok) {
         const data = await response.json();
         setStats(data);
+        hasLoadedRef.current = true;
       } else {
         throw new Error(t("dashboard.errorLoading"));
       }
@@ -170,12 +179,29 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       setError(err.message);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [authorizedFetch, baseUrl, t]);
 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  const handleDeleteAnalysis = useCallback(async (analysisId) => {
+    try {
+      const response = await authorizedFetch(`${baseUrl}/analysis_run/${analysisId}/`, {
+        method: "DELETE",
+      });
+      if (response.ok || response.status === 204) {
+        setDeleteConfirmId(null);
+        loadDashboard();
+      } else {
+        alert(t("dashboard.errorDeletingAnalysis"));
+      }
+    } catch {
+      alert(t("dashboard.errorDeletingAnalysis"));
+    }
+  }, [authorizedFetch, baseUrl, loadDashboard, t]);
 
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "-";
@@ -423,6 +449,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                       <th scope="col">{t("dashboard.areaHa")}</th>
                       <th scope="col">{t("dashboard.burnedHa")}</th>
                       <th scope="col" className="d-none d-lg-table-cell">{t("dashboard.runDate")}</th>
+                      <th scope="col" style={{ width: "1%" }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -455,6 +482,19 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                         </td>
                         <td className="d-none d-lg-table-cell">
                           {formatDate(analysis.created_at)}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()} className="text-center">
+                          <button
+                            className="btn btn-link btn-sm text-danger p-0"
+                            title={t("dashboard.deleteAnalysis")}
+                            aria-label={t("dashboard.deleteAnalysis")}
+                            onClick={() => setDeleteConfirmId(analysis.id)}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <line x1="18" y1="6" x2="6" y2="18" />
+                              <line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -500,6 +540,19 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                         <span className="mobile-card-label">{t("dashboard.runDate")}</span>
                         <span>{formatDate(analysis.created_at)}</span>
                       </div>
+                      <div className="mobile-card-row" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="btn btn-link btn-sm text-danger p-0 ms-auto"
+                          title={t("dashboard.deleteAnalysis")}
+                          aria-label={t("dashboard.deleteAnalysis")}
+                          onClick={() => setDeleteConfirmId(analysis.id)}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -515,7 +568,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
     severity_trend: () => (
       <SeverityTrendWidget severityTrend={stats?.severity_trend} />
     ),
-  }), [stats, t, formatNumber, formatDate, onAnalysisClick]);
+  }), [stats, t, formatNumber, formatDate, onAnalysisClick, deleteConfirmId, handleDeleteAnalysis]);
 
   if (loading) {
     return (
@@ -547,8 +600,63 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   /* Render widget by id — used for both desktop (sortable) and mobile (static) */
   const renderWidget = (id) => {
     const renderer = widgetRenderers[id];
-    return renderer ? renderer() : null;
+    if (!renderer) return null;
+    return (
+      <div className="widget-refresh-wrapper">
+        {renderer()}
+        {refreshing && (
+          <div className="widget-refresh-overlay">
+            <div className="spinner-border spinner-border-sm text-primary" role="status">
+              <span className="visually-hidden">{t("common.loading")}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
+
+  const deleteModal = deleteConfirmId != null && (
+    <>
+      <div
+        className="modal-backdrop fade show"
+        onClick={() => setDeleteConfirmId(null)}
+      ></div>
+      <div className="modal fade show d-block" tabIndex="-1" role="dialog">
+        <div className="modal-dialog modal-dialog-centered" role="document">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">{t("dashboard.deleteAnalysis")}</h5>
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setDeleteConfirmId(null)}
+                aria-label={t("common.close")}
+              ></button>
+            </div>
+            <div className="modal-body">
+              <p>{t("dashboard.confirmDeleteAnalysisMsg")}</p>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={() => setDeleteConfirmId(null)}
+              >
+                {t("dashboard.cancelDeleteAnalysis")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => handleDeleteAnalysis(deleteConfirmId)}
+              >
+                {t("dashboard.confirmDeleteAnalysis")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 
   /* Mobile: all widgets, original order, no DnD */
   if (!isDesktop) {
@@ -562,6 +670,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
             </div>
           ))}
         </div>
+        {deleteModal}
       </div>
     );
   }
@@ -653,6 +762,8 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
           </div>
         </>
       )}
+
+      {deleteModal}
     </div>
   );
 }

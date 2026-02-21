@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from "react";
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
+import { useCallback, useEffect, useMemo } from "react";
+import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useLanguage } from "./LanguageContext";
@@ -12,22 +12,75 @@ function burnedColor(totalBurnedHa) {
   return "#7f1d1d";
 }
 
-function burnedRadius(totalBurnedHa) {
-  if (totalBurnedHa <= 0) return 6;
-  if (totalBurnedHa < 50) return 8;
-  if (totalBurnedHa < 200) return 10;
-  if (totalBurnedHa < 1000) return 13;
-  return 16;
-}
-
 function FitBounds({ areasGeo }) {
   const map = useMap();
   useEffect(() => {
     if (!areasGeo || areasGeo.length === 0) return;
-    const bounds = L.latLngBounds(areasGeo.map((a) => [a.lat, a.lng]));
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+    // Build bounds from all areas — use geometry bounds if available, otherwise centroids
+    const allBounds = [];
+    areasGeo.forEach((a) => {
+      if (a.geometry) {
+        try {
+          const layer = L.geoJSON(a.geometry);
+          allBounds.push(layer.getBounds());
+        } catch {
+          allBounds.push(L.latLng(a.lat, a.lng));
+        }
+      } else {
+        allBounds.push(L.latLng(a.lat, a.lng));
+      }
+    });
+    if (allBounds.length === 0) return;
+    let bounds = L.latLngBounds();
+    allBounds.forEach((b) => {
+      if (b instanceof L.LatLngBounds) {
+        bounds.extend(b);
+      } else {
+        bounds.extend(b);
+      }
+    });
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+    }
   }, [map, areasGeo]);
   return null;
+}
+
+function AreaPolygon({ area, t }) {
+  const color = burnedColor(area.total_burned_ha);
+
+  const style = useCallback(() => ({
+    color,
+    fillColor: color,
+    fillOpacity: 0.35,
+    weight: 2,
+    opacity: 0.8,
+  }), [color]);
+
+  const onEachFeature = useCallback((_feature, layer) => {
+    layer.bindPopup(
+      `<strong>${area.name}</strong><br />` +
+      `${t("dashboard.burnedHa")}: ${area.total_burned_ha.toLocaleString(undefined, { maximumFractionDigits: 1 })} ha<br />` +
+      `${t("dashboard.fireMapRuns")}: ${area.run_count}<br />` +
+      (area.last_analysis_date ? `${t("dashboard.fireMapLastAnalysis")}: ${area.last_analysis_date}` : "")
+    );
+  }, [area, t]);
+
+  // Wrap geometry as a GeoJSON Feature for react-leaflet
+  const featureData = useMemo(() => ({
+    type: "Feature",
+    geometry: area.geometry,
+    properties: {},
+  }), [area.geometry]);
+
+  return (
+    <GeoJSON
+      key={`${area.id}-${color}`}
+      data={featureData}
+      style={style}
+      onEachFeature={onEachFeature}
+    />
+  );
 }
 
 export default function FireMapWidget({ areasGeo }) {
@@ -82,28 +135,32 @@ export default function FireMapWidget({ areasGeo }) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          {areasGeo.map((area) => (
-            <CircleMarker
-              key={area.id}
-              center={[area.lat, area.lng]}
-              radius={burnedRadius(area.total_burned_ha)}
-              pathOptions={{
-                color: burnedColor(area.total_burned_ha),
-                fillColor: burnedColor(area.total_burned_ha),
-                fillOpacity: 0.7,
-                weight: 2,
-              }}
-            >
-              <Popup>
-                <strong>{area.name}</strong><br />
-                {t("dashboard.burnedHa")}: {area.total_burned_ha.toLocaleString(undefined, { maximumFractionDigits: 1 })} ha<br />
-                {t("dashboard.fireMapRuns")}: {area.run_count}<br />
-                {area.last_analysis_date && (
-                  <>{t("dashboard.fireMapLastAnalysis")}: {area.last_analysis_date}</>
-                )}
-              </Popup>
-            </CircleMarker>
-          ))}
+          {areasGeo.map((area) =>
+            area.geometry ? (
+              <AreaPolygon key={area.id} area={area} t={t} />
+            ) : (
+              <CircleMarker
+                key={area.id}
+                center={[area.lat, area.lng]}
+                radius={8}
+                pathOptions={{
+                  color: burnedColor(area.total_burned_ha),
+                  fillColor: burnedColor(area.total_burned_ha),
+                  fillOpacity: 0.7,
+                  weight: 2,
+                }}
+              >
+                <Popup>
+                  <strong>{area.name}</strong><br />
+                  {t("dashboard.burnedHa")}: {area.total_burned_ha.toLocaleString(undefined, { maximumFractionDigits: 1 })} ha<br />
+                  {t("dashboard.fireMapRuns")}: {area.run_count}<br />
+                  {area.last_analysis_date && (
+                    <>{t("dashboard.fireMapLastAnalysis")}: {area.last_analysis_date}</>
+                  )}
+                </Popup>
+              </CircleMarker>
+            )
+          )}
         </MapContainer>
       </div>
     </div>

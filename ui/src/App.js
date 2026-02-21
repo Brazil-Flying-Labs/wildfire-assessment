@@ -1258,6 +1258,7 @@ function App() {
                             ref={preFirePickerRef}
                             type="date"
                             className="date-input-native"
+                            tabIndex={-1}
                             value={preFireDate}
                             onChange={(event) =>
                               setPreFireInput(normalizeDateValue(event.target.value))
@@ -1298,6 +1299,7 @@ function App() {
                             ref={postFirePickerRef}
                             type="date"
                             className="date-input-native"
+                            tabIndex={-1}
                             value={postFireDate}
                             onChange={(event) =>
                               setPostFireInput(normalizeDateValue(event.target.value))
