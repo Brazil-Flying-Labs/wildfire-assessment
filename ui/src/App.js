@@ -1183,6 +1183,7 @@ function App() {
             <AreasOfInterest
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
+              onBackToDashboard={handleBackFromAnalysisDetail}
             />
           ) : currentPage === "profile" ? (
             <UserProfile
@@ -1192,6 +1193,7 @@ function App() {
               backendProfile={backendProfile}
               onProfileUpdate={fetchBackendProfile}
               onThemeChange={updateTheme}
+              onBackToDashboard={handleBackFromAnalysisDetail}
             />
           ) : !backendAuthorizationError ? (
             <section className="app-main-content p-4 flex-grow-1">
@@ -1201,7 +1203,16 @@ function App() {
                 </div>
               ) : null}
 
-              <h2 className="h4 mb-4">{t("app.analysisTitle")}</h2>
+              <div className="d-flex align-items-center justify-content-between mb-4">
+                <h2 className="h4 mb-0">{t("app.analysisTitle")}</h2>
+                <button
+                  type="button"
+                  className="btn btn-link text-decoration-none p-0 no-print"
+                  onClick={handleBackFromAnalysisDetail}
+                >
+                  ← {t("analysisDetail.backToDashboard")}
+                </button>
+              </div>
 
               {/* Analysis Form Card */}
               <div className="card shadow-sm mb-4 no-print">

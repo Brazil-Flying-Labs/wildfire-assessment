@@ -12,7 +12,7 @@ const THEME_LABELS = {
   dark: { en: "Dark", "pt-BR": "Escuro", fr: "Sombre" },
 };
 
-function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate, onThemeChange }) {
+function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate, onThemeChange, onBackToDashboard }) {
   const { t, language, setLanguage } = useLanguage();
   const [loading, setLoading] = useState(!backendProfile);
   const [saving, setSaving] = useState(false);
@@ -126,7 +126,16 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
 
   return (
     <div className="user-profile p-4">
-      <h2 className="h4 mb-4">{t("profile.title")}</h2>
+      <div className="d-flex align-items-center justify-content-between mb-4">
+        <h2 className="h4 mb-0">{t("profile.title")}</h2>
+        <button
+          type="button"
+          className="btn btn-link text-decoration-none p-0 no-print"
+          onClick={onBackToDashboard}
+        >
+          ← {t("analysisDetail.backToDashboard")}
+        </button>
+      </div>
 
       <div className="card shadow-sm">
         <div className="card-body">

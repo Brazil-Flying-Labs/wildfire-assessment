@@ -65,8 +65,8 @@ function LandingPage({ onLogin, isAuthenticated }) {
         <div className="container" style={{ maxWidth: "800px" }}>
           <p className="text-muted mb-4">{t("landing.intro1")}</p>
           <p className="text-muted mb-4">{t("landing.intro2")}</p>
-          <p className="fw-semibold text-dark mb-4">{t("landing.intro3")}</p>
-          <p className="fw-bold text-dark fs-5">{t("landing.intro4")}</p>
+          <p className="fw-semibold text-body mb-4">{t("landing.intro3")}</p>
+          <p className="fw-bold text-body fs-5">{t("landing.intro4")}</p>
         </div>
       </section>
 
@@ -95,7 +95,7 @@ function LandingPage({ onLogin, isAuthenticated }) {
             <li>{t("landing.feature4")}</li>
             <li>{t("landing.feature5")}</li>
           </ul>
-          <p className="fw-semibold text-dark mb-1">{t("landing.noExpertise")}</p>
+          <p className="fw-semibold text-body mb-1">{t("landing.noExpertise")}</p>
           <p className="text-muted mb-4">{t("landing.fromRaw")}</p>
           <img
             src={`${process.env.PUBLIC_URL}/front-end-screenshot.png`}
@@ -132,7 +132,7 @@ function LandingPage({ onLogin, isAuthenticated }) {
         <div className="container" style={{ maxWidth: "800px" }}>
           <h2 className="h3 fw-bold mb-3">{t("landing.whyNowTitle")}</h2>
           <p className="text-muted mb-4">{t("landing.whyNowDesc")}</p>
-          <p className="fw-semibold text-dark">{t("landing.whyNowConclusion")}</p>
+          <p className="fw-semibold text-body">{t("landing.whyNowConclusion")}</p>
         </div>
       </section>
 

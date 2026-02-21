@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "./LanguageContext";
 
-function AreasOfInterest({ authorizedFetch, baseUrl }) {
+function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
   const { t } = useLanguage();
   const [areas, setAreas] = useState([]);
   const [authorizedCountries, setAuthorizedCountries] = useState([]);
@@ -432,7 +432,16 @@ function AreasOfInterest({ authorizedFetch, baseUrl }) {
 
   return (
     <div className="areas-management p-4">
-      <h2 className="h4 mb-4">{t("areas.title")}</h2>
+      <div className="d-flex align-items-center justify-content-between mb-4">
+        <h2 className="h4 mb-0">{t("areas.title")}</h2>
+        <button
+          type="button"
+          className="btn btn-link text-decoration-none p-0 no-print"
+          onClick={onBackToDashboard}
+        >
+          ← {t("analysisDetail.backToDashboard")}
+        </button>
+      </div>
 
       {/* Success/Error Messages */}
       {submitSuccess && (
