@@ -133,6 +133,68 @@ def _largest_fire(analyses_qs):
     return {"area_name": max_area_name, "burned_ha": max_burned}
 
 
+def _severity_trend(analyses_qs):
+    """Weighted average severity per month, sorted chronologically."""
+    monthly = defaultdict(lambda: {"weighted_sum": Decimal(0), "total_area": Decimal(0)})
+    for run in analyses_qs.filter(severity_data__isnull=False):
+        data = run.severity_data
+        if not isinstance(data, dict):
+            continue
+        month_key = run.created_at.strftime("%Y-%m") if run.created_at else None
+        if not month_key:
+            continue
+        for key, weight in SEVERITY_WEIGHTS.items():
+            val = data.get(key, {}).get("area_ha")
+            if val is not None:
+                area = Decimal(str(val))
+                monthly[month_key]["weighted_sum"] += Decimal(str(weight)) * area
+                monthly[month_key]["total_area"] += area
+    result = []
+    for month_key in sorted(monthly.keys()):
+        entry = monthly[month_key]
+        if entry["total_area"] > 0:
+            avg = float(
+                (entry["weighted_sum"] / entry["total_area"]).quantize(Decimal("0.01"))
+            )
+            result.append({"month": month_key, "avg_severity": avg})
+    return result
+
+
+def _areas_geo(analyses_qs):
+    """Aggregate geo data for all areas with analyses."""
+    area_data = {}
+    for run in analyses_qs.filter(
+        severity_data__isnull=False
+    ).select_related("area_of_interest"):
+        aoi = run.area_of_interest
+        if aoi.centroid_lat is None or aoi.centroid_lng is None:
+            continue
+        if aoi.id not in area_data:
+            area_data[aoi.id] = {
+                "id": aoi.id,
+                "name": aoi.name,
+                "lat": float(aoi.centroid_lat),
+                "lng": float(aoi.centroid_lng),
+                "total_burned_ha": Decimal(0),
+                "last_analysis_date": None,
+                "run_count": 0,
+            }
+        entry = area_data[aoi.id]
+        burned = run.severity_data.get("Total Burned Area", {}).get("area_ha")
+        if burned is not None:
+            entry["total_burned_ha"] += Decimal(str(burned))
+        entry["run_count"] += 1
+        run_date = str(run.created_at.date()) if run.created_at else None
+        if run_date and (
+            entry["last_analysis_date"] is None
+            or run_date > entry["last_analysis_date"]
+        ):
+            entry["last_analysis_date"] = run_date
+    for entry in area_data.values():
+        entry["total_burned_ha"] = float(entry["total_burned_ha"])
+    return list(area_data.values())
+
+
 def get_dashboard_stats(user):
     """Compute dashboard statistics for the authenticated user."""
     user_analyses = AnalysisRun.objects.filter(user=user)
@@ -167,4 +229,6 @@ def get_dashboard_stats(user):
         "average_burn_severity": _average_burn_severity(user_analyses),
         "most_analyzed_area": _most_analyzed_area(user_analyses),
         "largest_fire": _largest_fire(user_analyses),
+        "areas_geo": _areas_geo(user_analyses),
+        "severity_trend": _severity_trend(user_analyses),
     }

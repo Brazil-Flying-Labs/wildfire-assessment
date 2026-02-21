@@ -16,6 +16,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { useLanguage } from "./LanguageContext";
 import { ALL_WIDGETS, DEFAULT_WIDGET_IDS, getWidget } from "./widgetDefinitions";
 import useIsDesktop from "./useIsDesktop";
+import FireMapWidget from "./FireMapWidget";
+import SeverityTrendWidget from "./SeverityTrendWidget";
 
 const STORAGE_KEY = "dashboard_widgets";
 
@@ -506,6 +508,12 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
           )}
         </div>
       </div>
+    ),
+    fire_map: () => (
+      <FireMapWidget areasGeo={stats?.areas_geo} />
+    ),
+    severity_trend: () => (
+      <SeverityTrendWidget severityTrend={stats?.severity_trend} />
     ),
   }), [stats, t, formatNumber, formatDate, onAnalysisClick]);
 

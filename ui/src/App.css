@@ -1826,11 +1826,11 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #198754;
+  background: #0d6efd;
   border: none;
   color: #fff;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(25, 135, 84, 0.4);
+  box-shadow: 0 4px 12px rgba(13, 110, 253, 0.4);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   display: flex;
@@ -1840,7 +1840,7 @@
 
 .dashboard-fab:hover {
   transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(25, 135, 84, 0.5);
+  box-shadow: 0 6px 20px rgba(13, 110, 253, 0.5);
 }
 
 .dashboard-fab:active {
@@ -1881,12 +1881,26 @@
 }
 
 [data-theme="dark"] .dashboard-fab {
-  background: #157347;
-  box-shadow: 0 4px 12px rgba(21, 115, 71, 0.5);
+  background: #0b5ed7;
+  box-shadow: 0 4px 12px rgba(11, 94, 215, 0.5);
 }
 
 [data-theme="dark"] .dashboard-fab:hover {
-  box-shadow: 0 6px 20px rgba(21, 115, 71, 0.6);
+  box-shadow: 0 6px 20px rgba(11, 94, 215, 0.6);
+}
+
+/* Fire Map widget - Leaflet overrides */
+.dashboard .leaflet-container {
+  z-index: 1;
+}
+
+[data-theme="dark"] .leaflet-popup-content-wrapper {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .leaflet-popup-tip {
+  background: var(--bg-card);
 }
 
 /* Print styles */

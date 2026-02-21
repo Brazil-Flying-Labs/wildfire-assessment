@@ -33,10 +33,6 @@ class AreaOfInterestSerializer(serializers.ModelSerializer):
         read_only_fields = ["polygon_path", "area_ha"]
 
 
-# Alias for backward compatibility
-EcologicalReserveSerializer = AreaOfInterestSerializer
-
-
 class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating areas of interest with GeoJSON upload."""
 
@@ -227,11 +223,24 @@ class AreaOfInterestCreateSerializer(serializers.ModelSerializer):
         validated_data["polygon_path"] = filename
         validated_data["area_ha"] = None
 
+        # Compute centroid from GeoJSON
+        try:
+            from shapely.geometry import shape as shapely_shape
+
+            geojson_type = geojson_data.get("type")
+            if geojson_type == "Feature":
+                geom = shapely_shape(geojson_data["geometry"])
+            elif geojson_type == "FeatureCollection":
+                geom = shapely_shape(geojson_data["features"][0]["geometry"])
+            else:
+                geom = shapely_shape(geojson_data)
+            centroid = geom.centroid
+            validated_data["centroid_lat"] = round(centroid.y, 7)
+            validated_data["centroid_lng"] = round(centroid.x, 7)
+        except Exception:
+            pass
+
         return super().create(validated_data)
-
-
-# Alias for backward compatibility
-EcologicalReserveCreateSerializer = AreaOfInterestCreateSerializer
 
 
 class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
@@ -306,11 +315,24 @@ class AreaOfInterestUpdateSerializer(serializers.ModelSerializer):
 
             validated_data["polygon_path"] = filename
 
+            # Recompute centroid from new GeoJSON
+            try:
+                from shapely.geometry import shape as shapely_shape
+
+                geojson_type = geojson_data.get("type")
+                if geojson_type == "Feature":
+                    geom = shapely_shape(geojson_data["geometry"])
+                elif geojson_type == "FeatureCollection":
+                    geom = shapely_shape(geojson_data["features"][0]["geometry"])
+                else:
+                    geom = shapely_shape(geojson_data)
+                centroid = geom.centroid
+                validated_data["centroid_lat"] = round(centroid.y, 7)
+                validated_data["centroid_lng"] = round(centroid.x, 7)
+            except Exception:
+                pass
+
         return super().update(instance, validated_data)
-
-
-# Alias for backward compatibility
-EcologicalReserveUpdateSerializer = AreaOfInterestUpdateSerializer
 
 
 class UserMeSerializer(serializers.ModelSerializer):
@@ -486,6 +508,21 @@ class LargestFireSerializer(serializers.Serializer):
     burned_ha = serializers.DecimalField(max_digits=15, decimal_places=2)
 
 
+class SeverityTrendItemSerializer(serializers.Serializer):
+    month = serializers.CharField()
+    avg_severity = serializers.FloatField()
+
+
+class AreaGeoSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    lat = serializers.FloatField()
+    lng = serializers.FloatField()
+    total_burned_ha = serializers.FloatField()
+    last_analysis_date = serializers.CharField(allow_null=True)
+    run_count = serializers.IntegerField()
+
+
 class DashboardStatsSerializer(serializers.Serializer):
     """Serializer for dashboard statistics."""
 
@@ -506,6 +543,8 @@ class DashboardStatsSerializer(serializers.Serializer):
     )
     most_analyzed_area = MostAnalyzedAreaSerializer(allow_null=True)
     largest_fire = LargestFireSerializer(allow_null=True)
+    areas_geo = AreaGeoSerializer(many=True)
+    severity_trend = SeverityTrendItemSerializer(many=True)
 
 
 class AnalysisRequestSerializer(serializers.Serializer):

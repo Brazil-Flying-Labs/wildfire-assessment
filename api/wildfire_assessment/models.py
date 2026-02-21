@@ -30,15 +30,16 @@ class AreaOfInterest(models.Model):
         null=True,
         blank=True,
     )
+    centroid_lat = models.DecimalField(
+        max_digits=10, decimal_places=7, null=True, blank=True
+    )
+    centroid_lng = models.DecimalField(
+        max_digits=10, decimal_places=7, null=True, blank=True
+    )
 
     class Meta:
-        db_table = "wildfire_assessment_ecologicalreserve"
         verbose_name = "Area of Interest"
         verbose_name_plural = "Areas of Interest"
-
-
-# Alias for backward compatibility
-EcologicalReserve = AreaOfInterest
 
 
 class UserCountry(models.Model):
