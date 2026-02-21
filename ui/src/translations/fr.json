@@ -99,6 +99,8 @@
   "nav.analysis": "Analyse",
   "nav.areas": "Zones d'Intérêt",
   "nav.profile": "Profil",
+  "nav.keepOpen": "Garder ouvert",
+  "nav.collapse": "Réduire",
   "dashboard.title": "Tableau de Bord",
   "dashboard.totalAnalyses": "Analyses Totales",
   "dashboard.totalAreas": "Zones Surveillées",

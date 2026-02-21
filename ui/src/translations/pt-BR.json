@@ -99,6 +99,8 @@
   "nav.analysis": "Análise",
   "nav.areas": "Áreas de Interesse",
   "nav.profile": "Perfil",
+  "nav.keepOpen": "Manter aberto",
+  "nav.collapse": "Recolher",
   "dashboard.title": "Painel",
   "dashboard.totalAnalyses": "Total de Análises",
   "dashboard.totalAreas": "Áreas Monitoradas",

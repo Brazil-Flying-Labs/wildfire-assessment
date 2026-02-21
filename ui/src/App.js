@@ -39,6 +39,8 @@ function App() {
   const [deliverableStatus, setDeliverableStatus] = useState({});
   const [deliverableAlert, setDeliverableAlert] = useState(null);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isSidebarPinned, setIsSidebarPinned] = useState(false);
+  const [sidebarCollapsing, setSidebarCollapsing] = useState(false);
   const [backendProfile, setBackendProfile] = useState(null);
   const [showLandingPage, setShowLandingPageState] = useState(true);
   const setShowLandingPage = useCallback((value) => {
@@ -55,6 +57,13 @@ function App() {
 
   const closeNav = useCallback(() => {
     setIsNavOpen(false);
+  }, []);
+
+  const toggleSidebarPin = useCallback(() => {
+    setIsSidebarPinned((prev) => {
+      if (prev) setSidebarCollapsing(true);
+      return !prev;
+    });
   }, []);
 
   const navigateTo = useCallback((page, { replace = false } = {}) => {
@@ -895,7 +904,7 @@ function App() {
             </button>
             <button
               type="button"
-              className="btn p-0 border-0 bg-transparent"
+              className="btn p-0 border-0 bg-transparent header-logo-btn"
               onClick={() => navigateTo("dashboard")}
               aria-label={t("landing.title")}
             >
@@ -914,7 +923,7 @@ function App() {
           </div>
 
           <div className="d-flex align-items-center gap-2 header-actions">
-            <LanguageSelector className="form-select form-select-sm bg-transparent text-white border-light" />
+            <LanguageSelector />
             <div className="avatar-menu">
               {user?.picture ? (
                 <img
@@ -962,9 +971,11 @@ function App() {
             <span className="visually-hidden">{t("common.close")}</span>
           </button>
         )}
-        <nav className={`nav-sidebar ${isNavOpen ? "is-open" : ""}`}>
-          <div className="nav-sidebar-header d-flex justify-content-between align-items-center p-3">
-            <span className="fw-semibold">{t("app.title")}</span>
+        <nav
+          className={`nav-sidebar ${isSidebarPinned ? "is-pinned" : ""} ${sidebarCollapsing ? "is-collapsing" : ""} ${isNavOpen ? "is-open" : ""}`}
+          onMouseLeave={() => sidebarCollapsing && setSidebarCollapsing(false)}
+        >
+          <div className="nav-sidebar-header d-flex justify-content-end align-items-center p-3">
             <button
               type="button"
               className="btn btn-link text-dark p-0"
@@ -1033,6 +1044,57 @@ function App() {
               </button>
             </li>
           </ul>
+          <div className="nav-sidebar-pin">
+            <button
+              type="button"
+              className="nav-sidebar-item"
+              onClick={toggleSidebarPin}
+              title={isSidebarPinned ? t("nav.collapse") : t("nav.keepOpen")}
+            >
+              {isSidebarPinned ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="11 17 6 12 11 7" />
+                  <polyline points="18 17 13 12 18 7" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 17 11 12 6 7" />
+                  <polyline points="13 17 18 12 13 7" />
+                </svg>
+              )}
+              <span>{isSidebarPinned ? t("nav.collapse") : t("nav.keepOpen")}</span>
+            </button>
+          </div>
+          <div className="nav-sidebar-footer">
+            <div className="d-flex align-items-center gap-3 w-100">
+              {user?.picture ? (
+                <img
+                  src={user.picture}
+                  alt={displayName}
+                  className="rounded-circle flex-shrink-0"
+                  width="36"
+                  height="36"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className="avatar-fallback rounded-circle flex-shrink-0">
+                  {displayName.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <div className="min-width-0">
+                <div className="fw-medium small text-truncate">{displayName}</div>
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0 text-muted"
+                  onClick={() =>
+                    logout({ logoutParams: { returnTo: window.location.origin } })
+                  }
+                >
+                  {t("common.logout")}
+                </button>
+              </div>
+            </div>
+          </div>
         </nav>
 
         {/* Main Content */}
