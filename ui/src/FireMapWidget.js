@@ -16,32 +16,24 @@ function FitBounds({ areasGeo }) {
   const map = useMap();
   useEffect(() => {
     if (!areasGeo || areasGeo.length === 0) return;
-    // Build bounds from all areas — use geometry bounds if available, otherwise centroids
-    const allBounds = [];
-    areasGeo.forEach((a) => {
-      if (a.geometry) {
-        try {
-          const layer = L.geoJSON(a.geometry);
-          allBounds.push(layer.getBounds());
-        } catch {
-          allBounds.push(L.latLng(a.lat, a.lng));
+
+    // Find the area with the highest total burned hectares
+    const mostBurned = areasGeo.reduce((max, a) =>
+      (a.total_burned_ha || 0) > (max.total_burned_ha || 0) ? a : max
+    , areasGeo[0]);
+
+    // Fit map to that area's bounds
+    if (mostBurned.geometry) {
+      try {
+        const layer = L.geoJSON(mostBurned.geometry);
+        const bounds = layer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+          return;
         }
-      } else {
-        allBounds.push(L.latLng(a.lat, a.lng));
-      }
-    });
-    if (allBounds.length === 0) return;
-    let bounds = L.latLngBounds();
-    allBounds.forEach((b) => {
-      if (b instanceof L.LatLngBounds) {
-        bounds.extend(b);
-      } else {
-        bounds.extend(b);
-      }
-    });
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+      } catch { /* fall through */ }
     }
+    map.setView([mostBurned.lat, mostBurned.lng], 10);
   }, [map, areasGeo]);
   return null;
 }

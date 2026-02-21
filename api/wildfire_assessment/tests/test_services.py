@@ -413,6 +413,13 @@ class ProcessorTests(TestCase):
 
 
 class AwsUtilsTests(TestCase):
+    def setUp(self):
+        self.pre_fire_date = "2024-01-01"
+        self.post_fire_date = "2024-01-15"
+        self.polygon_path = "test-polygon.geojson"
+        self.email = "test@example.com"
+        self.reserve_name = "Test Reserve"
+
     @patch("wildfire_assessment.svc.aws.boto3.Session")
     def test_get_boto3_session_success(self, mock_session):
         session = MagicMock()
