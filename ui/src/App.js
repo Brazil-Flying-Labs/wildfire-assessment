@@ -604,6 +604,25 @@ function App() {
     []
   );
 
+  const handleDownloadSeverityCsv = useCallback(() => {
+    if (!severityEntries.length) return;
+    const header = "Severity,Area (ha),Percent\n";
+    const rows = severityEntries
+      .map(({ name, area, percent }) => {
+        const areaVal = area !== null && area !== undefined ? area : "";
+        const pctVal = percent !== null && percent !== undefined ? percent : "";
+        return `"${name}",${areaVal},${pctVal}`;
+      })
+      .join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "severity_distribution.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [severityEntries]);
+
   const scientificDeliverables = useMemo(
     () => [
       { label: "RGB pre-fire", value: "RGB_PRE_FIRE" },
@@ -1054,7 +1073,7 @@ function App() {
               ) : null}
 
               {/* Analysis Form Card */}
-              <div className="card shadow-sm mb-4">
+              <div className="card shadow-sm mb-4 no-print">
                 <div className="card-header bg-white">
                   <h2 className="h5 mb-0">{t("app.analysisParams")}</h2>
                 </div>
@@ -1206,6 +1225,21 @@ function App() {
               hasResults &&
               analysisResult ? (
                 <div className="analysis-results d-flex flex-column gap-4">
+                  <div className="d-flex justify-content-end no-print">
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                      onClick={() => window.print()}
+                      title={t("common.print")}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9" />
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                        <rect x="6" y="14" width="12" height="8" />
+                      </svg>
+                      {t("common.print")}
+                    </button>
+                  </div>
                   {bestDates ? (
                     <div className="card shadow-sm">
                       <div className="card-header">
@@ -1232,8 +1266,21 @@ function App() {
 
                   {severityEntries.length ? (
                     <div className="card shadow-sm">
-                      <div className="card-header">
+                      <div className="card-header d-flex align-items-center justify-content-between">
                         <h3 className="h5 mb-0">{t("app.severityTitle")}</h3>
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                          onClick={handleDownloadSeverityCsv}
+                          title={t("common.downloadCsv")}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                          </svg>
+                          CSV
+                        </button>
                       </div>
                       <div className="card-body">
                         <div className="table-responsive">
@@ -1303,7 +1350,7 @@ function App() {
                   ) : null}
 
                   {tiffEntries.length || csvEntry ? (
-                    <div className="card shadow-sm">
+                    <div className="card shadow-sm no-print">
                       <div className="card-header">
                         <h3 className="h5 mb-0">{t("app.downloads")}</h3>
                       </div>
@@ -1335,7 +1382,7 @@ function App() {
                     </div>
                   ) : null}
 
-                  <div className="card shadow-sm">
+                  <div className="card shadow-sm no-print">
                     <div className="card-header">
                       <h3 className="h5 mb-0">{t("app.viewJson")}</h3>
                     </div>
@@ -1351,7 +1398,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="card shadow-sm">
+                  <div className="card shadow-sm no-print">
                     <div className="card-header">
                       <h3 className="h5 mb-0">{t("app.deliverableTitle")}</h3>
                     </div>

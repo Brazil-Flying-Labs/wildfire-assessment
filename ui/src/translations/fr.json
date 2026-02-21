@@ -216,5 +216,7 @@
   "areas.of": "sur",
   "areas.pagination": "Pagination",
   "areas.prevPage": "Page précédente",
-  "areas.nextPage": "Page suivante"
+  "areas.nextPage": "Page suivante",
+  "common.downloadCsv": "Télécharger CSV",
+  "common.print": "Imprimer"
 }

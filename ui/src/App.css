@@ -1525,3 +1525,73 @@
 [data-theme="dark"] .stat-value {
   color: var(--text-primary);
 }
+
+/* Print styles */
+@media print {
+  .app-header,
+  .app-footer,
+  .nav-sidebar,
+  .nav-backdrop,
+  .ai-analysis-fab,
+  .no-print {
+    display: none !important;
+  }
+
+  .app-root {
+    min-height: auto !important;
+  }
+
+  .app-body {
+    display: block !important;
+  }
+
+  .app-main {
+    background-color: #fff !important;
+  }
+
+  body,
+  .app-root,
+  .card,
+  .card-body,
+  .card-header,
+  .table,
+  .table td,
+  .table th,
+  dt,
+  dd,
+  p,
+  span,
+  div {
+    color: #000 !important;
+  }
+
+  .text-muted {
+    color: #333 !important;
+  }
+
+  h1, h2, h3, h4, h5, h6,
+  .h1, .h2, .h3, .h4, .h5, .h6 {
+    color: #000 !important;
+    font-weight: 700 !important;
+  }
+
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .card {
+    border: 1px solid #000 !important;
+    break-inside: avoid;
+  }
+
+  .card-header {
+    background-color: #fff !important;
+    border-bottom: 1px solid #000 !important;
+  }
+
+  .analysis-results img,
+  .analysis-detail img {
+    max-height: 250px !important;
+  }
+}
