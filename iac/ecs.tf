@@ -105,18 +105,21 @@ locals {
     command    = ["printenv ALLOY_CONFIG_CONTENT > /tmp/config.alloy && exec /bin/alloy run --server.http.listen-addr=0.0.0.0:12345 /tmp/config.alloy"]
 
     environment = [
-      { name = "ALLOY_CONFIG_CONTENT", value = local.alloy_config },
-      { name = "GRAFANA_CLOUD_OTLP_ENDPOINT", value = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp" }
+      { name = "ALLOY_CONFIG_CONTENT", value = local.alloy_config }
     ]
 
     secrets = [
       {
         name      = "GRAFANA_CLOUD_INSTANCE_ID"
-        valueFrom = "${aws_secretsmanager_secret.grafana_cloud.arn}:instance_id::"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_INSTANCE_ID::"
       },
       {
         name      = "GRAFANA_CLOUD_API_KEY"
-        valueFrom = "${aws_secretsmanager_secret.grafana_cloud.arn}:api_key::"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_API_KEY::"
+      },
+      {
+        name      = "GRAFANA_CLOUD_OTLP_ENDPOINT"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_OTLP_ENDPOINT::"
       }
     ]
 
