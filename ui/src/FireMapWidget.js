@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -79,6 +79,14 @@ function AreaPolygon({ area, t }) {
 
 export default function FireMapWidget({ areasGeo }) {
   const { t } = useLanguage();
+  // Delay MapContainer render so the parent DOM node is fully attached
+  // before Leaflet tries to initialise panes (avoids "appendChild of
+  // undefined" after DnD remount).
+  const [mapReady, setMapReady] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setMapReady(true), 0);
+    return () => { clearTimeout(id); setMapReady(false); };
+  }, []);
 
   const defaultCenter = useMemo(() => {
     if (!areasGeo || areasGeo.length === 0) return [-14.235, -51.925];
@@ -118,7 +126,7 @@ export default function FireMapWidget({ areasGeo }) {
           </h3>
       </div>
       <div className="card-body p-0" style={{ height: 400 }}>
-        <MapContainer
+        {mapReady && <MapContainer
           center={defaultCenter}
           zoom={4}
           style={{ height: "100%", width: "100%", borderRadius: "0 0 0.375rem 0.375rem" }}
@@ -155,7 +163,7 @@ export default function FireMapWidget({ areasGeo }) {
               </CircleMarker>
             )
           )}
-        </MapContainer>
+        </MapContainer>}
       </div>
     </div>
   );

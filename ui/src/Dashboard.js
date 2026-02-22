@@ -163,6 +163,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deletingAnalysis, setDeletingAnalysis] = useState(false);
   const [isDraggingAny, setIsDraggingAny] = useState(false);
+  const [mapGeneration, setMapGeneration] = useState(0);
   const backendSyncedRef = useRef(false);
 
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
@@ -276,6 +277,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         const oldIndex = visibleIds.indexOf(active.id);
         const newIndex = visibleIds.indexOf(over.id);
         updateLayout(arrayMove(visibleIds, oldIndex, newIndex));
+        setMapGeneration((g) => g + 1);
       }
     },
     [visibleIds, updateLayout]
@@ -693,12 +695,12 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       </div>
     ),
     fire_map: () => (
-      <FireMapWidget areasGeo={stats?.areas_geo} />
+      <FireMapWidget key={mapGeneration} areasGeo={stats?.areas_geo} />
     ),
     severity_trend: () => (
       <SeverityTrendWidget severityTrend={stats?.severity_trend} />
     ),
-  }), [stats, t, formatNumber, formatDate, onAnalysisClick, deleteConfirmId, deletingAnalysis, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu]);
+  }), [stats, t, formatNumber, formatDate, onAnalysisClick, deleteConfirmId, deletingAnalysis, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu, mapGeneration]);
 
   if (loading) {
     return (
