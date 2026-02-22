@@ -703,10 +703,48 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   }), [stats, t, formatNumber, formatDate, onAnalysisClick, deleteConfirmId, deletingAnalysis, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu, mapGeneration]);
 
   if (loading) {
+    const colClasses = buildColClasses(visibleIds);
     return (
-      <div className="d-flex justify-content-center align-items-center p-5">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">{t("common.loading")}</span>
+      <div className="dashboard p-4">
+        <div className="skeleton-text skeleton-title mb-4" />
+        <div className="row g-3">
+          {visibleIds.map((id, idx) => {
+            const w = getWidget(id);
+            const group = w?.group || "stats";
+            return (
+              <div key={id} className={colClasses[idx]}>
+                {group === "stats" || group === "insights" ? (
+                  <div className="card h-100 shadow-sm">
+                    <div className="card-body text-center py-4">
+                      <div className="skeleton-circle mx-auto mb-3" />
+                      <div className="skeleton-text skeleton-value mx-auto mb-2" />
+                      <div className="skeleton-text skeleton-label mx-auto" />
+                    </div>
+                  </div>
+                ) : group === "table" ? (
+                  <div className="card shadow-sm">
+                    <div className="card-header">
+                      <div className="skeleton-text skeleton-header-text" />
+                    </div>
+                    <div className="card-body p-0">
+                      {[0, 1, 2, 3, 4].map((r) => (
+                        <div key={r} className="skeleton-table-row" />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="card shadow-sm">
+                    <div className="card-header">
+                      <div className="skeleton-text skeleton-header-text" />
+                    </div>
+                    <div className="card-body">
+                      <div className="skeleton-block" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
