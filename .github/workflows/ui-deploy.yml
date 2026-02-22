@@ -69,7 +69,8 @@ jobs:
             --stack-id "${{ secrets.FARO_STACK_ID }}" \
             --bundle-id env \
             --app-name "wildfire-ui" \
-            --output-path "./build" \
+            --output-path "./build/static" \
+            --recursive \
             --gzip-payload \
             --verbose
 
