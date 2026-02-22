@@ -102,7 +102,9 @@ jobs:
             ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
             ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.BRANCH }}
             ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
-          cache-from: type=gha,scope=deploy-api
+          cache-from: |
+            type=gha,scope=test-api
+            type=gha,scope=deploy-api
           cache-to: type=gha,mode=max,scope=deploy-api
       - name: Update ECS services
         run: |
