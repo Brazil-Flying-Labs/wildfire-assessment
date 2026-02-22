@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from wildfire_assessment.models import (
+    AIProvider,
     AnalysisRun,
     AreaOfInterest,
     Country,
@@ -52,6 +53,30 @@ class UserProfileModelTests(TestCase):
         self.assertEqual(profile.default_language, "pt-BR")
 
 
+class AIProviderModelTests(TestCase):
+    def test_save_enforces_singleton(self):
+        provider = AIProvider(provider="openai", model_name="gpt-4o-mini")
+        provider.save()
+        self.assertEqual(provider.pk, 1)
+
+        provider2 = AIProvider(pk=99, provider="gemini", model_name="gemini-2.0-flash-lite")
+        provider2.save()
+        self.assertEqual(provider2.pk, 1)
+        self.assertEqual(AIProvider.objects.count(), 1)
+
+    def test_str_representation(self):
+        provider = AIProvider.load()
+        result = str(provider)
+        self.assertIn("Gemini", result)
+        self.assertIn("gemini-2.0-flash-lite", result)
+
+    def test_load_creates_default(self):
+        AIProvider.objects.all().delete()
+        provider = AIProvider.load()
+        self.assertEqual(provider.pk, 1)
+        self.assertEqual(provider.provider, "gemini")
+
+
 class AnalysisRunModelTests(TestCase):
     def test_str_representation(self):
         user = get_user_model().objects.create(username="analyst")
@@ -92,3 +117,21 @@ class NotificationModelTests(TestCase):
         self.assertEqual(
             str(notification), "Notification for notifuser - deliverable_ready"
         )
+
+
+class AIProviderModelTests(TestCase):
+    def test_str_representation(self):
+        provider = AIProvider.load()
+        self.assertEqual(str(provider), "Google Gemini — gemini-2.0-flash-lite")
+
+    def test_save_enforces_singleton(self):
+        provider = AIProvider(provider="openai", model_name="gpt-4o-mini")
+        provider.save()
+        self.assertEqual(provider.pk, 1)
+        self.assertEqual(AIProvider.objects.count(), 1)
+
+    def test_load_creates_default(self):
+        AIProvider.objects.all().delete()
+        provider = AIProvider.load()
+        self.assertEqual(provider.pk, 1)
+        self.assertEqual(provider.provider, "gemini")

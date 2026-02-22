@@ -463,6 +463,82 @@ class ProviderDispatchTests(TestCase):
 
         mock_openai.assert_called_once()
 
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common.cache")
+    @patch("wildfire_assessment.svc.ai_common._openai_generate_followup_stream")
+    def test_followup_fallback_to_openai_when_no_cache(self, mock_openai, mock_cache, mock_get_provider):
+        mock_cache.get.return_value = None
+        mock_provider = MagicMock()
+        mock_provider.provider = "openai"
+        mock_provider.model_name = "gpt-4o-mini"
+        mock_get_provider.return_value = mock_provider
+        mock_openai.return_value = (iter([]), {"response_id": None})
+
+        generate_followup_stream(
+            previous_response_id="conv_missing",
+            question="test",
+        )
+
+        mock_openai.assert_called_once()
+
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common.cache")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_followup_stream")
+    def test_followup_fallback_to_gemini_when_no_cache(self, mock_gemini, mock_cache, mock_get_provider):
+        mock_cache.get.return_value = None
+        mock_provider = MagicMock()
+        mock_provider.provider = "gemini"
+        mock_provider.model_name = "gemini-2.0-flash-lite"
+        mock_get_provider.return_value = mock_provider
+        mock_gemini.return_value = (iter([]), {"response_id": None})
+
+        generate_followup_stream(
+            previous_response_id="conv_missing",
+            question="test",
+        )
+
+        mock_gemini.assert_called_once()
+
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common.cache")
+    @patch("wildfire_assessment.svc.ai_common._openai_generate_followup_stream")
+    def test_followup_dispatch_no_cache_falls_back_to_openai(
+        self, mock_openai, mock_cache, mock_get_provider
+    ):
+        mock_cache.get.return_value = None
+        mock_provider = MagicMock()
+        mock_provider.provider = "openai"
+        mock_provider.model_name = "gpt-4o-mini"
+        mock_get_provider.return_value = mock_provider
+        mock_openai.return_value = (iter([]), {"response_id": None})
+
+        generate_followup_stream(
+            previous_response_id="missing_conv",
+            question="test",
+        )
+
+        mock_openai.assert_called_once()
+
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common.cache")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_followup_stream")
+    def test_followup_dispatch_no_cache_falls_back_to_gemini(
+        self, mock_gemini, mock_cache, mock_get_provider
+    ):
+        mock_cache.get.return_value = None
+        mock_provider = MagicMock()
+        mock_provider.provider = "gemini"
+        mock_provider.model_name = "gemini-2.0-flash-lite"
+        mock_get_provider.return_value = mock_provider
+        mock_gemini.return_value = (iter([]), {"response_id": None})
+
+        generate_followup_stream(
+            previous_response_id="missing_conv",
+            question="test",
+        )
+
+        mock_gemini.assert_called_once()
+
 
 class OpenAIAnalysisTests(TestCase):
     """Tests for the OpenAI streaming service."""
@@ -481,6 +557,14 @@ class OpenAIAnalysisTests(TestCase):
         with self.assertRaises(ValueError) as context:
             _get_openai_client()
         self.assertIn("OPENAI_API_KEY", str(context.exception))
+
+    @patch("wildfire_assessment.svc.openai_analysis.OpenAI")
+    @patch("wildfire_assessment.svc.openai_analysis.settings")
+    def test_get_openai_client_returns_client(self, mock_settings, mock_openai_cls):
+        mock_settings.OPENAI_API_KEY = "test-key"
+        client = _get_openai_client()
+        mock_openai_cls.assert_called_once_with(api_key="test-key")
+        self.assertEqual(client, mock_openai_cls.return_value)
 
     @patch("wildfire_assessment.svc.openai_analysis.cache")
     @patch("wildfire_assessment.svc.openai_analysis._get_openai_client")
@@ -572,3 +656,22 @@ class OpenAIAnalysisTests(TestCase):
         self.assertEqual(result[1]["type"], "text")
         self.assertIn("dNBR", result[1]["text"])
         self.assertEqual(result[2]["type"], "image_url")
+
+    def test_openai_build_user_content_skips_missing_url(self):
+        result = _build_user_content(
+            "test prompt",
+            [{"label": "dNBR"}, {"url": "", "label": "RBR"}],
+        )
+        # Only the prompt text, both images skipped (no url / empty url)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["type"], "text")
+
+    def test_openai_build_user_content_image_without_label(self):
+        result = _build_user_content(
+            "test prompt",
+            [{"url": "data:image/png;base64,abc"}],
+        )
+        # prompt text + image_url (no label text)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["type"], "text")
+        self.assertEqual(result[1]["type"], "image_url")

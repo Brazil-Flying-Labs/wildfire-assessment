@@ -5,11 +5,13 @@ from unittest.mock import patch
 import wildfire_assessment.admin as admin_module
 from django.contrib import admin
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from wildfire_assessment.admin import (
+    AIProviderAdmin,
     AnalysisRunAdmin,
     AreaOfInterestAdminForm,
     NotificationAdmin,
@@ -356,3 +358,23 @@ class NotificationAdminTests(TestCase):
         self.assertIn("user", admin_instance.readonly_fields)
         self.assertIn("message", admin_instance.readonly_fields)
         self.assertIn("created_at", admin_instance.readonly_fields)
+
+
+class AIProviderAdminTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.superuser = User.objects.create_superuser(
+            username="provideradmin", password="pw", email="prov@example.com"
+        )
+        self.factory = RequestFactory()
+
+    def test_save_model_clears_cache(self):
+        cache.set("active_ai_provider", "cached_value")
+        admin_instance = AIProviderAdmin(AIProvider, admin.site)
+        provider = AIProvider.load()
+        request = self.factory.post("/admin/")
+        request.user = self.superuser
+
+        admin_instance.save_model(request, provider, form=None, change=True)
+
+        self.assertIsNone(cache.get("active_ai_provider"))
