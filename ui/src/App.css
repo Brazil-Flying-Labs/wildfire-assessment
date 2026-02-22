@@ -1745,6 +1745,10 @@
   color: var(--text-primary);
 }
 
+[data-theme="dark"] .ai-analysis-content strong {
+  color: #e5e7eb;
+}
+
 [data-theme="dark"] .ai-chat-user-bubble {
   background-color: #4f46e5;
   color: #ffffff;

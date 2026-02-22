@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.core.cache import cache
 from django.http import HttpResponseForbidden
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils.html import format_html
 from wildfire_assessment.models import (
     AIProvider,
@@ -292,13 +292,24 @@ admin.site.register(Notification, NotificationAdmin)
 
 
 class AIProviderAdmin(admin.ModelAdmin):
-    list_display = ("name", "model_name", "is_active", "updated_at")
-    list_editable = ("is_active", "model_name")
+    """Singleton admin — always edits the single configuration row."""
+
+    fields = ("provider", "model_name")
+    readonly_fields = ("updated_at",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        obj = AIProvider.load()
+        return redirect(
+            f"{request.path}{obj.pk}/change/"
+        )
 
     def save_model(self, request, obj, form, change):
-        if obj.is_active:
-            # Deactivate all other providers
-            AIProvider.objects.exclude(pk=obj.pk).update(is_active=False)
         super().save_model(request, obj, form, change)
         cache.delete("active_ai_provider")
 

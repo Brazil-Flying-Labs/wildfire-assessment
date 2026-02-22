@@ -390,9 +390,11 @@ function AIAnalysisModal({
                 </div>
               )}
               <div className="ai-chat-footer-meta">
-                <small className="text-muted">
-                  {t("ai.poweredBy").replace("{provider}", aiProvider || "AI")}
-                </small>
+                {aiProvider && (
+                  <small className="text-muted">
+                    {t("ai.poweredBy").replace("{provider}", aiProvider)}
+                  </small>
+                )}
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"

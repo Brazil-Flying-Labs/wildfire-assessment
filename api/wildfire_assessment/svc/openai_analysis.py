@@ -9,7 +9,7 @@ from typing import Generator
 from django.conf import settings
 from django.core.cache import cache
 from openai import OpenAI
-from wildfire_assessment.svc.ai_analysis import (
+from wildfire_assessment.svc.ai_common import (
     CONVERSATION_CACHE_TTL,
     _get_instructions,
     build_analysis_prompt,
@@ -76,7 +76,7 @@ def generate_analysis_stream(
             messages=messages,
             stream=True,
             temperature=0.7,
-            max_tokens=2000,
+            max_completion_tokens=2000,
         )
         full_text = ""
         for chunk in response:
@@ -129,7 +129,7 @@ def generate_followup_stream(
             messages=messages,
             stream=True,
             temperature=0.7,
-            max_tokens=2000,
+            max_completion_tokens=2000,
         )
         full_text = ""
         for chunk in response:

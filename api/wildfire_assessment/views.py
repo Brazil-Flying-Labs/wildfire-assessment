@@ -23,9 +23,11 @@ from wildfire_assessment.serializers import (
     NotificationSerializer,
     UserMeSerializer,
 )
-from wildfire_assessment.svc.ai_analysis import (
+from wildfire_assessment.svc.ai_common import (
+    PROVIDER_DISPLAY,
     generate_analysis_stream,
     generate_followup_stream,
+    get_active_provider,
 )
 from wildfire_assessment.svc.area_of_interest import (
     delete_polygon_file,
@@ -407,6 +409,8 @@ class DashboardView(APIView):
 def _handle_ai_stream(generate_fn, language, empty_key, failed_key, log_message):
     """Execute an AI stream generator and return a streaming response or error."""
     try:
+        provider = get_active_provider()
+        provider_display = PROVIDER_DISPLAY.get(provider.provider, provider.provider) if provider else "AI"
         stream, holder = generate_fn()
         first_chunk = next(stream)
     except StopIteration:
@@ -422,7 +426,7 @@ def _handle_ai_stream(generate_fn, language, empty_key, failed_key, log_message)
             {"error": get_error_translation(language, failed_key, detail=str(e))},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
-    return _build_streaming_response(first_chunk, stream, holder)
+    return _build_streaming_response(first_chunk, stream, holder, provider_display)
 
 
 class AIAnalysisView(APIView):
@@ -503,12 +507,8 @@ class AIAnalysisFollowUpView(APIView):
         )
 
 
-def _build_streaming_response(first_chunk, stream, holder):
+def _build_streaming_response(first_chunk, stream, holder, provider_display="AI"):
     """Build a StreamingHttpResponse that appends the response_id as a final marker."""
-    from wildfire_assessment.svc.ai_analysis import (
-        PROVIDER_DISPLAY,
-        get_active_provider,
-    )
 
     def stream_with_response_id():
         yield first_chunk
@@ -517,9 +517,7 @@ def _build_streaming_response(first_chunk, stream, holder):
         response_id = holder.get("response_id")
         if response_id:
             yield f"\n\n[RESPONSE_ID]{response_id}[/RESPONSE_ID]"
-        provider = get_active_provider()
-        display = PROVIDER_DISPLAY.get(provider.name, provider.name) if provider else "AI"
-        yield f"[AI_PROVIDER]{display}[/AI_PROVIDER]"
+        yield f"[AI_PROVIDER]{provider_display}[/AI_PROVIDER]"
 
     response = StreamingHttpResponse(
         stream_with_response_id(),

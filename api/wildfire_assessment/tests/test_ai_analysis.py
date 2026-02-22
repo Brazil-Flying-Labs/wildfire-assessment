@@ -3,18 +3,30 @@
 from unittest.mock import MagicMock, patch
 
 from django.test import TestCase
-from wildfire_assessment.svc.ai_analysis import (
+from wildfire_assessment.svc.ai_common import (
     PROVIDER_DISPLAY,
-    _build_image_content,
-    _gemini_generate_analysis_stream,
-    _gemini_generate_followup_stream,
     _get_instructions,
-    _parse_data_url,
     build_analysis_prompt,
     generate_analysis_stream,
     generate_followup_stream,
     get_active_provider,
-    get_gemini_model,
+)
+from wildfire_assessment.svc.gemini_analysis import (
+    _build_image_content,
+    _gemini_generate_analysis_stream,
+    _gemini_generate_followup_stream,
+    _get_gemini_client,
+    _parse_data_url,
+)
+from wildfire_assessment.svc.openai_analysis import (
+    _build_user_content,
+    _get_openai_client,
+)
+from wildfire_assessment.svc.openai_analysis import (
+    generate_analysis_stream as openai_generate_analysis_stream,
+)
+from wildfire_assessment.svc.openai_analysis import (
+    generate_followup_stream as openai_generate_followup_stream,
 )
 
 
@@ -94,8 +106,9 @@ class SharedHelperTests(TestCase):
     def test_parse_data_url_valid(self):
         data_url = "data:image/png;base64,aWJvcg=="
         result = _parse_data_url(data_url)
-        self.assertEqual(result["inline_data"]["mime_type"], "image/png")
-        self.assertEqual(result["inline_data"]["data"], "aWJvcg==")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.inline_data.mime_type, "image/png")
+        self.assertEqual(result.inline_data.data, b"ibor")
 
     def test_parse_data_url_invalid(self):
         self.assertIsNone(_parse_data_url("not-a-data-url"))
@@ -115,41 +128,40 @@ class SharedHelperTests(TestCase):
         self.assertEqual(result, [])
 
     def test_build_image_content_without_label(self):
-        result = _build_image_content([{"url": "data:image/png;base64,abc"}])
+        result = _build_image_content([{"url": "data:image/png;base64,dGVzdA=="}])
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["inline_data"]["mime_type"], "image/png")
+        self.assertEqual(result[0].inline_data.mime_type, "image/png")
 
     def test_build_image_content_with_label(self):
         result = _build_image_content(
-            [{"url": "data:image/png;base64,abc", "label": "dNBR"}]
+            [{"url": "data:image/png;base64,dGVzdA==", "label": "dNBR"}]
         )
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0], "Image: dNBR")
-        self.assertEqual(result[1]["inline_data"]["mime_type"], "image/png")
+        self.assertEqual(result[1].inline_data.mime_type, "image/png")
 
     def test_provider_display_map(self):
         self.assertEqual(PROVIDER_DISPLAY["gemini"], "Google Gemini")
         self.assertEqual(PROVIDER_DISPLAY["openai"], "OpenAI")
 
 
-class GeminiModelTests(TestCase):
-    """Tests for Gemini model instantiation."""
+class GeminiClientTests(TestCase):
+    """Tests for Gemini client instantiation."""
 
-    def test_get_gemini_model_raises_without_api_key(self):
-        with patch("wildfire_assessment.svc.ai_analysis.settings") as mock_settings:
+    def test_get_gemini_client_raises_without_api_key(self):
+        with patch("wildfire_assessment.svc.gemini_analysis.settings") as mock_settings:
             mock_settings.GEMINI_API_KEY = ""
             with self.assertRaises(ValueError) as context:
-                get_gemini_model()
+                _get_gemini_client()
             self.assertIn("GEMINI_API_KEY", str(context.exception))
 
-    @patch("wildfire_assessment.svc.ai_analysis.settings")
-    @patch("wildfire_assessment.svc.ai_analysis.genai")
-    def test_get_gemini_model_returns_model(self, mock_genai, mock_settings):
+    @patch("wildfire_assessment.svc.gemini_analysis.settings")
+    @patch("wildfire_assessment.svc.gemini_analysis.genai")
+    def test_get_gemini_client_returns_client(self, mock_genai, mock_settings):
         mock_settings.GEMINI_API_KEY = "test-key"
-        model = get_gemini_model("gemini-2.0-flash", "en")
-        mock_genai.configure.assert_called_once_with(api_key="test-key")
-        mock_genai.GenerativeModel.assert_called_once()
-        self.assertEqual(model, mock_genai.GenerativeModel.return_value)
+        client = _get_gemini_client()
+        mock_genai.Client.assert_called_once_with(api_key="test-key")
+        self.assertEqual(client, mock_genai.Client.return_value)
 
 
 class GeminiStreamTests(TestCase):
@@ -166,18 +178,18 @@ class GeminiStreamTests(TestCase):
             "High": {"area_ha": 20.0, "percent": 10.0},
         }
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
-    @patch("wildfire_assessment.svc.ai_analysis.get_gemini_model")
-    def test_gemini_stream_yields_chunks(self, mock_get_model, mock_cache):
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
+    @patch("wildfire_assessment.svc.gemini_analysis.cache")
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_stream_yields_chunks(self, mock_get_client, mock_cache):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
 
         mock_chunk1 = MagicMock()
         mock_chunk1.text = "Hello "
         mock_chunk2 = MagicMock()
         mock_chunk2.text = "World"
 
-        mock_model.generate_content.return_value = [mock_chunk1, mock_chunk2]
+        mock_client.models.generate_content_stream.return_value = [mock_chunk1, mock_chunk2]
 
         stream, holder = _gemini_generate_analysis_stream(
             pre_fire_date=self.pre_fire_date,
@@ -189,15 +201,15 @@ class GeminiStreamTests(TestCase):
 
         self.assertEqual(chunks, ["Hello ", "World"])
         self.assertIsNotNone(holder["response_id"])
-        mock_model.generate_content.assert_called_once()
+        mock_client.models.generate_content_stream.assert_called_once()
         mock_cache.set.assert_called_once()
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
-    @patch("wildfire_assessment.svc.ai_analysis.get_gemini_model")
-    def test_gemini_stream_uses_correct_model(self, mock_get_model, mock_cache):
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
-        mock_model.generate_content.return_value = []
+    @patch("wildfire_assessment.svc.gemini_analysis.cache")
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_stream_uses_correct_model(self, mock_get_client, mock_cache):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.models.generate_content_stream.return_value = []
 
         stream, holder = _gemini_generate_analysis_stream(
             pre_fire_date=self.pre_fire_date,
@@ -209,31 +221,32 @@ class GeminiStreamTests(TestCase):
         )
         list(stream)
 
-        mock_get_model.assert_called_once_with("gemini-1.5-pro", "fr")
+        call_kwargs = mock_client.models.generate_content_stream.call_args.kwargs
+        self.assertEqual(call_kwargs["model"], "gemini-1.5-pro")
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
-    @patch("wildfire_assessment.svc.ai_analysis.get_gemini_model")
-    def test_gemini_stream_with_images(self, mock_get_model, mock_cache):
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
-        mock_model.generate_content.return_value = []
+    @patch("wildfire_assessment.svc.gemini_analysis.cache")
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_stream_with_images(self, mock_get_client, mock_cache):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_client.models.generate_content_stream.return_value = []
 
         stream, holder = _gemini_generate_analysis_stream(
             pre_fire_date=self.pre_fire_date,
             post_fire_date=self.post_fire_date,
             area_of_interest=self.area_of_interest,
             severity_distribution=self.severity_distribution,
-            image_urls=[{"url": "data:image/png;base64,abc", "label": "RGB"}],
+            image_urls=[{"url": "data:image/png;base64,dGVzdA==", "label": "RGB"}],
         )
         list(stream)
 
-        call_args = mock_model.generate_content.call_args
-        contents = call_args[0][0]
+        call_kwargs = mock_client.models.generate_content_stream.call_args.kwargs
+        contents = call_kwargs["contents"]
         self.assertTrue(len(contents) >= 3)
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
-    @patch("wildfire_assessment.svc.ai_analysis.get_gemini_model")
-    def test_gemini_followup_yields_chunks(self, mock_get_model, mock_cache):
+    @patch("wildfire_assessment.svc.gemini_analysis.cache")
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_followup_yields_chunks(self, mock_get_client, mock_cache):
         mock_cache.get.return_value = {
             "history": [
                 {"role": "user", "parts": ["initial prompt"]},
@@ -244,16 +257,16 @@ class GeminiStreamTests(TestCase):
             "provider": "gemini",
         }
 
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
         mock_chat = MagicMock()
-        mock_model.start_chat.return_value = mock_chat
+        mock_client.chats.create.return_value = mock_chat
 
         mock_chunk1 = MagicMock()
         mock_chunk1.text = "Follow "
         mock_chunk2 = MagicMock()
         mock_chunk2.text = "up"
-        mock_chat.send_message.return_value = [mock_chunk1, mock_chunk2]
+        mock_chat.send_message_stream.return_value = [mock_chunk1, mock_chunk2]
 
         stream, holder = _gemini_generate_followup_stream(
             previous_response_id="conv_123",
@@ -264,11 +277,11 @@ class GeminiStreamTests(TestCase):
         self.assertEqual(chunks, ["Follow ", "up"])
         self.assertIsNotNone(holder["response_id"])
         mock_cache.get.assert_called_once_with("ai_chat_conv_123")
-        mock_chat.send_message.assert_called_once_with(
-            "What about recovery?", stream=True
+        mock_chat.send_message_stream.assert_called_once_with(
+            message="What about recovery?"
         )
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
+    @patch("wildfire_assessment.svc.gemini_analysis.cache")
     def test_gemini_followup_raises_on_missing_conversation(self, mock_cache):
         mock_cache.get.return_value = None
 
@@ -279,19 +292,19 @@ class GeminiStreamTests(TestCase):
             )
         self.assertIn("not found", str(context.exception))
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
-    @patch("wildfire_assessment.svc.ai_analysis.get_gemini_model")
-    def test_gemini_followup_uses_language_and_model(self, mock_get_model, mock_cache):
+    @patch("wildfire_assessment.svc.gemini_analysis.cache")
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_followup_uses_language_and_model(self, mock_get_client, mock_cache):
         mock_cache.get.return_value = {
             "history": [],
             "model": "gemini-2.0-flash",
             "language": "en",
         }
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
         mock_chat = MagicMock()
-        mock_model.start_chat.return_value = mock_chat
-        mock_chat.send_message.return_value = []
+        mock_client.chats.create.return_value = mock_chat
+        mock_chat.send_message_stream.return_value = []
 
         stream, holder = _gemini_generate_followup_stream(
             previous_response_id="conv_123",
@@ -301,20 +314,21 @@ class GeminiStreamTests(TestCase):
         )
         list(stream)
 
-        mock_get_model.assert_called_once_with("gemini-2.0-flash", "pt-BR")
+        call_kwargs = mock_client.chats.create.call_args.kwargs
+        self.assertEqual(call_kwargs["model"], "gemini-2.0-flash")
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
-    @patch("wildfire_assessment.svc.ai_analysis.get_gemini_model")
-    def test_gemini_stream_skips_empty_chunks(self, mock_get_model, mock_cache):
-        mock_model = MagicMock()
-        mock_get_model.return_value = mock_model
+    @patch("wildfire_assessment.svc.gemini_analysis.cache")
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_stream_skips_empty_chunks(self, mock_get_client, mock_cache):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
 
         mock_chunk1 = MagicMock()
         mock_chunk1.text = "Hello"
         mock_chunk2 = MagicMock()
         mock_chunk2.text = None
 
-        mock_model.generate_content.return_value = [mock_chunk1, mock_chunk2]
+        mock_client.models.generate_content_stream.return_value = [mock_chunk1, mock_chunk2]
 
         stream, holder = _gemini_generate_analysis_stream(
             pre_fire_date=self.pre_fire_date,
@@ -338,7 +352,7 @@ class ProviderDispatchTests(TestCase):
             "Unburned": {"area_ha": 100.0, "percent": 50.0},
         }
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
+    @patch("wildfire_assessment.svc.ai_common.cache")
     def test_get_active_provider_returns_cached(self, mock_cache):
         mock_provider = MagicMock()
         mock_cache.get.return_value = mock_provider
@@ -346,23 +360,23 @@ class ProviderDispatchTests(TestCase):
         self.assertEqual(result, mock_provider)
         mock_cache.get.assert_called_once_with("active_ai_provider")
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
+    @patch("wildfire_assessment.svc.ai_common.cache")
     def test_get_active_provider_queries_db_on_cache_miss(self, mock_cache):
         mock_cache.get.return_value = None
-        with patch("wildfire_assessment.models.AIProvider.objects") as mock_qs:
+        with patch("wildfire_assessment.models.AIProvider.load") as mock_load:
             mock_provider = MagicMock()
-            mock_qs.filter.return_value.first.return_value = mock_provider
+            mock_load.return_value = mock_provider
             result = get_active_provider()
             self.assertEqual(result, mock_provider)
             mock_cache.set.assert_called_once_with(
                 "active_ai_provider", mock_provider, timeout=60
             )
 
-    @patch("wildfire_assessment.svc.ai_analysis.get_active_provider")
-    @patch("wildfire_assessment.svc.ai_analysis._gemini_generate_analysis_stream")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_analysis_stream")
     def test_dispatch_to_gemini_when_active(self, mock_gemini, mock_get_provider):
         mock_provider = MagicMock()
-        mock_provider.name = "gemini"
+        mock_provider.provider = "gemini"
         mock_provider.model_name = "gemini-2.0-flash-lite"
         mock_get_provider.return_value = mock_provider
         mock_gemini.return_value = (iter([]), {"response_id": None})
@@ -378,11 +392,11 @@ class ProviderDispatchTests(TestCase):
         args = mock_gemini.call_args
         self.assertEqual(args.kwargs["model"], "gemini-2.0-flash-lite")
 
-    @patch("wildfire_assessment.svc.ai_analysis.get_active_provider")
-    @patch("wildfire_assessment.svc.openai_analysis.generate_analysis_stream")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common._openai_generate_analysis_stream")
     def test_dispatch_to_openai_when_active(self, mock_openai, mock_get_provider):
         mock_provider = MagicMock()
-        mock_provider.name = "openai"
+        mock_provider.provider = "openai"
         mock_provider.model_name = "gpt-4o-mini"
         mock_get_provider.return_value = mock_provider
         mock_openai.return_value = (iter([]), {"response_id": None})
@@ -398,8 +412,8 @@ class ProviderDispatchTests(TestCase):
         args = mock_openai.call_args
         self.assertEqual(args.kwargs["model"], "gpt-4o-mini")
 
-    @patch("wildfire_assessment.svc.ai_analysis.get_active_provider")
-    @patch("wildfire_assessment.svc.ai_analysis._gemini_generate_analysis_stream")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_analysis_stream")
     def test_dispatch_defaults_to_gemini_when_no_provider(self, mock_gemini, mock_get_provider):
         mock_get_provider.return_value = None
         mock_gemini.return_value = (iter([]), {"response_id": None})
@@ -413,8 +427,8 @@ class ProviderDispatchTests(TestCase):
 
         mock_gemini.assert_called_once()
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
-    @patch("wildfire_assessment.svc.ai_analysis._gemini_generate_followup_stream")
+    @patch("wildfire_assessment.svc.ai_common.cache")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_followup_stream")
     def test_followup_dispatch_uses_cached_provider_gemini(self, mock_gemini, mock_cache):
         mock_cache.get.return_value = {
             "history": [],
@@ -431,8 +445,8 @@ class ProviderDispatchTests(TestCase):
 
         mock_gemini.assert_called_once()
 
-    @patch("wildfire_assessment.svc.ai_analysis.cache")
-    @patch("wildfire_assessment.svc.openai_analysis.generate_followup_stream")
+    @patch("wildfire_assessment.svc.ai_common.cache")
+    @patch("wildfire_assessment.svc.ai_common._openai_generate_followup_stream")
     def test_followup_dispatch_uses_cached_provider_openai(self, mock_openai, mock_cache):
         mock_cache.get.return_value = {
             "history": [],
@@ -464,8 +478,6 @@ class OpenAIAnalysisTests(TestCase):
     @patch("wildfire_assessment.svc.openai_analysis.settings")
     def test_get_openai_client_raises_without_api_key(self, mock_settings):
         mock_settings.OPENAI_API_KEY = ""
-        from wildfire_assessment.svc.openai_analysis import _get_openai_client
-
         with self.assertRaises(ValueError) as context:
             _get_openai_client()
         self.assertIn("OPENAI_API_KEY", str(context.exception))
@@ -473,8 +485,6 @@ class OpenAIAnalysisTests(TestCase):
     @patch("wildfire_assessment.svc.openai_analysis.cache")
     @patch("wildfire_assessment.svc.openai_analysis._get_openai_client")
     def test_openai_stream_yields_chunks(self, mock_get_client, mock_cache):
-        from wildfire_assessment.svc.openai_analysis import generate_analysis_stream
-
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
 
@@ -487,7 +497,7 @@ class OpenAIAnalysisTests(TestCase):
 
         mock_client.chat.completions.create.return_value = [mock_chunk1, mock_chunk2]
 
-        stream, holder = generate_analysis_stream(
+        stream, holder = openai_generate_analysis_stream(
             pre_fire_date=self.pre_fire_date,
             post_fire_date=self.post_fire_date,
             area_of_interest=self.area_of_interest,
@@ -502,8 +512,6 @@ class OpenAIAnalysisTests(TestCase):
     @patch("wildfire_assessment.svc.openai_analysis.cache")
     @patch("wildfire_assessment.svc.openai_analysis._get_openai_client")
     def test_openai_followup_yields_chunks(self, mock_get_client, mock_cache):
-        from wildfire_assessment.svc.openai_analysis import generate_followup_stream
-
         mock_cache.get.return_value = {
             "history": [
                 {"role": "system", "content": "You are an expert..."},
@@ -527,7 +535,7 @@ class OpenAIAnalysisTests(TestCase):
 
         mock_client.chat.completions.create.return_value = [mock_chunk1, mock_chunk2]
 
-        stream, holder = generate_followup_stream(
+        stream, holder = openai_generate_followup_stream(
             previous_response_id="conv_123",
             question="What about recovery?",
         )
@@ -538,28 +546,22 @@ class OpenAIAnalysisTests(TestCase):
 
     @patch("wildfire_assessment.svc.openai_analysis.cache")
     def test_openai_followup_raises_on_missing_conversation(self, mock_cache):
-        from wildfire_assessment.svc.openai_analysis import generate_followup_stream
-
         mock_cache.get.return_value = None
 
         with self.assertRaises(ValueError) as context:
-            generate_followup_stream(
+            openai_generate_followup_stream(
                 previous_response_id="invalid_id",
                 question="test",
             )
         self.assertIn("not found", str(context.exception))
 
     def test_openai_build_user_content_text_only(self):
-        from wildfire_assessment.svc.openai_analysis import _build_user_content
-
         result = _build_user_content("test prompt", None)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["type"], "text")
         self.assertEqual(result[0]["text"], "test prompt")
 
     def test_openai_build_user_content_with_images(self):
-        from wildfire_assessment.svc.openai_analysis import _build_user_content
-
         result = _build_user_content(
             "test prompt",
             [{"url": "data:image/png;base64,abc", "label": "dNBR"}],
