@@ -19,7 +19,7 @@ if (hasValidFaroConfig) {
       app: {
         name: appName,
         version: UI_VERSION,
-        environment: process.env.NODE_ENV || "development",
+        environment: process.env.REACT_APP_FARO_ENVIRONMENT || "local",
       },
       instrumentations: [
         ...getWebInstrumentations({

@@ -60,6 +60,17 @@ function App() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsNextUrl, setNotificationsNextUrl] = useState(null);
   const notificationPollRef = useRef(null);
+  const dashboardRef = useRef(null);
+
+  // Restart fade-in animation when navigating back to dashboard
+  useEffect(() => {
+    const el = dashboardRef.current;
+    if (currentPage === "dashboard" && el) {
+      el.style.animation = "none";
+      void el.offsetHeight; // force reflow
+      el.style.animation = "";
+    }
+  }, [currentPage]);
 
   const toggleNav = useCallback(() => {
     setIsNavOpen((previous) => !previous);
@@ -1300,7 +1311,11 @@ function App() {
 
         {/* Main Content */}
         <main className="app-main flex-grow-1 d-flex flex-column">
-          <div style={{ display: currentPage === "dashboard" ? "block" : "none" }}>
+          <div
+            ref={dashboardRef}
+            className="page-fade-in"
+            style={{ display: currentPage === "dashboard" ? "block" : "none" }}
+          >
             <Dashboard
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
@@ -1310,7 +1325,8 @@ function App() {
               refreshKey={dashboardRefreshKey}
             />
           </div>
-          {currentPage === "analysis-detail" && selectedAnalysisId ? (
+          {currentPage === "dashboard" ? null : currentPage === "analysis-detail" && selectedAnalysisId ? (
+            <div key="analysis-detail" className="page-fade-in">
             <AnalysisDetail
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
@@ -1319,13 +1335,17 @@ function App() {
               onNotificationsRead={fetchUnreadCount}
               scrollToDeliverable={scrollToDeliverable}
             />
+            </div>
           ) : currentPage === "areas" ? (
+            <div key="areas" className="page-fade-in">
             <AreasOfInterest
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
               onBackToDashboard={handleBackFromAnalysisDetail}
             />
+            </div>
           ) : currentPage === "profile" ? (
+            <div key="profile" className="page-fade-in">
             <UserProfile
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
@@ -1335,8 +1355,9 @@ function App() {
               onThemeChange={updateTheme}
               onBackToDashboard={handleBackFromAnalysisDetail}
             />
+            </div>
           ) : !backendAuthorizationError ? (
-            <section className="app-main-content p-4 flex-grow-1">
+            <section key="analysis" className="app-main-content p-4 flex-grow-1 page-fade-in">
               {backendAuthorizationError ? (
                 <div className="alert alert-warning" role="alert">
                   {t("app.backendUnauthorized")}
@@ -1778,7 +1799,7 @@ function App() {
               ) : null}
             </section>
           ) : (
-            <section className="app-main-content p-4 flex-grow-1">
+            <section className="app-main-content p-4 flex-grow-1 page-fade-in">
               <div className="alert alert-warning" role="alert">
                 {t("app.backendUnauthorized")}
               </div>

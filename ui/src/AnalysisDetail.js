@@ -506,7 +506,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
                         src={url}
                         alt={label}
                         className="img-fluid rounded border"
-                        style={{ maxHeight: "300px" }}
+                        style={{ height: "300px", objectFit: "contain" }}
                       />
                     </a>
                   </div>
