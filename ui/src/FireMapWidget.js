@@ -125,7 +125,7 @@ export default function FireMapWidget({ areasGeo }) {
             </span>
           </h3>
       </div>
-      <div className="card-body p-0" style={{ height: 400 }}>
+      <div className="card-body p-0" style={{ height: 400, position: "relative" }}>
         {mapReady && <MapContainer
           center={defaultCenter}
           zoom={4}
@@ -164,6 +164,21 @@ export default function FireMapWidget({ areasGeo }) {
             )
           )}
         </MapContainer>}
+        <div className="fire-map-legend">
+          <div className="fire-map-legend__title">{t("dashboard.burnedHa")}</div>
+          {[
+            { color: "#22c55e", label: "0 ha" },
+            { color: "#facc15", label: "< 50 ha" },
+            { color: "#f97316", label: "< 200 ha" },
+            { color: "#ef4444", label: "< 1,000 ha" },
+            { color: "#7f1d1d", label: "\u2265 1,000 ha" },
+          ].map(({ color, label }) => (
+            <div key={label} className="fire-map-legend__item">
+              <span className="fire-map-legend__swatch" style={{ background: color }} />
+              <span>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

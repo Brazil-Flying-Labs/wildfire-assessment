@@ -2334,6 +2334,45 @@
   }
 }
 
+/* Fire map legend */
+.fire-map-legend {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] .fire-map-legend {
+  background: rgba(30, 30, 30, 0.92);
+  color: #e5e5e5;
+}
+
+.fire-map-legend__title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.fire-map-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fire-map-legend__swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
 /* Analysis progress stepper */
 .analysis-progress-bar {
   height: 4px;
