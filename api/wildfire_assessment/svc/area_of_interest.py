@@ -114,6 +114,11 @@ def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_resu
     )
 
 
+def save_deliverable_task_id(analysis_run_id, task_field, task_id):
+    """Persist a Celery task ID on an AnalysisRun for a scientific deliverable."""
+    AnalysisRun.objects.filter(id=analysis_run_id).update(**{task_field: task_id})
+
+
 def get_analysis_runs_queryset(user):
     """Return AnalysisRun queryset filtered by user country permissions."""
     country_ids = get_user_country_ids(user)

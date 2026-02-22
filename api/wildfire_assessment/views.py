@@ -11,7 +11,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
-from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Notification
+from wildfire_assessment.models import AreaOfInterest
 from wildfire_assessment.serializers import (
     AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
@@ -34,9 +34,16 @@ from wildfire_assessment.svc.area_of_interest import (
     get_analysis_runs_queryset,
     get_areas_queryset,
     save_analysis_run,
+    save_deliverable_task_id,
     user_can_access_area,
 )
 from wildfire_assessment.svc.dashboard import get_dashboard_stats
+from wildfire_assessment.svc.notification import (
+    get_notifications_queryset,
+    get_unread_count,
+    mark_notification_read,
+    mark_notifications_read_by_run,
+)
 from wildfire_assessment.svc.processor import (
     DELIVERABLE_FIELD_MAP,
     DELIVERABLE_TASK_FIELD_MAP,
@@ -290,9 +297,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         if analysis_run_id:
             task_field = DELIVERABLE_TASK_FIELD_MAP.get(deliverable_enum.name)
             if task_field:
-                AnalysisRun.objects.filter(id=analysis_run_id).update(
-                    **{task_field: task.id}
-                )
+                save_deliverable_task_id(analysis_run_id, task_field, task.id)
 
         return Response({"task_id": task.id})
 
@@ -535,20 +540,17 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Notification.objects.filter(
-            user=self.request.user,
-        ).select_related("analysis_run", "analysis_run__area_of_interest")
+        return get_notifications_queryset(self.request.user)
 
     @action(detail=False, methods=["get"], url_path="unread_count")
     def unread_count(self, request):
-        count = Notification.objects.filter(user=request.user, is_read=False).count()
+        count = get_unread_count(request.user)
         return Response({"unread_count": count})
 
     @action(detail=True, methods=["patch"], url_path="read")
     def mark_read(self, request, pk=None):
         notification = self.get_object()
-        notification.is_read = True
-        notification.save(update_fields=["is_read"])
+        mark_notification_read(notification)
         return Response({"status": "ok"})
 
     @action(detail=False, methods=["post"], url_path="mark-read")
@@ -559,9 +561,5 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                 {"error": "analysis_run_id is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        updated = Notification.objects.filter(
-            user=request.user,
-            analysis_run_id=analysis_run_id,
-            is_read=False,
-        ).update(is_read=True)
+        updated = mark_notifications_read_by_run(request.user, analysis_run_id)
         return Response({"marked_read": updated})
