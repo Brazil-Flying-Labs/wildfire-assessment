@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useRef, useMemo } from "react";
 import "./LandingPage.css";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
@@ -10,6 +10,8 @@ function LandingPage({ onLogin, isAuthenticated }) {
   const glowSection = useMemo(() => `${process.env.PUBLIC_URL}/glow-section.svg`, []);
   const screenshotSrc = useMemo(() => `${process.env.PUBLIC_URL}/front-end-screenshot.png`, []);
   const contactEmail = "humanos@brazilflyinglabs.org.br";
+  const logoClickCount = useRef(0);
+  const logoClickTimer = useRef(null);
 
   return (
     <div className="landing-root d-flex flex-column min-vh-100">
@@ -17,7 +19,21 @@ function LandingPage({ onLogin, isAuthenticated }) {
       <header className="landing-header">
         <div className="container d-flex align-items-center justify-content-between py-3">
           <div className="d-flex align-items-center gap-3">
-            <img src={logoSrc} alt={t("landing.title")} className="landing-logo" />
+            <img
+              src={logoSrc}
+              alt={t("landing.title")}
+              className="landing-logo"
+              onClick={() => {
+                clearTimeout(logoClickTimer.current);
+                logoClickCount.current += 1;
+                if (logoClickCount.current >= 5) {
+                  logoClickCount.current = 0;
+                  throw new Error("Faro test: 5-click Easter egg triggered");
+                }
+                logoClickTimer.current = setTimeout(() => { logoClickCount.current = 0; }, 2000);
+              }}
+              style={{ cursor: "pointer" }}
+            />
             <span className="d-none d-md-inline landing-header-title">
               {t("landing.title")}
             </span>
