@@ -28,6 +28,8 @@ The API container mounts `./api:/api` so local edits are hot-reloaded. Tests run
 
 3. When writing code respect the black instructions on the pyproject.toml file. This ensures consistent code formatting across the codebase. Black will be run automatically on pre-commit, but you should also run it manually before pushing code to ensure everything is formatted correctly. You can run `black api svc --config pyproject.toml` to format the backend code. For the frontend, you can run `npm run format` inside the `ui` container to format the React code.
 
+4. NEVER, NEVER add ORM logic on the view. The correct place for ORM logic is the service layer (svc/). Views should only handle request parsing, authentication, and calling the appropriate service functions. All business logic, including database queries, should be encapsulated in the service layer. This separation of concerns makes the code more maintainable and testable. If you find yourself writing ORM queries in a view, stop and refactor that code into a service function instead.
+
 ## Commands
 
 ### Start/stop services

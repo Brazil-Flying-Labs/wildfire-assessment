@@ -87,7 +87,7 @@ jobs:
             ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
             ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.BRANCH }}
             ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:latest
-      - name: Update ECS service
+      - name: Update ECS services
         run: |
           aws ecs update-service \
             --cluster wildfire-assessment-${{ env.BRANCH }} \
@@ -103,4 +103,14 @@ jobs:
             --cluster wildfire-assessment-${{ env.BRANCH }} \
             --service wildfire-assessment-celery-beat-${{ env.BRANCH }} \
             --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for services to stabilize
+        run: |
+          aws ecs wait services-stable \
+            --cluster wildfire-assessment-${{ env.BRANCH }} \
+            --services \
+              wildfire-assessment-api-${{ env.BRANCH }} \
+              wildfire-assessment-celery-worker-${{ env.BRANCH }} \
+              wildfire-assessment-celery-beat-${{ env.BRANCH }} \
             --region ${{ env.AWS_REGION }}
