@@ -42,11 +42,26 @@ export default function SeverityTrendWidget({ severityTrend }) {
 
   const chartData = useMemo(() => {
     if (!severityTrend || severityTrend.length === 0) return [];
-    return severityTrend.map((item) => ({
-      ...item,
-      label: formatDate(item.date, language),
-    }));
-  }, [severityTrend, language]);
+    /* Group per-run data points by local date */
+    const daily = {};
+    for (const item of severityTrend) {
+      const d = new Date(item.created_at);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const key = `${y}-${m}-${day}`;
+      if (!daily[key]) daily[key] = { sum: 0, count: 0 };
+      daily[key].sum += item.avg_severity;
+      daily[key].count += 1;
+    }
+    return Object.keys(daily)
+      .sort()
+      .map((key) => ({
+        date: key,
+        avg_severity: parseFloat((daily[key].sum / daily[key].count).toFixed(2)),
+        label: formatDate(key),
+      }));
+  }, [severityTrend]);
 
   const CustomTooltip = ({ active, payload }) => {
     if (!active || !payload || !payload.length) return null;

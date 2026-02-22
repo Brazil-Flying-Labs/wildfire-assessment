@@ -80,11 +80,11 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
   const imageEntries = useMemo(() => {
     if (!analysis) return [];
     const items = [
-      { label: t("analysisDetail.preFireRgb"), url: analysis.rgb_pre_fire_url },
-      { label: t("analysisDetail.postFireRgb"), url: analysis.rgb_post_fire_url },
-      { label: t("analysisDetail.dndvi"), url: analysis.dndvi_url },
       { label: t("analysisDetail.dnbr"), url: analysis.dnbr_url },
       { label: t("analysisDetail.rbr"), url: analysis.rbr_url },
+      { label: t("analysisDetail.dndvi"), url: analysis.dndvi_url },
+      { label: t("analysisDetail.preFireRgb"), url: analysis.rgb_pre_fire_url },
+      { label: t("analysisDetail.postFireRgb"), url: analysis.rgb_post_fire_url },
     ];
     return items.filter((item) => item.url);
   }, [analysis, t]);
@@ -175,11 +175,11 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
 
   const scientificDeliverables = useMemo(
     () => [
-      { label: "RGB Pre-fire", value: "RGB_PRE_FIRE", urlKey: "scientific_rgb_pre_fire_url", taskKey: "scientific_rgb_pre_fire_task_id" },
-      { label: "RGB Post-fire", value: "RGB_POST_FIRE", urlKey: "scientific_rgb_post_fire_url", taskKey: "scientific_rgb_post_fire_task_id" },
       { label: "dNBR", value: "DNBR", urlKey: "scientific_dnbr_url", taskKey: "scientific_dnbr_task_id" },
       { label: "RBR", value: "RBR", urlKey: "scientific_rbr_url", taskKey: "scientific_rbr_task_id" },
       { label: "dNDVI", value: "DNDVI", urlKey: "scientific_dndvi_url", taskKey: "scientific_dndvi_task_id" },
+      { label: "RGB Pre-fire", value: "RGB_PRE_FIRE", urlKey: "scientific_rgb_pre_fire_url", taskKey: "scientific_rgb_pre_fire_task_id" },
+      { label: "RGB Post-fire", value: "RGB_POST_FIRE", urlKey: "scientific_rgb_post_fire_url", taskKey: "scientific_rgb_post_fire_task_id" },
     ],
     []
   );

@@ -1247,7 +1247,7 @@ class DashboardServiceTests(TestCase):
         self.assertIsNone(stats["largest_fire"])
 
     def test_severity_trend(self):
-        """Test severity_trend returns weighted average per day."""
+        """Test severity_trend returns per-run weighted severity with ISO timestamps."""
         AnalysisRun.objects.create(
             user=self.user,
             area_of_interest=self.area,
@@ -1262,7 +1262,7 @@ class DashboardServiceTests(TestCase):
         trend = stats["severity_trend"]
         self.assertIsInstance(trend, list)
         self.assertGreaterEqual(len(trend), 1)
-        self.assertIn("date", trend[0])
+        self.assertIn("created_at", trend[0])
         self.assertIn("avg_severity", trend[0])
         # (0*50 + 3*50) / (50+50) = 1.50
         self.assertEqual(trend[0]["avg_severity"], 1.50)
@@ -1278,7 +1278,7 @@ class DashboardServiceTests(TestCase):
         mock_run.created_at = None
 
         mock_qs = MagicMock()
-        mock_qs.filter.return_value = [mock_run]
+        mock_qs.filter.return_value.order_by.return_value = [mock_run]
 
         result = dashboard_service._severity_trend(mock_qs)
         self.assertEqual(result, [])

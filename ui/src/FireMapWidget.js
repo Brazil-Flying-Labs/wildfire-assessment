@@ -16,6 +16,8 @@ function FitBounds({ areasGeo }) {
   const map = useMap();
   useEffect(() => {
     if (!areasGeo || areasGeo.length === 0) return;
+    // Guard against map container not being ready (e.g. after DnD remount)
+    if (!map.getContainer() || !map.getPane("mapPane")) return;
 
     // Find the area with the highest total burned hectares
     const mostBurned = areasGeo.reduce((max, a) =>

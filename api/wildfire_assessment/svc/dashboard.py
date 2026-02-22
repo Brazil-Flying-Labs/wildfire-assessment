@@ -138,30 +138,35 @@ def _largest_fire(analyses_qs):
 
 
 def _severity_trend(analyses_qs):
-    """Weighted average severity per day, limited to the last 180 days."""
+    """Per-run weighted severity, limited to the last 180 days.
+
+    Returns individual data points with ISO timestamps so the frontend
+    can group by the user's local date.
+    """
     cutoff = timezone.now() - timedelta(days=180)
-    daily = defaultdict(lambda: {"weighted_sum": Decimal(0), "total_area": Decimal(0)})
-    for run in analyses_qs.filter(severity_data__isnull=False, created_at__gte=cutoff):
+    result = []
+    for run in analyses_qs.filter(
+        severity_data__isnull=False, created_at__gte=cutoff
+    ).order_by("created_at"):
         data = run.severity_data
-        if not isinstance(data, dict):
+        if not isinstance(data, dict) or not run.created_at:
             continue
-        day_key = run.created_at.strftime("%Y-%m-%d") if run.created_at else None
-        if not day_key:
-            continue
+        weighted_sum = Decimal(0)
+        total_area = Decimal(0)
         for key, weight in SEVERITY_WEIGHTS.items():
             val = data.get(key, {}).get("area_ha")
             if val is not None:
                 area = Decimal(str(val))
-                daily[day_key]["weighted_sum"] += Decimal(str(weight)) * area
-                daily[day_key]["total_area"] += area
-    result = []
-    for day_key in sorted(daily.keys()):
-        entry = daily[day_key]
-        if entry["total_area"] > 0:
+                weighted_sum += Decimal(str(weight)) * area
+                total_area += area
+        if total_area > 0:
             avg = float(
-                (entry["weighted_sum"] / entry["total_area"]).quantize(Decimal("0.01"))
+                (weighted_sum / total_area).quantize(Decimal("0.01"))
             )
-            result.append({"date": day_key, "avg_severity": avg})
+            result.append({
+                "created_at": run.created_at.isoformat(),
+                "avg_severity": avg,
+            })
     return result
 
 

@@ -94,25 +94,9 @@ function baseColClass(widgetId) {
   return "col-12";
 }
 
-/* Build per-widget column classes: expand lone col-6 widgets to full width on mobile */
+/* Return column classes for each widget (no expansion — stat cards stay col-6) */
 function buildColClasses(ids) {
-  const bases = ids.map(baseColClass);
-  const classes = [...bases];
-  /* Walk through and find consecutive runs of col-6 items */
-  let i = 0;
-  while (i < bases.length) {
-    if (bases[i].startsWith("col-6")) {
-      let runStart = i;
-      while (i < bases.length && bases[i].startsWith("col-6")) i++;
-      /* If the run has an odd count, expand the last one */
-      if ((i - runStart) % 2 === 1) {
-        classes[i - 1] = "col-12 col-md";
-      }
-    } else {
-      i++;
-    }
-  }
-  return classes;
+  return ids.map(baseColClass);
 }
 
 /* SortableWidget wrapper — provides drag handle + remove button */
@@ -337,7 +321,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
           </div>
           <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_areas)}</h3>
           <p className="stat-label text-muted mb-0 small">
-            {t("dashboard.totalAreas")}
+            <span className="stat-label-text">{t("dashboard.totalAreas")}</span>
             <InfoTooltip text={t("dashboard.tooltipTotalAreas")} />
           </p>
         </div>
@@ -353,7 +337,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
           </div>
           <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_analyses)}</h3>
           <p className="stat-label text-muted mb-0 small">
-            {t("dashboard.totalAnalyses")}
+            <span className="stat-label-text">{t("dashboard.totalAnalyses")}</span>
             <InfoTooltip text={t("dashboard.tooltipTotalAnalyses")} />
           </p>
         </div>
@@ -370,7 +354,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
           </div>
           <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_analyzed_ha)}</h3>
           <p className="stat-label text-muted mb-0 small">
-            {t("dashboard.totalAnalyzedHa")}
+            <span className="stat-label-text">{t("dashboard.totalAnalyzedHa")}</span>
             <InfoTooltip text={t("dashboard.tooltipAnalyzedHa")} />
           </p>
         </div>
@@ -386,7 +370,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
           </div>
           <h3 className="stat-value h2 mb-1">{formatNumber(stats?.total_burned_ha)}</h3>
           <p className="stat-label text-muted mb-0 small">
-            {t("dashboard.totalBurnedHa")}
+            <span className="stat-label-text">{t("dashboard.totalBurnedHa")}</span>
             <InfoTooltip text={t("dashboard.tooltipBurnedHa")} />
           </p>
         </div>
@@ -405,7 +389,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
           </div>
           <h3 className="stat-value h2 mb-1">{formatNumber(stats?.analyses_this_month)}</h3>
           <p className="stat-label text-muted mb-0 small">
-            {t("dashboard.analysesThisMonth")}
+            <span className="stat-label-text">{t("dashboard.analysesThisMonth")}</span>
             <InfoTooltip text={t("dashboard.tooltipThisMonth")} />
           </p>
         </div>
@@ -425,7 +409,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
               : "-"}
           </h3>
           <p className="stat-label text-muted mb-0 small">
-            {t("dashboard.avgBurnSeverity")}
+            <span className="stat-label-text">{t("dashboard.avgBurnSeverity")}</span>
             <InfoTooltip text={t("dashboard.tooltipAvgSeverity")} />
           </p>
         </div>
@@ -440,13 +424,13 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
               <circle cx="12" cy="10" r="3" />
             </svg>
           </div>
-          <h3 className="stat-value h4 mb-1">
+          <h3 className="stat-value h2 mb-1">
             {stats?.most_analyzed_area?.area_name || "-"}
           </h3>
           <p className="stat-label text-muted mb-0 small">
-            {stats?.most_analyzed_area
+            <span className="stat-label-text">{stats?.most_analyzed_area
               ? `${stats.most_analyzed_area.run_count} ${t("dashboard.runs")}`
-              : t("dashboard.mostAnalyzedArea")}
+              : t("dashboard.mostAnalyzedArea")}</span>
             <InfoTooltip text={t("dashboard.tooltipMostAnalyzed")} />
           </p>
         </div>
@@ -460,13 +444,13 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
               <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
             </svg>
           </div>
-          <h3 className="stat-value h4 mb-1">
+          <h3 className="stat-value h2 mb-1">
             {stats?.largest_fire?.area_name || "-"}
           </h3>
           <p className="stat-label text-muted mb-0 small">
-            {stats?.largest_fire
+            <span className="stat-label-text">{stats?.largest_fire
               ? `${formatNumber(stats.largest_fire.burned_ha)} ha`
-              : t("dashboard.largestFire")}
+              : t("dashboard.largestFire")}</span>
             <InfoTooltip text={t("dashboard.tooltipLargestFire")} />
           </p>
         </div>
