@@ -230,7 +230,7 @@ function App() {
   }, [authorizedFetch, baseUrl]);
 
   // Notification sound
-  const prevUnreadRef = useRef(0);
+  const prevUnreadRef = useRef(null);
   const playNotificationSound = useCallback(() => {
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -261,7 +261,7 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         const newCount = data.unread_count;
-        if (newCount > prevUnreadRef.current) {
+        if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current) {
           playNotificationSound();
         }
         prevUnreadRef.current = newCount;
