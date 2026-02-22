@@ -106,6 +106,7 @@
   "notifications.minutesAgo": "{count}m ago",
   "notifications.hoursAgo": "{count}h ago",
   "notifications.daysAgo": "{count}d ago",
+  "notifications.markAllRead": "Mark all as read",
   "nav.dashboard": "Dashboard",
   "nav.analysis": "Analysis",
   "nav.areas": "Areas of Interest",

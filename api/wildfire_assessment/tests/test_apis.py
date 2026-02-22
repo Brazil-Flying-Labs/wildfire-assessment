@@ -1219,3 +1219,33 @@ class NotificationViewSetTests(APITestCase):
         self.assertEqual(response.json()["marked_read"], 0)
         self.notif1.refresh_from_db()
         self.assertFalse(self.notif1.is_read)
+
+    def test_mark_all_read(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-mark-all-read")
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["marked_read"], 2)
+        self.notif1.refresh_from_db()
+        self.notif2.refresh_from_db()
+        self.assertTrue(self.notif1.is_read)
+        self.assertTrue(self.notif2.is_read)
+
+    def test_mark_all_read_does_not_affect_other_user(self):
+        self.client.force_authenticate(user=self.other_user)
+        url = reverse("notification-mark-all-read")
+        response = self.client.post(url)
+        self.assertEqual(response.json()["marked_read"], 1)
+        self.notif1.refresh_from_db()
+        self.assertFalse(self.notif1.is_read)
+
+    def test_mark_all_read_when_none_unread(self):
+        self.notif1.is_read = True
+        self.notif1.save()
+        self.notif2.is_read = True
+        self.notif2.save()
+        self.client.force_authenticate(user=self.user)
+        url = reverse("notification-mark-all-read")
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["marked_read"], 0)

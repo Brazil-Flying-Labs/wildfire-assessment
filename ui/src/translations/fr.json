@@ -106,6 +106,7 @@
   "notifications.minutesAgo": "il y a {count}min",
   "notifications.hoursAgo": "il y a {count}h",
   "notifications.daysAgo": "il y a {count}j",
+  "notifications.markAllRead": "Tout marquer comme lu",
   "nav.dashboard": "Tableau de Bord",
   "nav.analysis": "Analyse",
   "nav.areas": "Zones d'Intérêt",

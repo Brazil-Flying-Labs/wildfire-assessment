@@ -28,3 +28,11 @@ def mark_notifications_read_by_run(user, analysis_run_id):
         analysis_run_id=analysis_run_id,
         is_read=False,
     ).update(is_read=True)
+
+
+def mark_all_notifications_read(user):
+    """Mark all unread notifications for a user as read. Returns count."""
+    return Notification.objects.filter(
+        user=user,
+        is_read=False,
+    ).update(is_read=True)

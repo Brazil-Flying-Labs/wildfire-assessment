@@ -293,6 +293,25 @@ function App() {
     }
   }, [notificationsNextUrl, notificationsLoading, fetchNotifications]);
 
+  const handleMarkAllRead = useCallback(async () => {
+    if (!baseUrl) return;
+    try {
+      const response = await authorizedFetch(
+        `${baseUrl}/notifications/mark-all-read/`,
+        { method: "POST" }
+      );
+      if (response.ok) {
+        setNotifications((prev) =>
+          prev.map((n) => ({ ...n, is_read: true }))
+        );
+        setUnreadCount(0);
+        prevUnreadRef.current = 0;
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [authorizedFetch, baseUrl]);
+
   // Apply theme to document — dark on landing page when not logged in
   const isOnLandingPage = !authReady || showLandingPage;
   useEffect(() => {
@@ -1085,6 +1104,7 @@ function App() {
               loading={notificationsLoading}
               hasMore={!!notificationsNextUrl}
               onLoadMore={fetchMoreNotifications}
+              onMarkAllRead={handleMarkAllRead}
             />
             <div className="avatar-menu">
               {user?.picture ? (

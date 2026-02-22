@@ -418,6 +418,23 @@
   border-bottom: 1px solid #e9ecef;
   color: #212529;
   font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notification-mark-all-read {
+  background: none;
+  border: none;
+  color: #6c757d;
+  font-size: 0.75rem;
+  padding: 0;
+  cursor: pointer;
+}
+
+.notification-mark-all-read:hover {
+  color: #495057;
+  text-decoration: underline;
 }
 
 .notification-dropdown-body {
@@ -485,6 +502,14 @@
 [data-theme="dark"] .notification-dropdown-header {
   border-bottom-color: var(--border-color);
   color: var(--text-primary);
+}
+
+[data-theme="dark"] .notification-mark-all-read {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .notification-mark-all-read:hover {
+  color: var(--text-secondary);
 }
 
 [data-theme="dark"] .notification-item {

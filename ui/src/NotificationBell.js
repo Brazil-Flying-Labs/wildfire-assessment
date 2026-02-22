@@ -10,6 +10,7 @@ function NotificationBell({
   loading,
   hasMore,
   onLoadMore,
+  onMarkAllRead,
 }) {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
@@ -111,6 +112,15 @@ function NotificationBell({
     >
       <div className="notification-dropdown-header">
         <span className="fw-semibold">{t("notifications.title")}</span>
+        {unreadCount > 0 && onMarkAllRead && (
+          <button
+            type="button"
+            className="notification-mark-all-read"
+            onClick={onMarkAllRead}
+          >
+            {t("notifications.markAllRead")}
+          </button>
+        )}
       </div>
       <div className="notification-dropdown-body" ref={bodyRef}>
         {loading && notifications.length === 0 ? (

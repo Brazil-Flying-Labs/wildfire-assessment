@@ -41,6 +41,7 @@ from wildfire_assessment.svc.dashboard import get_dashboard_stats
 from wildfire_assessment.svc.notification import (
     get_notifications_queryset,
     get_unread_count,
+    mark_all_notifications_read,
     mark_notification_read,
     mark_notifications_read_by_run,
 )
@@ -562,4 +563,9 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         updated = mark_notifications_read_by_run(request.user, analysis_run_id)
+        return Response({"marked_read": updated})
+
+    @action(detail=False, methods=["post"], url_path="mark-all-read")
+    def mark_all_read(self, request):
+        updated = mark_all_notifications_read(request.user)
         return Response({"marked_read": updated})

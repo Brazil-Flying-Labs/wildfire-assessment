@@ -106,6 +106,7 @@
   "notifications.minutesAgo": "{count}min atrás",
   "notifications.hoursAgo": "{count}h atrás",
   "notifications.daysAgo": "{count}d atrás",
+  "notifications.markAllRead": "Marcar todas como lidas",
   "nav.dashboard": "Painel",
   "nav.analysis": "Análise",
   "nav.areas": "Áreas de Interesse",
