@@ -1345,8 +1345,9 @@ function App() {
               refreshKey={dashboardRefreshKey}
             />
           </div>
-          {currentPage === "dashboard" ? null : currentPage === "analysis-detail" && selectedAnalysisId ? (
-            <div key="analysis-detail" className="page-fade-in">
+          {currentPage === "dashboard" ? null : (
+            <div key={currentPage} className="page-fade-in">
+            {currentPage === "analysis-detail" && selectedAnalysisId ? (
             <AnalysisDetail
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
@@ -1355,17 +1356,13 @@ function App() {
               onNotificationsRead={fetchUnreadCount}
               scrollToDeliverable={scrollToDeliverable}
             />
-            </div>
           ) : currentPage === "areas" ? (
-            <div key="areas" className="page-fade-in">
             <AreasOfInterest
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
               onBackToDashboard={handleBackFromAnalysisDetail}
             />
-            </div>
           ) : currentPage === "profile" ? (
-            <div key="profile" className="page-fade-in">
             <UserProfile
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
@@ -1375,9 +1372,8 @@ function App() {
               onThemeChange={updateTheme}
               onBackToDashboard={handleBackFromAnalysisDetail}
             />
-            </div>
           ) : !backendAuthorizationError ? (
-            <section key="analysis" className="app-main-content p-4 flex-grow-1 page-fade-in">
+            <section className="app-main-content p-4 flex-grow-1">
               {backendAuthorizationError ? (
                 <div className="alert alert-warning" role="alert">
                   {t("app.backendUnauthorized")}
@@ -1852,11 +1848,13 @@ function App() {
               ) : null}
             </section>
           ) : (
-            <section className="app-main-content p-4 flex-grow-1 page-fade-in">
+            <section className="app-main-content p-4 flex-grow-1">
               <div className="alert alert-warning" role="alert">
                 {t("app.backendUnauthorized")}
               </div>
             </section>
+          )}
+            </div>
           )}
         </main>
       </div>
