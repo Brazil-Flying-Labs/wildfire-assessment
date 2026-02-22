@@ -714,15 +714,18 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
             return (
               <div key={id} className={colClasses[idx]}>
                 {group === "stats" || group === "insights" ? (
-                  <div className="card h-100 shadow-sm">
+                  <div className="card h-100 shadow-sm skeleton-card">
                     <div className="card-body text-center py-4">
                       <div className="skeleton-circle mx-auto mb-3" />
                       <div className="skeleton-text skeleton-value mx-auto mb-2" />
                       <div className="skeleton-text skeleton-label mx-auto" />
                     </div>
+                    <div className="skeleton-spinner">
+                      <div className="spinner-border spinner-border-sm text-primary" role="status" />
+                    </div>
                   </div>
                 ) : group === "table" ? (
-                  <div className="card shadow-sm">
+                  <div className="card shadow-sm skeleton-card">
                     <div className="card-header">
                       <div className="skeleton-text skeleton-header-text" />
                     </div>
@@ -731,14 +734,20 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
                         <div key={r} className="skeleton-table-row" />
                       ))}
                     </div>
+                    <div className="skeleton-spinner">
+                      <div className="spinner-border text-primary" role="status" />
+                    </div>
                   </div>
                 ) : (
-                  <div className="card shadow-sm">
+                  <div className="card shadow-sm skeleton-card">
                     <div className="card-header">
                       <div className="skeleton-text skeleton-header-text" />
                     </div>
                     <div className="card-body">
                       <div className="skeleton-block" />
+                    </div>
+                    <div className="skeleton-spinner">
+                      <div className="spinner-border text-primary" role="status" />
                     </div>
                   </div>
                 )}

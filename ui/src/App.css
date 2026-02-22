@@ -1879,6 +1879,19 @@
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 
+.skeleton-card {
+  position: relative;
+}
+
+.skeleton-spinner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 [data-theme="dark"] .skeleton-text,
 [data-theme="dark"] .skeleton-circle,
 [data-theme="dark"] .skeleton-table-row,
