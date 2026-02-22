@@ -14,7 +14,7 @@ import UserProfile from "./UserProfile";
 const UI_VERSION = "1.4.8";
 
 function App() {
-  const { t, language } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const languageLoadedRef = useRef(false);
   const authAudience = process.env.REACT_APP_AUTH0_AUDIENCE || "";
   const {
@@ -335,23 +335,15 @@ function App() {
     });
   }, [authorizedFetch, baseUrl]);
 
+  // On login, sync language FROM backend (backend is source of truth)
   useEffect(() => {
     if (!authReady || !baseUrl) return;
 
     (async () => {
       try {
         const data = await fetchBackendProfile();
-        if (data) {
-          const backendLang = data.default_language;
-          if (backendLang && backendLang !== language) {
-            authorizedFetch(`${baseUrl}/me/`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ default_language: language }),
-            }).catch((err) =>
-              console.error("Failed to sync language to backend:", err)
-            );
-          }
+        if (data?.default_language && data.default_language !== language) {
+          setLanguage(data.default_language);
         }
       } finally {
         languageLoadedRef.current = true;
@@ -360,7 +352,7 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, baseUrl]);
 
-  // Persist language changes to backend (after initial sync)
+  // Persist language changes to backend (only after initial sync from backend)
   useEffect(() => {
     if (!authReady || !baseUrl || !languageLoadedRef.current) return;
 
