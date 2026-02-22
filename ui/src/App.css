@@ -2334,6 +2334,62 @@
   }
 }
 
+/* Analysis progress stepper */
+.analysis-progress-bar {
+  height: 4px;
+  background: var(--bs-gray-200);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.analysis-progress-bar__fill {
+  height: 100%;
+  background: var(--bs-primary);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+.analysis-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  transition: opacity 0.3s ease;
+}
+
+.analysis-step__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.analysis-step__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bs-gray-300);
+}
+
+.analysis-step__label {
+  font-size: 0.9rem;
+}
+
+.analysis-step--completed {
+  color: var(--bs-success);
+}
+
+.analysis-step--active {
+  color: var(--bs-primary);
+  font-weight: 500;
+}
+
+.analysis-step--pending {
+  opacity: 0.4;
+}
+
 /* Page transitions */
 @keyframes page-fade-in {
   from {

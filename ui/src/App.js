@@ -37,6 +37,8 @@ function App() {
     loading: false,
     error: null,
   });
+  const [analysisStep, setAnalysisStep] = useState(0);
+  const analysisStepRef = useRef(null);
   const [hasResults, setHasResults] = useState(false);
   const [deliverableStatus, setDeliverableStatus] = useState({});
   const [isNavOpen, setIsNavOpen] = useState(false);
@@ -938,6 +940,17 @@ function App() {
     ]
   );
 
+  const analysisSteps = useMemo(
+    () => [
+      t("app.progressStep1"),
+      t("app.progressStep2"),
+      t("app.progressStep3"),
+      t("app.progressStep4"),
+      t("app.progressStep5"),
+    ],
+    [t]
+  );
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
@@ -963,6 +976,11 @@ function App() {
     setAnalysisState({ loading: true, error: null });
     setAnalysisResult(null);
     setHasResults(false);
+    setAnalysisStep(0);
+    clearInterval(analysisStepRef.current);
+    analysisStepRef.current = setInterval(() => {
+      setAnalysisStep((prev) => (prev < 4 ? prev + 1 : prev));
+    }, 6000);
     // Clear polling intervals and deliverable state
     Object.values(deliverablePollRef.current).forEach(clearInterval);
     deliverablePollRef.current = {};
@@ -1002,6 +1020,8 @@ function App() {
       console.error("Error during analysis:", error);
       setAnalysisState({ loading: false, error: error.message });
     } finally {
+      clearInterval(analysisStepRef.current);
+      setAnalysisStep(0);
       if (analyzeControllerRef.current === controller) {
         analyzeControllerRef.current = null;
       }
@@ -1516,11 +1536,44 @@ function App() {
 
               {/* Analysis Results */}
               {analysisState.loading ? (
-                <div className="placeholder-card border border-dashed rounded-3 p-5 text-center bg-white">
-                  <div className="spinner-border text-primary mb-3" role="status">
-                    <span className="visually-hidden">{t("common.loading")}</span>
+                <div className="card shadow-sm">
+                  <div className="card-body p-4">
+                    <div className="analysis-progress-bar mb-4">
+                      <div
+                        className="analysis-progress-bar__fill"
+                        style={{ width: `${((analysisStep + 1) / analysisSteps.length) * 100}%` }}
+                      />
+                    </div>
+                    <div className="d-flex flex-column gap-2">
+                      {analysisSteps.map((label, i) => (
+                        <div
+                          key={i}
+                          className={`analysis-step ${
+                            i < analysisStep
+                              ? "analysis-step--completed"
+                              : i === analysisStep
+                                ? "analysis-step--active"
+                                : "analysis-step--pending"
+                          }`}
+                        >
+                          <span className="analysis-step__icon">
+                            {i < analysisStep ? (
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M13.485 3.929a1 1 0 0 1 .086 1.406l-6 7a1 1 0 0 1-1.48.055l-3-3a1 1 0 0 1 1.41-1.42l2.216 2.217 5.338-6.214a1 1 0 0 1 1.43-.044Z" />
+                              </svg>
+                            ) : i === analysisStep ? (
+                              <div className="spinner-border spinner-border-sm" role="status">
+                                <span className="visually-hidden">{t("common.loading")}</span>
+                              </div>
+                            ) : (
+                              <span className="analysis-step__dot" />
+                            )}
+                          </span>
+                          <span className="analysis-step__label">{label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <p className="mb-0">{t("app.processing")}</p>
                 </div>
               ) : null}
 
