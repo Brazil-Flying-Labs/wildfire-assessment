@@ -15,6 +15,7 @@ from wildfire_assessment.admin import (
     NotificationAdmin,
 )
 from wildfire_assessment.models import (
+    AIProvider,
     AnalysisRun,
     AreaOfInterest,
     Country,
@@ -25,13 +26,13 @@ from wildfire_assessment.models import (
 class AdminTests(TestCase):
     def test_unregister_user_not_registered(self):
         User = get_user_model()
-        for model in (User, Country, AreaOfInterest, AnalysisRun, Notification):
+        for model in (User, Country, AreaOfInterest, AnalysisRun, Notification, AIProvider):
             if admin.site.is_registered(model):
                 admin.site.unregister(model)
 
         importlib.reload(admin_module)
 
-        for model in (User, Country, AreaOfInterest, AnalysisRun, Notification):
+        for model in (User, Country, AreaOfInterest, AnalysisRun, Notification, AIProvider):
             self.assertTrue(admin.site.is_registered(model))
 
 
