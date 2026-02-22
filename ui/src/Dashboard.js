@@ -150,7 +150,7 @@ function SortableWidget({ id, colClassName, children, onRemove, t, isDesktop, ji
   );
 }
 
-function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, onWidgetsChange }) {
+function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, onWidgetsChange, refreshKey }) {
   const { t } = useLanguage();
   const isDesktop = useIsDesktop();
   const [loading, setLoading] = useState(true);
@@ -203,6 +203,14 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   useEffect(() => {
     loadDashboard();
   }, [loadDashboard]);
+
+  const prevRefreshKeyRef = useRef(refreshKey);
+  useEffect(() => {
+    if (prevRefreshKeyRef.current !== refreshKey) {
+      prevRefreshKeyRef.current = refreshKey;
+      loadDashboard();
+    }
+  }, [refreshKey, loadDashboard]);
 
   const handleDeleteAnalysis = useCallback(async (analysisId) => {
     setDeletingAnalysis(true);

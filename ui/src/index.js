@@ -1,3 +1,4 @@
+import { faro } from './faroConfig'; // eslint-disable-line no-unused-vars
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Auth0Provider } from '@auth0/auth0-react';

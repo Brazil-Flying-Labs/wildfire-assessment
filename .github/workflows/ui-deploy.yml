@@ -18,6 +18,7 @@ jobs:
       UI_DIRECTORY: ui
       S3_UI_BUCKET: wildfire-assessment-dev-ui
       CLOUDFRONT_DISTRIBUTION_ID: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+      FARO_APP_ID: ${{ secrets.FARO_APP_ID }}
 
     steps:
       - name: Checkout repository
@@ -39,12 +40,41 @@ jobs:
           echo "REACT_APP_AUTH0_CLIENT_ID=${{ secrets.REACT_APP_AUTH0_CLIENT_ID }}" >> $GITHUB_ENV
           echo "REACT_APP_AUTH0_DOMAIN=${{ secrets.REACT_APP_AUTH0_DOMAIN }}" >> $GITHUB_ENV
           echo "REACT_APP_AUTH0_AUDIENCE=${{ secrets.REACT_APP_AUTH0_AUDIENCE }}" >> $GITHUB_ENV
+          echo "REACT_APP_FARO_COLLECTOR_URL=${{ secrets.REACT_APP_FARO_COLLECTOR_URL }}" >> $GITHUB_ENV
+          echo "REACT_APP_FARO_APP_NAME=wildfire-ui" >> $GITHUB_ENV
 
       - name: Build UI
         working-directory: ${{ env.UI_DIRECTORY }}
         env:
           REACT_APP_WILDLIFE_API_URL: ${{ secrets.REACT_APP_WILDLIFE_API_URL }}
         run: npm run build
+
+      - name: Inject Faro bundle ID into build
+        if: env.FARO_APP_ID != ''
+        working-directory: ${{ env.UI_DIRECTORY }}
+        run: |
+          npx faro-cli inject-bundle-id \
+            --app-name "wildfire-ui" \
+            --files "build/static/js/*.js" \
+            --verbose
+
+      - name: Upload source maps to Grafana Cloud
+        if: env.FARO_APP_ID != ''
+        working-directory: ${{ env.UI_DIRECTORY }}
+        run: |
+          npx faro-cli upload \
+            --endpoint "${{ secrets.FARO_SOURCEMAP_ENDPOINT }}" \
+            --app-id "${{ secrets.FARO_APP_ID }}" \
+            --api-key "${{ secrets.FARO_API_KEY }}" \
+            --stack-id "${{ secrets.FARO_STACK_ID }}" \
+            --bundle-id env \
+            --app-name "wildfire-ui" \
+            --output-path "./build" \
+            --gzip-payload \
+            --verbose
+
+      - name: Remove source maps from build
+        run: find ${{ env.UI_DIRECTORY }}/build -name '*.map' -delete
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

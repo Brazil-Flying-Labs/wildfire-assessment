@@ -36,3 +36,32 @@ resource "aws_iam_role" "task_role" {
     Environment = var.environment
   }
 }
+
+resource "aws_secretsmanager_secret" "grafana_cloud" {
+  name        = "wildfire-assessment/${var.environment}/grafana-cloud"
+  description = "Grafana Cloud credentials for ${var.environment}"
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role_policy" "task_execution_secrets" {
+  name = "secrets-manager-read"
+  role = aws_iam_role.task_execution.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = [
+          aws_secretsmanager_secret.grafana_cloud.arn
+        ]
+      }
+    ]
+  })
+}

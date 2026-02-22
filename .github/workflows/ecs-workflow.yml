@@ -56,7 +56,7 @@ jobs:
 
       - name: Run backend tests inside container
         run: |
-          docker compose exec -T api bash -lc "cd /api && coverage run --source=wildfire_assessment manage.py test && coverage report"
+          docker compose exec -T api bash -lc "cd /api && OTEL_SDK_DISABLED=true coverage run --source=wildfire_assessment manage.py test && coverage report"
 
       - name: Tear down services
         if: always()

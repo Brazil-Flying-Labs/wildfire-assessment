@@ -66,6 +66,69 @@ resource "aws_service_discovery_service" "redis" {
 locals {
   redis_hostname = "redis.${aws_service_discovery_private_dns_namespace.ecs.name}"
   redis_url      = "redis://${local.redis_hostname}:6379/0"
+
+  # Inline Alloy config for ECS (passed via environment variable)
+  alloy_config = <<-EOT
+    otelcol.receiver.otlp "default" {
+      grpc { endpoint = "0.0.0.0:4317" }
+      http { endpoint = "0.0.0.0:4318" }
+      output {
+        metrics = [otelcol.exporter.otlphttp.grafana.input]
+        logs    = [otelcol.exporter.otlphttp.grafana.input]
+        traces  = [otelcol.exporter.otlphttp.grafana.input]
+      }
+    }
+    otelcol.auth.basic "grafana" {
+      username = sys.env("GRAFANA_CLOUD_INSTANCE_ID")
+      password = sys.env("GRAFANA_CLOUD_API_KEY")
+    }
+    otelcol.exporter.otlphttp "grafana" {
+      client {
+        endpoint = sys.env("GRAFANA_CLOUD_OTLP_ENDPOINT")
+        auth     = otelcol.auth.basic.grafana.handler
+      }
+    }
+  EOT
+
+  # Shared Grafana Alloy sidecar (receives OTLP, forwards to Grafana Cloud)
+  alloy_sidecar = {
+    name      = "grafana-alloy"
+    image     = "grafana/alloy:v1.8.0"
+    essential = false
+
+    portMappings = [
+      { containerPort = 4317, protocol = "tcp" },
+      { containerPort = 4318, protocol = "tcp" }
+    ]
+
+    entryPoint = ["/bin/sh", "-c"]
+    command    = ["printenv ALLOY_CONFIG_CONTENT > /tmp/config.alloy && exec /bin/alloy run --server.http.listen-addr=0.0.0.0:12345 /tmp/config.alloy"]
+
+    environment = [
+      { name = "ALLOY_CONFIG_CONTENT", value = local.alloy_config },
+      { name = "GRAFANA_CLOUD_OTLP_ENDPOINT", value = "https://otlp-gateway-prod-us-east-0.grafana.net/otlp" }
+    ]
+
+    secrets = [
+      {
+        name      = "GRAFANA_CLOUD_INSTANCE_ID"
+        valueFrom = "${aws_secretsmanager_secret.grafana_cloud.arn}:instance_id::"
+      },
+      {
+        name      = "GRAFANA_CLOUD_API_KEY"
+        valueFrom = "${aws_secretsmanager_secret.grafana_cloud.arn}:api_key::"
+      }
+    ]
+
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+        "awslogs-region"        = data.aws_region.current.name
+        "awslogs-stream-prefix" = "alloy"
+      }
+    }
+  }
 }
 
 
@@ -92,13 +155,17 @@ resource "aws_ecs_task_definition" "api" {
         { containerPort = 10000, protocol = "tcp" }
       ]
 
-      # (Optional) Env vars
       environment = [
         { name = "ENV", value = var.environment },
-        { name = "CELERY_BROKER_URL", value = local.redis_url }
+        { name = "DJANGO_SETTINGS_MODULE", value = "api.settings" },
+        { name = "CELERY_BROKER_URL", value = local.redis_url },
+        { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4318" },
+        { name = "OTEL_EXPORTER_OTLP_PROTOCOL", value = "http/protobuf" },
+        { name = "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", value = "true" },
+        { name = "OTEL_LOGS_EXPORTER", value = "otlp" },
+        { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.name=wildfire-api,service.namespace=wildfire-assessment,deployment.environment=${var.environment}" }
       ]
 
-      # Logs -> CloudWatch (2-day retention already set on the log group)
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -111,7 +178,8 @@ resource "aws_ecs_task_definition" "api" {
       linuxParameters = {
         initProcessEnabled = true
       }
-    }
+    },
+    local.alloy_sidecar
   ])
 
   runtime_platform {
@@ -247,11 +315,17 @@ resource "aws_ecs_task_definition" "celery_worker" {
       name      = "celery-worker"
       image     = "${aws_ecr_repository.wildfire_assessment.repository_url}:latest"
       essential = true
-      command   = ["sh", "-c", "celery -A wildfire_assessment worker --loglevel=info --concurrency=10"]
+      command   = ["sh", "-c", "opentelemetry-instrument celery -A wildfire_assessment worker --loglevel=info --concurrency=10"]
 
       environment = [
         { name = "ENV", value = var.environment },
-        { name = "CELERY_BROKER_URL", value = local.redis_url }
+        { name = "DJANGO_SETTINGS_MODULE", value = "api.settings" },
+        { name = "CELERY_BROKER_URL", value = local.redis_url },
+        { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4318" },
+        { name = "OTEL_EXPORTER_OTLP_PROTOCOL", value = "http/protobuf" },
+        { name = "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", value = "true" },
+        { name = "OTEL_LOGS_EXPORTER", value = "otlp" },
+        { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.name=wildfire-celery-worker,service.namespace=wildfire-assessment,deployment.environment=${var.environment}" }
       ]
 
       logConfiguration = {
@@ -266,7 +340,8 @@ resource "aws_ecs_task_definition" "celery_worker" {
       linuxParameters = {
         initProcessEnabled = true
       }
-    }
+    },
+    local.alloy_sidecar
   ])
 
   runtime_platform {
@@ -322,11 +397,17 @@ resource "aws_ecs_task_definition" "celery_beat" {
       name      = "celery-beat"
       image     = "${aws_ecr_repository.wildfire_assessment.repository_url}:latest"
       essential = true
-      command   = ["sh", "-c", "celery -A wildfire_assessment beat --loglevel=info"]
+      command   = ["sh", "-c", "opentelemetry-instrument celery -A wildfire_assessment beat --loglevel=info"]
 
       environment = [
         { name = "ENV", value = var.environment },
-        { name = "CELERY_BROKER_URL", value = local.redis_url }
+        { name = "DJANGO_SETTINGS_MODULE", value = "api.settings" },
+        { name = "CELERY_BROKER_URL", value = local.redis_url },
+        { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://localhost:4318" },
+        { name = "OTEL_EXPORTER_OTLP_PROTOCOL", value = "http/protobuf" },
+        { name = "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", value = "true" },
+        { name = "OTEL_LOGS_EXPORTER", value = "otlp" },
+        { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.name=wildfire-celery-beat,service.namespace=wildfire-assessment,deployment.environment=${var.environment}" }
       ]
 
       logConfiguration = {
@@ -341,7 +422,8 @@ resource "aws_ecs_task_definition" "celery_beat" {
       linuxParameters = {
         initProcessEnabled = true
       }
-    }
+    },
+    local.alloy_sidecar
   ])
 
   runtime_platform {

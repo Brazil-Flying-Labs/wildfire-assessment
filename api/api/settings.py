@@ -16,9 +16,24 @@ import logging
 import os
 from pathlib import Path
 
+# Auto-configure OpenTelemetry if the SDK is installed and not disabled.
+# This ensures instrumentation works even when the process is forked
+# (e.g. runserver_plus auto-reloader, debugpy).
+if os.environ.get("OTEL_SDK_DISABLED") != "true":
+    try:
+        from opentelemetry import trace
+
+        if type(trace.get_tracer_provider()).__name__ == "ProxyTracerProvider":
+            from opentelemetry.instrumentation.auto_instrumentation import initialize
+
+            initialize()
+    except ImportError:
+        pass
+
 from wildfire_assessment.svc.aws import get_aws_secret_manager_secret
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("botocore").setLevel(logging.WARNING)
 
 LOG = logging.getLogger(__name__)
 
@@ -52,12 +67,18 @@ if USE_LOCAL_SECRET:
         "S3_BUCKET_NAME": "your-s3-bucket-name",
         "SOCIAL_AUTH_TRAILING_SLASH": True,
         "OPENAI_API_KEY": "your-openai-api-key",
+        "GRAFANA_CLOUD_OTLP_ENDPOINT": "",
+        "GRAFANA_CLOUD_INSTANCE_ID": "",
+        "GRAFANA_CLOUD_API_KEY": "",
     }
 else:
     secret = json.loads(get_aws_secret_manager_secret(ENV))
 
 GEMINI_API_KEY = secret.get("GEMINI_API_KEY")
 OPENAI_API_KEY = secret.get("OPENAI_API_KEY")
+GRAFANA_CLOUD_OTLP_ENDPOINT = secret.get("GRAFANA_CLOUD_OTLP_ENDPOINT", "")
+GRAFANA_CLOUD_INSTANCE_ID = secret.get("GRAFANA_CLOUD_INSTANCE_ID", "")
+GRAFANA_CLOUD_API_KEY = secret.get("GRAFANA_CLOUD_API_KEY", "")
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

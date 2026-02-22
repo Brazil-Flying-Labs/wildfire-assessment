@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
+import { faro } from "./faroConfig";
 import "./App.css";
 import AIAnalysisModal from "./AIAnalysisModal";
 import AnalysisDetail from "./AnalysisDetail";
@@ -51,6 +52,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
   const [scrollToDeliverable, setScrollToDeliverable] = useState(null);
+  const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
 
   // Notification state
   const [notifications, setNotifications] = useState([]);
@@ -84,6 +86,7 @@ function App() {
     } else {
       window.history.pushState(state, "");
     }
+    if (faro) faro.api.setView({ name: page });
   }, []);
 
   const handleAnalysisClick = useCallback((analysisId, deliverableName) => {
@@ -94,6 +97,7 @@ function App() {
       { page: "analysis-detail", analysisId, landing: false },
       ""
     );
+    if (faro) faro.api.setView({ name: "analysis-detail" });
   }, []);
 
   const handleBackFromAnalysisDetail = useCallback(() => {
@@ -103,6 +107,7 @@ function App() {
       { page: "dashboard", analysisId: null, landing: false },
       ""
     );
+    if (faro) faro.api.setView({ name: "dashboard" });
   }, []);
 
   // Handle browser back/forward buttons
@@ -121,6 +126,7 @@ function App() {
       setCurrentPage(state.page || "dashboard");
       setSelectedAnalysisId(state.analysisId || null);
       setIsNavOpen(false);
+      if (faro) faro.api.setView({ name: state.page || "dashboard" });
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -386,6 +392,16 @@ function App() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
+
+  // Set Faro user metadata for observability correlation
+  useEffect(() => {
+    if (!faro || !authReady || !user) return;
+    faro.api.setUser({
+      id: user.sub || "",
+      email: user.email || "",
+      username: user.name || user.nickname || "",
+    });
+  }, [authReady, user]);
 
   // Poll for unread notification count every 5 seconds
   useEffect(() => {
@@ -963,6 +979,7 @@ function App() {
       setAnalysisResult(data);
       setHasResults(true);
       setAnalysisState({ loading: false, error: null });
+      setDashboardRefreshKey((k) => k + 1);
     } catch (error) {
       if (error.name === "AbortError") {
         if (analyzeControllerRef.current === controller) {
@@ -1283,15 +1300,17 @@ function App() {
 
         {/* Main Content */}
         <main className="app-main flex-grow-1 d-flex flex-column">
-          {currentPage === "dashboard" ? (
+          <div style={{ display: currentPage === "dashboard" ? "block" : "none" }}>
             <Dashboard
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
               onAnalysisClick={handleAnalysisClick}
               backendProfile={backendProfile}
               onWidgetsChange={updateDashboardWidgets}
+              refreshKey={dashboardRefreshKey}
             />
-          ) : currentPage === "analysis-detail" && selectedAnalysisId ? (
+          </div>
+          {currentPage === "analysis-detail" && selectedAnalysisId ? (
             <AnalysisDetail
               authorizedFetch={authorizedFetch}
               baseUrl={baseUrl}
@@ -1328,10 +1347,15 @@ function App() {
                 <h2 className="h4 mb-0">{t("app.analysisTitle")}</h2>
                 <button
                   type="button"
-                  className="btn btn-link text-decoration-none p-0 no-print"
+                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 no-print"
                   onClick={handleBackFromAnalysisDetail}
+                  title={t("common.back")}
                 >
-                  ← {t("analysisDetail.backToDashboard")}
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                  </svg>
+                  {t("common.back")}
                 </button>
               </div>
 
