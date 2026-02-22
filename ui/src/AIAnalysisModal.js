@@ -2,17 +2,26 @@ import { useCallback, useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { useLanguage } from "./LanguageContext";
 
-const RESPONSE_ID_REGEX = /\n?\n?\[RESPONSE_ID\](.*?)\[\/RESPONSE_ID\]$/;
+const RESPONSE_ID_REGEX = /\n?\n?\[RESPONSE_ID\](.*?)\[\/RESPONSE_ID\]/;
+const AI_PROVIDER_REGEX = /\[AI_PROVIDER\](.*?)\[\/AI_PROVIDER\]/;
 
 /**
- * Parse streaming text to extract the response_id marker appended by the backend.
+ * Parse streaming text to extract the response_id and provider markers.
  */
-function extractResponseId(text) {
-  const match = text.match(RESPONSE_ID_REGEX);
-  if (match) {
-    return { text: text.replace(RESPONSE_ID_REGEX, ""), responseId: match[1] };
+function extractMarkers(text) {
+  let responseId = null;
+  let provider = null;
+  const idMatch = text.match(RESPONSE_ID_REGEX);
+  if (idMatch) {
+    responseId = idMatch[1];
+    text = text.replace(RESPONSE_ID_REGEX, "");
   }
-  return { text, responseId: null };
+  const providerMatch = text.match(AI_PROVIDER_REGEX);
+  if (providerMatch) {
+    provider = providerMatch[1];
+    text = text.replace(AI_PROVIDER_REGEX, "");
+  }
+  return { text, responseId, provider };
 }
 
 /**
@@ -36,6 +45,7 @@ function AIAnalysisModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [question, setQuestion] = useState("");
+  const [aiProvider, setAiProvider] = useState(null);
   const responseIdRef = useRef(null);
   const abortControllerRef = useRef(null);
   const contentRef = useRef(null);
@@ -94,8 +104,8 @@ function AIAnalysisModal({
       const chunk = decoder.decode(value, { stream: true });
       fullText += chunk;
 
-      // Strip the response_id marker for display
-      const { text: cleanText } = extractResponseId(fullText);
+      // Strip markers for display
+      const { text: cleanText } = extractMarkers(fullText);
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = { role: "assistant", text: cleanText };
@@ -103,9 +113,12 @@ function AIAnalysisModal({
       });
     }
 
-    const { text: finalText, responseId } = extractResponseId(fullText);
+    const { text: finalText, responseId, provider } = extractMarkers(fullText);
     if (responseId) {
       responseIdRef.current = responseId;
+    }
+    if (provider) {
+      setAiProvider(provider);
     }
     setMessages((prev) => {
       const updated = [...prev];
@@ -378,7 +391,7 @@ function AIAnalysisModal({
               )}
               <div className="ai-chat-footer-meta">
                 <small className="text-muted">
-                  {t("ai.poweredBy")}
+                  {t("ai.poweredBy").replace("{provider}", aiProvider || "AI")}
                 </small>
                 <button
                   type="button"

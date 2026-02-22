@@ -219,3 +219,29 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"Notification for {self.user} - {self.notification_type}"
+
+
+class AIProvider(models.Model):
+    """Configurable AI provider for analysis endpoints."""
+
+    PROVIDER_CHOICES = [
+        ("gemini", "Google Gemini"),
+        ("openai", "OpenAI"),
+    ]
+
+    name = models.CharField(max_length=20, choices=PROVIDER_CHOICES, unique=True)
+    is_active = models.BooleanField(default=False)
+    model_name = models.CharField(
+        max_length=100,
+        help_text="Model identifier, e.g. gemini-2.0-flash-lite or gpt-4o-mini",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "AI Provider"
+        verbose_name_plural = "AI Providers"
+
+    def __str__(self):
+        active = " (active)" if self.is_active else ""
+        return f"{self.get_name_display()} — {self.model_name}{active}"

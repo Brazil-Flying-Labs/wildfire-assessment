@@ -57,7 +57,7 @@ else:
     secret = json.loads(get_aws_secret_manager_secret(ENV))
 
 GEMINI_API_KEY = secret.get("GEMINI_API_KEY")
-
+OPENAI_API_KEY = secret.get("OPENAI_API_KEY")
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

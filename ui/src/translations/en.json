@@ -97,7 +97,7 @@
   "ai.generating": "Generating AI analysis...",
   "ai.followUpPlaceholder": "Ask a follow-up question...",
   "ai.send": "Send",
-  "ai.poweredBy": "Powered by Google Gemini",
+  "ai.poweredBy": "Powered by {provider}",
   "ai.openAnalysis": "Open AI Analysis",
   "notifications.title": "Notifications",
   "notifications.empty": "No notifications yet",

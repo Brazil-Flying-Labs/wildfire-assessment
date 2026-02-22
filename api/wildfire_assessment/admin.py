@@ -4,10 +4,12 @@ from django import forms
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.core.cache import cache
 from django.http import HttpResponseForbidden
 from django.shortcuts import render
 from django.utils.html import format_html
 from wildfire_assessment.models import (
+    AIProvider,
     AnalysisRun,
     AreaOfInterest,
     Country,
@@ -287,6 +289,21 @@ class NotificationAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Notification, NotificationAdmin)
+
+
+class AIProviderAdmin(admin.ModelAdmin):
+    list_display = ("name", "model_name", "is_active", "updated_at")
+    list_editable = ("is_active", "model_name")
+
+    def save_model(self, request, obj, form, change):
+        if obj.is_active:
+            # Deactivate all other providers
+            AIProvider.objects.exclude(pk=obj.pk).update(is_active=False)
+        super().save_model(request, obj, form, change)
+        cache.delete("active_ai_provider")
+
+
+admin.site.register(AIProvider, AIProviderAdmin)
 
 
 def analytics_dashboard_view(request):

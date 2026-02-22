@@ -1,5 +1,6 @@
 """
-Google Gemini service for generating wildfire analysis reports.
+AI analysis service — dispatches between Google Gemini and OpenAI
+based on the active AIProvider configured in the admin.
 """
 
 import logging
@@ -25,10 +26,32 @@ LANGUAGE_MAP = {
     "fr": "French",
 }
 
+PROVIDER_DISPLAY = {
+    "gemini": "Google Gemini",
+    "openai": "OpenAI",
+}
+
 
 def _get_instructions(language: str | None = None) -> str:
     lang_name = LANGUAGE_MAP.get(language or "en", "English")
     return f"{SYSTEM_INSTRUCTIONS} Always respond in {lang_name}."
+
+
+def get_active_provider():
+    """Return the active AIProvider row (cached 60s)."""
+    from wildfire_assessment.models import AIProvider
+
+    provider = cache.get("active_ai_provider")
+    if not provider:
+        provider = AIProvider.objects.filter(is_active=True).first()
+        if provider:
+            cache.set("active_ai_provider", provider, timeout=60)
+    return provider
+
+
+# ---------------------------------------------------------------------------
+# Gemini-specific helpers
+# ---------------------------------------------------------------------------
 
 
 def get_gemini_model(
@@ -48,6 +71,11 @@ def get_gemini_model(
             max_output_tokens=2000,
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
 
 
 def build_analysis_prompt(
@@ -118,7 +146,12 @@ def _build_image_content(image_urls: list | None) -> list:
     return items
 
 
-def generate_analysis_stream(
+# ---------------------------------------------------------------------------
+# Gemini streaming implementations
+# ---------------------------------------------------------------------------
+
+
+def _gemini_generate_analysis_stream(
     pre_fire_date: str,
     post_fire_date: str,
     area_of_interest: str,
@@ -127,13 +160,6 @@ def generate_analysis_stream(
     language: str | None = None,
     model: str = "gemini-2.0-flash-lite",
 ) -> tuple[Generator[str, None, None], dict]:
-    """
-    Generate a streaming analysis using Google Gemini.
-
-    Returns:
-        A tuple of (generator yielding text chunks, holder dict).
-        holder["response_id"] is set after the generator is exhausted.
-    """
     gemini_model = get_gemini_model(model, language)
     prompt = build_analysis_prompt(
         pre_fire_date, post_fire_date, area_of_interest, severity_distribution
@@ -152,7 +178,6 @@ def generate_analysis_stream(
                 full_text += chunk.text
                 yield chunk.text
 
-        # Store conversation history for follow-ups
         conv_id = str(uuid.uuid4())
         history = [
             {"role": "user", "parts": [prompt]},
@@ -160,7 +185,7 @@ def generate_analysis_stream(
         ]
         cache.set(
             f"ai_chat_{conv_id}",
-            {"history": history, "model": model, "language": language},
+            {"history": history, "model": model, "language": language, "provider": "gemini"},
             timeout=CONVERSATION_CACHE_TTL,
         )
         holder["response_id"] = conv_id
@@ -168,23 +193,12 @@ def generate_analysis_stream(
     return stream_chunks(), holder
 
 
-def generate_followup_stream(
+def _gemini_generate_followup_stream(
     previous_response_id: str,
     question: str,
     language: str | None = None,
     model: str = "gemini-2.0-flash-lite",
 ) -> tuple[Generator[str, None, None], dict]:
-    """
-    Generate a streaming follow-up response using cached conversation history.
-
-    Args:
-        previous_response_id: Conversation ID from a previous response
-        question: The user's follow-up question
-        model: Gemini model to use
-
-    Returns:
-        A tuple of (generator yielding text chunks, holder dict).
-    """
     conv_data = cache.get(f"ai_chat_{previous_response_id}")
     if not conv_data:
         raise ValueError("Conversation not found or expired")
@@ -205,7 +219,6 @@ def generate_followup_stream(
                 full_text += chunk.text
                 yield chunk.text
 
-        # Update conversation history and store with a new ID
         conv_data["history"].append({"role": "user", "parts": [question]})
         conv_data["history"].append({"role": "model", "parts": [full_text]})
         new_conv_id = str(uuid.uuid4())
@@ -217,3 +230,109 @@ def generate_followup_stream(
         holder["response_id"] = new_conv_id
 
     return stream_chunks(), holder
+
+
+# ---------------------------------------------------------------------------
+# Public dispatch functions (called by views)
+# ---------------------------------------------------------------------------
+
+
+def generate_analysis_stream(
+    pre_fire_date: str,
+    post_fire_date: str,
+    area_of_interest: str,
+    severity_distribution: dict,
+    image_urls: list | None = None,
+    language: str | None = None,
+    model: str | None = None,
+) -> tuple[Generator[str, None, None], dict]:
+    """
+    Generate a streaming analysis using the active AI provider.
+
+    Returns:
+        A tuple of (generator yielding text chunks, holder dict).
+        holder["response_id"] is set after the generator is exhausted.
+    """
+    provider = get_active_provider()
+    if provider and provider.name == "openai":
+        from wildfire_assessment.svc.openai_analysis import (
+            generate_analysis_stream as openai_stream,
+        )
+
+        return openai_stream(
+            pre_fire_date=pre_fire_date,
+            post_fire_date=post_fire_date,
+            area_of_interest=area_of_interest,
+            severity_distribution=severity_distribution,
+            image_urls=image_urls,
+            language=language,
+            model=model or (provider.model_name if provider else "gpt-4o-mini"),
+        )
+
+    return _gemini_generate_analysis_stream(
+        pre_fire_date=pre_fire_date,
+        post_fire_date=post_fire_date,
+        area_of_interest=area_of_interest,
+        severity_distribution=severity_distribution,
+        image_urls=image_urls,
+        language=language,
+        model=model or (provider.model_name if provider else "gemini-2.0-flash-lite"),
+    )
+
+
+def generate_followup_stream(
+    previous_response_id: str,
+    question: str,
+    language: str | None = None,
+    model: str | None = None,
+) -> tuple[Generator[str, None, None], dict]:
+    """
+    Generate a streaming follow-up using the appropriate provider.
+
+    The provider is determined by the cached conversation data when available,
+    otherwise falls back to the active provider.
+    """
+    # Check cached conversation to determine which provider was used
+    conv_data = cache.get(f"ai_chat_{previous_response_id}")
+    cached_provider = conv_data.get("provider") if conv_data else None
+
+    if cached_provider == "openai":
+        from wildfire_assessment.svc.openai_analysis import (
+            generate_followup_stream as openai_followup,
+        )
+
+        return openai_followup(
+            previous_response_id=previous_response_id,
+            question=question,
+            language=language,
+            model=model or (conv_data.get("model") if conv_data else "gpt-4o-mini"),
+        )
+
+    if cached_provider == "gemini" or conv_data:
+        return _gemini_generate_followup_stream(
+            previous_response_id=previous_response_id,
+            question=question,
+            language=language,
+            model=model or (conv_data.get("model") if conv_data else "gemini-2.0-flash-lite"),
+        )
+
+    # No cached conversation — use active provider
+    provider = get_active_provider()
+    if provider and provider.name == "openai":
+        from wildfire_assessment.svc.openai_analysis import (
+            generate_followup_stream as openai_followup,
+        )
+
+        return openai_followup(
+            previous_response_id=previous_response_id,
+            question=question,
+            language=language,
+            model=model or provider.model_name,
+        )
+
+    return _gemini_generate_followup_stream(
+        previous_response_id=previous_response_id,
+        question=question,
+        language=language,
+        model=model or (provider.model_name if provider else "gemini-2.0-flash-lite"),
+    )

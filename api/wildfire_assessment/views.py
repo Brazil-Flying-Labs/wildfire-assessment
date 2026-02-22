@@ -505,6 +505,10 @@ class AIAnalysisFollowUpView(APIView):
 
 def _build_streaming_response(first_chunk, stream, holder):
     """Build a StreamingHttpResponse that appends the response_id as a final marker."""
+    from wildfire_assessment.svc.ai_analysis import (
+        PROVIDER_DISPLAY,
+        get_active_provider,
+    )
 
     def stream_with_response_id():
         yield first_chunk
@@ -513,6 +517,9 @@ def _build_streaming_response(first_chunk, stream, holder):
         response_id = holder.get("response_id")
         if response_id:
             yield f"\n\n[RESPONSE_ID]{response_id}[/RESPONSE_ID]"
+        provider = get_active_provider()
+        display = PROVIDER_DISPLAY.get(provider.name, provider.name) if provider else "AI"
+        yield f"[AI_PROVIDER]{display}[/AI_PROVIDER]"
 
     response = StreamingHttpResponse(
         stream_with_response_id(),
