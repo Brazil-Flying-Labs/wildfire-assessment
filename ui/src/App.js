@@ -64,6 +64,11 @@ function App() {
   const notificationPollRef = useRef(null);
   const dashboardRef = useRef(null);
 
+  // Keep browser tab title in sync with the active language
+  useEffect(() => {
+    document.title = t("app.title");
+  }, [t]);
+
   // Restart fade-in animation when navigating back to dashboard
   useEffect(() => {
     const el = dashboardRef.current;
