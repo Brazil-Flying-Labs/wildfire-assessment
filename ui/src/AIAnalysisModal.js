@@ -3,25 +3,18 @@ import ReactMarkdown from "react-markdown";
 import { useLanguage } from "./LanguageContext";
 
 const RESPONSE_ID_REGEX = /\n?\n?\[RESPONSE_ID\](.*?)\[\/RESPONSE_ID\]/;
-const AI_PROVIDER_REGEX = /\[AI_PROVIDER\](.*?)\[\/AI_PROVIDER\]/;
 
 /**
- * Parse streaming text to extract the response_id and provider markers.
+ * Parse streaming text to extract the response_id marker.
  */
 function extractMarkers(text) {
   let responseId = null;
-  let provider = null;
   const idMatch = text.match(RESPONSE_ID_REGEX);
   if (idMatch) {
     responseId = idMatch[1];
     text = text.replace(RESPONSE_ID_REGEX, "");
   }
-  const providerMatch = text.match(AI_PROVIDER_REGEX);
-  if (providerMatch) {
-    provider = providerMatch[1];
-    text = text.replace(AI_PROVIDER_REGEX, "");
-  }
-  return { text, responseId, provider };
+  return { text, responseId };
 }
 
 /**
@@ -94,6 +87,12 @@ function AIAnalysisModal({
    * Extracts the response_id from the final marker.
    */
   const readStream = useCallback(async (response) => {
+    // Read provider from header immediately so it displays while streaming
+    const headerProvider = response.headers.get("X-AI-Provider");
+    if (headerProvider) {
+      setAiProvider(headerProvider);
+    }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullText = "";
@@ -113,12 +112,9 @@ function AIAnalysisModal({
       });
     }
 
-    const { text: finalText, responseId, provider } = extractMarkers(fullText);
+    const { text: finalText, responseId } = extractMarkers(fullText);
     if (responseId) {
       responseIdRef.current = responseId;
-    }
-    if (provider) {
-      setAiProvider(provider);
     }
     setMessages((prev) => {
       const updated = [...prev];
