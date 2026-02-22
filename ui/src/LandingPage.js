@@ -28,7 +28,7 @@ function LandingPage({ onLogin, isAuthenticated }) {
                 logoClickCount.current += 1;
                 if (logoClickCount.current >= 5) {
                   logoClickCount.current = 0;
-                  throw new Error("Faro test: 5-click Easter egg triggered");
+                  setTimeout(() => { throw new Error("Faro test: 5-click Easter egg triggered"); }, 0);
                 }
                 logoClickTimer.current = setTimeout(() => { logoClickCount.current = 0; }, 2000);
               }}
