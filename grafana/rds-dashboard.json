@@ -1,0 +1,513 @@
+{
+  "title": "Aurora RDS - Wildfire",
+  "uid": "",
+  "version": 1,
+  "schemaVersion": 39,
+  "tags": ["rds", "aurora", "postgres", "wildfire"],
+  "timezone": "browser",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "type": "query",
+        "name": "instance",
+        "label": "RDS Instance",
+        "datasource": { "type": "prometheus" },
+        "query": "label_values(aws_rds_cpuutilization_average, dimension_DBInstanceIdentifier)",
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "text": "All", "value": "$__all" },
+        "multi": true,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Infrastructure Overview",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "CPU Utilization",
+      "description": "Aurora CPU usage",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "avg(aws_rds_cpuutilization_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Freeable Memory",
+      "description": "Available RAM",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 536870912 },
+              { "color": "green", "value": 1073741824 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "min(aws_rds_freeable_memory_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "ACU Utilization",
+      "description": "Aurora Capacity Unit usage",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "avg(aws_rds_acuutilization_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Connections",
+      "description": "Active database connections",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "max(aws_rds_database_connections_sum{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Capacity",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Utilization",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "CPU %" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "avg(aws_rds_cpuutilization_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": "CPU %"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Freeable Memory",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Freeable" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "min(aws_rds_freeable_memory_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": "Freeable"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Serverless Capacity (ACUs)",
+      "description": "Aurora Serverless v2 capacity units allocated",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "avg(aws_rds_serverless_database_capacity_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": "Capacity (ACUs)"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "ACU Utilization",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ACU %" }, "properties": [{ "id": "color", "value": { "fixedColor": "purple", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "avg(aws_rds_acuutilization_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": "ACU %"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "I/O",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "IOPS",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "iops",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Read IOPS" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Write IOPS" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(aws_rds_read_iops_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": "Read IOPS"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(aws_rds_write_iops_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": "Write IOPS"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "I/O Latency",
+      "description": "Average per-operation latency",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Read Latency" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "Write Latency" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "avg(aws_rds_read_latency_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": "Read Latency"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "avg(aws_rds_write_latency_average{dimension_DBInstanceIdentifier=~\"$instance\"})",
+          "legendFormat": "Write Latency"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Database Internals",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Transactions / sec",
+      "description": "Committed and rolled-back transactions per second",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*rollbacks" }, "properties": [
+            { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
+            { "id": "custom.transform", "value": "negative-Y" }
+          ]}
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (rate(pg_stat_database_xact_commit{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval]))",
+          "legendFormat": "{{datname}} commits"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (rate(pg_stat_database_xact_rollback{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval]))",
+          "legendFormat": "{{datname}} rollbacks"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Cache Hit Ratio",
+      "description": "Buffer cache hit ratio (higher is better)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [
+            { "id": "min", "value": 0 },
+            { "id": "max", "value": 1 },
+            { "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }
+          ]}
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (rate(pg_stat_database_blks_hit{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval])) / (sum by (datname) (rate(pg_stat_database_blks_hit{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval])) + sum by (datname) (rate(pg_stat_database_blks_read{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval])))",
+          "legendFormat": "{{datname}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tuple Operations / sec",
+      "description": "Row-level operations per second",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_fetched{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval]))",
+          "legendFormat": "{{datname}} fetched"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_inserted{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval]))",
+          "legendFormat": "{{datname}} inserted"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_updated{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval]))",
+          "legendFormat": "{{datname}} updated"
+        },
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (rate(pg_stat_database_tup_deleted{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval]))",
+          "legendFormat": "{{datname}} deleted"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Active Connections by Database",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": { "fillOpacity": 30, "lineWidth": 2, "spanNulls": true, "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "pg_stat_database_numbackends{datname!~\"template.*|postgres|rdsadmin\"}",
+          "legendFormat": "{{datname}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Database Size",
+      "description": "Total size of application databases",
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 48 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum(pg_database_size_bytes{datname!~\"template.*|postgres|rdsadmin\"})",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Deadlocks",
+      "description": "Deadlocks detected",
+      "gridPos": { "h": 5, "w": 8, "x": 8, "y": 48 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": [
+          { "matcher": { "id": "byFrameRefID", "options": "A" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (increase(pg_stat_database_deadlocks{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval]))",
+          "legendFormat": "{{datname}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Temp Bytes Written",
+      "description": "Temp file bytes written/sec (high values indicate queries spilling to disk)",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 48 },
+      "datasource": { "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 10, "lineWidth": 2, "spanNulls": true }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus" },
+          "expr": "sum by (datname) (rate(pg_stat_database_temp_bytes{datname!~\"template.*|postgres|rdsadmin\"}[$__rate_interval]))",
+          "legendFormat": "{{datname}}"
+        }
+      ]
+    }
+  ]
+}

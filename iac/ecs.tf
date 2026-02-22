@@ -90,6 +90,186 @@ locals {
     }
   EOT
 
+  # Alloy config for API sidecar (OTLP + PostgreSQL metrics)
+  alloy_config_api = <<-EOT
+    otelcol.receiver.otlp "default" {
+      grpc { endpoint = "0.0.0.0:4317" }
+      http { endpoint = "0.0.0.0:4318" }
+      output {
+        metrics = [otelcol.exporter.otlphttp.grafana.input]
+        logs    = [otelcol.exporter.otlphttp.grafana.input]
+        traces  = [otelcol.exporter.otlphttp.grafana.input]
+      }
+    }
+    otelcol.auth.basic "grafana" {
+      username = sys.env("GRAFANA_CLOUD_INSTANCE_ID")
+      password = sys.env("GRAFANA_CLOUD_API_KEY")
+    }
+    otelcol.exporter.otlphttp "grafana" {
+      client {
+        endpoint = sys.env("GRAFANA_CLOUD_OTLP_ENDPOINT")
+        auth     = otelcol.auth.basic.grafana.handler
+      }
+    }
+
+    prometheus.exporter.postgres "rds" {
+      data_source_names = [sys.env("RDS_DSN")]
+    }
+
+    prometheus.scrape "postgres" {
+      targets         = prometheus.exporter.postgres.rds.targets
+      forward_to      = [prometheus.remote_write.grafana.receiver]
+      scrape_interval = "60s"
+    }
+
+    prometheus.exporter.cloudwatch "aurora" {
+      sts_region = "us-east-1"
+
+      discovery {
+        type    = "AWS/RDS"
+        regions = ["us-east-1"]
+
+        search_tags = {
+          "Environment" = sys.env("ENVIRONMENT"),
+        }
+
+        metric {
+          name       = "CPUUtilization"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "FreeableMemory"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "DatabaseConnections"
+          statistics = ["Sum"]
+          period     = "5m"
+        }
+        metric {
+          name       = "ServerlessDatabaseCapacity"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "ACUUtilization"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "ReadIOPS"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "WriteIOPS"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "ReadLatency"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "WriteLatency"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+      }
+    }
+
+    prometheus.scrape "cloudwatch" {
+      targets         = prometheus.exporter.cloudwatch.aurora.targets
+      forward_to      = [prometheus.remote_write.grafana.receiver]
+      scrape_interval = "5m"
+    }
+
+    prometheus.remote_write "grafana" {
+      endpoint {
+        url = sys.env("GRAFANA_CLOUD_PROMETHEUS_PUSH_URL")
+        basic_auth {
+          username = sys.env("GRAFANA_CLOUD_PROMETHEUS_USERNAME")
+          password = sys.env("GRAFANA_CLOUD_PROMETHEUS_PASSWORD")
+        }
+      }
+    }
+  EOT
+
+  # Alloy sidecar for API task (OTLP + PostgreSQL + CloudWatch metrics)
+  alloy_sidecar_api = {
+    name      = "grafana-alloy"
+    image     = "grafana/alloy:v1.8.0"
+    essential = false
+
+    portMappings = [
+      { containerPort = 4317, protocol = "tcp" },
+      { containerPort = 4318, protocol = "tcp" }
+    ]
+
+    entryPoint = ["/bin/sh", "-c"]
+    command    = ["export RDS_DSN=\"postgresql://$${DB_USERNAME}:$${DB_PASSWORD}@$${DB_HOST}:5432/$${DB_NAME}?sslmode=require\" && printenv ALLOY_CONFIG_CONTENT > /tmp/config.alloy && exec /bin/alloy run --server.http.listen-addr=0.0.0.0:12345 /tmp/config.alloy"]
+
+    environment = [
+      { name = "ALLOY_CONFIG_CONTENT", value = local.alloy_config_api },
+      { name = "ENVIRONMENT", value = var.environment }
+    ]
+
+    secrets = [
+      {
+        name      = "GRAFANA_CLOUD_INSTANCE_ID"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_INSTANCE_ID::"
+      },
+      {
+        name      = "GRAFANA_CLOUD_API_KEY"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_API_KEY::"
+      },
+      {
+        name      = "GRAFANA_CLOUD_OTLP_ENDPOINT"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_OTLP_ENDPOINT::"
+      },
+      {
+        name      = "DB_USERNAME"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:DB_USERNAME::"
+      },
+      {
+        name      = "DB_PASSWORD"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:DB_PASSWORD::"
+      },
+      {
+        name      = "DB_HOST"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:DB_HOST::"
+      },
+      {
+        name      = "DB_NAME"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:DB_NAME::"
+      },
+      {
+        name      = "GRAFANA_CLOUD_PROMETHEUS_PUSH_URL"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_PROMETHEUS_PUSH_URL::"
+      },
+      {
+        name      = "GRAFANA_CLOUD_PROMETHEUS_USERNAME"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_PROMETHEUS_USERNAME::"
+      },
+      {
+        name      = "GRAFANA_CLOUD_PROMETHEUS_PASSWORD"
+        valueFrom = "${data.aws_secretsmanager_secret.env.arn}:GRAFANA_CLOUD_PROMETHEUS_PASSWORD::"
+      }
+    ]
+
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = aws_cloudwatch_log_group.ecs.name
+        "awslogs-region"        = data.aws_region.current.name
+        "awslogs-stream-prefix" = "alloy"
+      }
+    }
+  }
+
   # Shared Grafana Alloy sidecar (receives OTLP, forwards to Grafana Cloud)
   alloy_sidecar = {
     name      = "grafana-alloy"
@@ -182,7 +362,7 @@ resource "aws_ecs_task_definition" "api" {
         initProcessEnabled = true
       }
     },
-    local.alloy_sidecar
+    local.alloy_sidecar_api
   ])
 
   runtime_platform {

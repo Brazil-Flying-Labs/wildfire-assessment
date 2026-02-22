@@ -1137,10 +1137,7 @@ function App() {
               />
             </button>
             <div className="d-none d-md-block">
-              <h1 className="h4 mb-1">{t("app.title")}</h1>
-              <p className="mb-0 small opacity-75">
-                {t("app.subtitle")}
-              </p>
+              <h1 className="h4 mb-0">{t("app.title")}</h1>
             </div>
           </div>
 
