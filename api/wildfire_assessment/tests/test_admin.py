@@ -378,3 +378,21 @@ class AIProviderAdminTests(TestCase):
         admin_instance.save_model(request, provider, form=None, change=True)
 
         self.assertIsNone(cache.get("active_ai_provider"))
+
+    def test_has_add_permission_returns_false(self):
+        admin_instance = AIProviderAdmin(AIProvider, admin.site)
+        request = self.factory.get("/admin/")
+        self.assertFalse(admin_instance.has_add_permission(request))
+
+    def test_has_delete_permission_returns_false(self):
+        admin_instance = AIProviderAdmin(AIProvider, admin.site)
+        request = self.factory.get("/admin/")
+        self.assertFalse(admin_instance.has_delete_permission(request))
+
+    def test_changelist_view_redirects_to_change(self):
+        admin_instance = AIProviderAdmin(AIProvider, admin.site)
+        request = self.factory.get("/admin/wildfire_assessment/aiprovider/")
+        request.user = self.superuser
+        response = admin_instance.changelist_view(request)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/1/change/", response.url)
