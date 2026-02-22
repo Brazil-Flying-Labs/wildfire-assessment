@@ -111,6 +111,7 @@
   "notifications.minutesAgo": "{count}m ago",
   "notifications.hoursAgo": "{count}h ago",
   "notifications.daysAgo": "{count}d ago",
+  "notifications.groupCount": "{count} deliverables ready",
   "notifications.markAllRead": "Mark all as read",
   "nav.dashboard": "Dashboard",
   "nav.analysis": "Analysis",

@@ -534,6 +534,52 @@
   color: var(--text-muted);
 }
 
+.notification-group {
+  border-bottom: 1px solid #eee;
+}
+
+.notification-group.is-unread {
+  background: #f0f7ff;
+}
+
+.notification-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem 0.25rem;
+}
+
+.notification-group-area {
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.notification-group-count {
+  font-size: 0.6875rem;
+  color: #868e96;
+}
+
+.notification-item--grouped {
+  padding-left: 1.25rem;
+  border-bottom: none;
+}
+
+.notification-item--grouped .notification-item-text {
+  font-size: 0.8125rem;
+}
+
+[data-theme="dark"] .notification-group {
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .notification-group.is-unread {
+  background: rgba(13, 110, 253, 0.1);
+}
+
+[data-theme="dark"] .notification-group-count {
+  color: var(--text-muted);
+}
+
 /* Mobile header fixes */
 @media (max-width: 767.98px) {
   .app-header .container-fluid {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "./LanguageContext";
 
@@ -102,6 +102,26 @@ function NotificationBell({
     [t]
   );
 
+  // Group consecutive notifications by area_name so nearby deliverables
+  // from the same area collapse into a single visual block.
+  const groupedNotifications = useMemo(() => {
+    const groups = [];
+    for (const n of notifications) {
+      const last = groups[groups.length - 1];
+      if (last && last.area_name === n.area_name) {
+        last.items.push(n);
+        if (!n.is_read) last.hasUnread = true;
+      } else {
+        groups.push({
+          area_name: n.area_name,
+          items: [n],
+          hasUnread: !n.is_read,
+        });
+      }
+    }
+    return groups;
+  }, [notifications]);
+
   // Inline positioning for desktop (portal); mobile overrides via CSS
   const dropdownStyle = position
     ? { top: position.top, right: position.right }
@@ -143,23 +163,49 @@ function NotificationBell({
           </div>
         ) : (
           <>
-            {notifications.map((n) => (
-              <button
-                key={n.id}
-                type="button"
-                className={`notification-item${n.is_read ? "" : " is-unread"}`}
-                onClick={() => handleNotificationClick(n)}
-              >
-                <div className="notification-item-text">
-                  {t("notifications.deliverableReady", {
-                    deliverable: n.deliverable_name,
-                    area: n.area_name,
-                  })}
+            {groupedNotifications.map((group, gi) => (
+              group.items.length === 1 ? (
+                <button
+                  key={group.items[0].id}
+                  type="button"
+                  className={`notification-item${group.items[0].is_read ? "" : " is-unread"}`}
+                  onClick={() => handleNotificationClick(group.items[0])}
+                >
+                  <div className="notification-item-text">
+                    {t("notifications.deliverableReady", {
+                      deliverable: group.items[0].deliverable_name,
+                      area: group.items[0].area_name,
+                    })}
+                  </div>
+                  <div className="notification-item-time">
+                    {formatTimeAgo(group.items[0].created_at)}
+                  </div>
+                </button>
+              ) : (
+                <div key={`group-${gi}`} className={`notification-group${group.hasUnread ? " is-unread" : ""}`}>
+                  <div className="notification-group-header">
+                    <span className="notification-group-area">{group.area_name}</span>
+                    <span className="notification-group-count">
+                      {t("notifications.groupCount", { count: group.items.length })}
+                    </span>
+                  </div>
+                  {group.items.map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      className={`notification-item notification-item--grouped${n.is_read ? "" : " is-unread"}`}
+                      onClick={() => handleNotificationClick(n)}
+                    >
+                      <div className="notification-item-text">
+                        {n.deliverable_name}
+                      </div>
+                      <div className="notification-item-time">
+                        {formatTimeAgo(n.created_at)}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div className="notification-item-time">
-                  {formatTimeAgo(n.created_at)}
-                </div>
-              </button>
+              )
             ))}
             {loading && (
               <div className="notification-empty">
