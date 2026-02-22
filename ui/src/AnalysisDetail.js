@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import AIAnalysisModal from "./AIAnalysisModal";
 import { useLanguage } from "./LanguageContext";
 
 function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotificationsRead }) {
@@ -153,6 +154,14 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
       return [];
     }
   }, [analysis]);
+
+  const severityDistributionForAPI = useMemo(() => {
+    const result = {};
+    for (const { name, area, percent } of severityEntries) {
+      result[name] = { area_ha: area, percent };
+    }
+    return result;
+  }, [severityEntries]);
 
   const handleDownloadSeverityCsv = useCallback(() => {
     if (!severityEntries.length) return;
@@ -334,6 +343,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
   }
 
   return (
+    <>
     <div className="analysis-detail p-4">
       {/* Header with back link */}
       <div className="d-flex align-items-center justify-content-between mb-4 page-header-sticky">
@@ -586,6 +596,18 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
         </div>
       </div>
     </div>
+
+    <AIAnalysisModal
+      isVisible={!!analysis && severityEntries.length > 0}
+      preFireDate={analysis?.pre_fire_date}
+      postFireDate={analysis?.post_fire_date}
+      areaOfInterest={analysis?.area_name}
+      severityDistribution={severityDistributionForAPI}
+      imageUrls={imageEntries}
+      authorizedFetch={authorizedFetch}
+      baseUrl={baseUrl}
+    />
+    </>
   );
 }
 
