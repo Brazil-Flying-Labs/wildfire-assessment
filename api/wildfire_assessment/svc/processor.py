@@ -273,4 +273,16 @@ def get_gee_private_key_json() -> str:
             "\\\\", "\\"
         )
 
+        # When stored as a nested JSON string in Secrets Manager, literal
+        # control characters (e.g. newlines in the RSA private key) survive
+        # the outer json.loads() but break the downstream json.loads() that
+        # parses the GEE service-account JSON.  Re-parse leniently and
+        # re-serialize so every control character is properly escaped.
+        try:
+            json.loads(GEE_PRIVATE_KEY_JSON)
+        except json.JSONDecodeError:
+            GEE_PRIVATE_KEY_JSON = json.dumps(
+                json.loads(GEE_PRIVATE_KEY_JSON, strict=False)
+            )
+
     return GEE_PRIVATE_KEY_JSON

@@ -434,6 +434,22 @@ class AwsUtilsTests(TestCase):
         self.assertEqual(json.loads(key)["key"], 123)
 
     @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_get_gee_private_key_json_control_characters(self, mock_secret):
+        """Literal newlines in the private key are re-escaped for valid JSON."""
+        # Simulate what happens when Secrets Manager stores the GEE JSON as a
+        # nested string: the inner \\n becomes literal \n after outer json.loads().
+        inner = '{"type":"service_account","private_key":"-----BEGIN-----\\nKEY\\n-----END-----\\n"}'
+        parsed_inner = json.loads(inner)  # private_key now has literal \n
+        raw_with_newlines = json.dumps(parsed_inner)  # properly escaped
+        # Break it by replacing \\n with real newlines (simulating the bug)
+        broken = raw_with_newlines.replace("\\n", "\n")
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": broken})
+        result = processor.get_gee_private_key_json()
+        parsed = json.loads(result)
+        self.assertEqual(parsed["type"], "service_account")
+        self.assertIn("BEGIN", parsed["private_key"])
+
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
     def test_get_gee_private_key_json_dict_value(self, mock_secret):
         """Test when GEE_PRIVATE_KEY_JSON is already a dict (not a string)."""
         mock_secret.return_value = json.dumps(
