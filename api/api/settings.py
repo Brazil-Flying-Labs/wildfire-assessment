@@ -298,4 +298,8 @@ if ENV in ["local", "dev"]:
         "x-requested-with",
     ]
 
+    CORS_EXPOSE_HEADERS = [
+        "x-ai-provider",
+    ]
+
     os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"  # only use in development

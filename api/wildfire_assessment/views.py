@@ -517,7 +517,6 @@ def _build_streaming_response(first_chunk, stream, holder, provider_display="AI"
         response_id = holder.get("response_id")
         if response_id:
             yield f"\n\n[RESPONSE_ID]{response_id}[/RESPONSE_ID]"
-        yield f"[AI_PROVIDER]{provider_display}[/AI_PROVIDER]"
 
     response = StreamingHttpResponse(
         stream_with_response_id(),
@@ -525,6 +524,7 @@ def _build_streaming_response(first_chunk, stream, holder, provider_display="AI"
     )
     response["Cache-Control"] = "no-cache"
     response["X-Accel-Buffering"] = "no"
+    response["X-AI-Provider"] = provider_display
     return response
 
 
