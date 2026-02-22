@@ -111,7 +111,7 @@
   "notifications.minutesAgo": "il y a {count}min",
   "notifications.hoursAgo": "il y a {count}h",
   "notifications.daysAgo": "il y a {count}j",
-  "notifications.groupCount": "{count} livrables prêts",
+  "notifications.groupReady": "{count} livrables prêts pour {area}",
   "notifications.markAllRead": "Tout marquer comme lu",
   "nav.dashboard": "Tableau de Bord",
   "nav.analysis": "Analyse",

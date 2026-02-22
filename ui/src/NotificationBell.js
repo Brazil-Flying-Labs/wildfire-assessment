@@ -164,48 +164,27 @@ function NotificationBell({
         ) : (
           <>
             {groupedNotifications.map((group, gi) => (
-              group.items.length === 1 ? (
-                <button
-                  key={group.items[0].id}
-                  type="button"
-                  className={`notification-item${group.items[0].is_read ? "" : " is-unread"}`}
-                  onClick={() => handleNotificationClick(group.items[0])}
-                >
-                  <div className="notification-item-text">
-                    {t("notifications.deliverableReady", {
-                      deliverable: group.items[0].deliverable_name,
-                      area: group.items[0].area_name,
-                    })}
-                  </div>
-                  <div className="notification-item-time">
-                    {formatTimeAgo(group.items[0].created_at)}
-                  </div>
-                </button>
-              ) : (
-                <div key={`group-${gi}`} className={`notification-group${group.hasUnread ? " is-unread" : ""}`}>
-                  <div className="notification-group-header">
-                    <span className="notification-group-area">{group.area_name}</span>
-                    <span className="notification-group-count">
-                      {t("notifications.groupCount", { count: group.items.length })}
-                    </span>
-                  </div>
-                  {group.items.map((n) => (
-                    <button
-                      key={n.id}
-                      type="button"
-                      className={`notification-item notification-item--grouped${n.is_read ? "" : " is-unread"}`}
-                      onClick={() => handleNotificationClick(n)}
-                    >
-                      <div className="notification-item-text">
-                        {n.deliverable_name}
-                      </div>
-                      <div className="notification-item-time">
-                        {formatTimeAgo(n.created_at)}
-                      </div>
-                    </button>
-                  ))}
+              <button
+                key={group.items[0].id}
+                type="button"
+                className={`notification-item${group.hasUnread ? " is-unread" : ""}`}
+                onClick={() => handleNotificationClick(group.items[0])}
+              >
+                <div className="notification-item-text">
+                  {group.items.length === 1
+                    ? t("notifications.deliverableReady", {
+                        deliverable: group.items[0].deliverable_name,
+                        area: group.area_name,
+                      })
+                    : t("notifications.groupReady", {
+                        area: group.area_name,
+                        count: group.items.length,
+                      })}
                 </div>
-              )
+                <div className="notification-item-time">
+                  {formatTimeAgo(group.items[0].created_at)}
+                </div>
+              </button>
             ))}
             {loading && (
               <div className="notification-empty">
