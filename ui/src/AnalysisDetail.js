@@ -341,10 +341,14 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
         </div>
         <button
           type="button"
-          className="btn btn-link text-decoration-none p-0"
+          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
           onClick={onBack}
         >
-          ← {t("analysisDetail.backToDashboard")}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+          {t("common.back")}
         </button>
       </div>
     );
@@ -372,10 +376,15 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
           </button>
           <button
             type="button"
-            className="btn btn-link text-decoration-none p-0 no-print"
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 no-print"
             onClick={onBack}
+            title={t("common.back")}
           >
-            ← {t("analysisDetail.backToDashboard")}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+            {t("common.back")}
           </button>
         </div>
       </div>

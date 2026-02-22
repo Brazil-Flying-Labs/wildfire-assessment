@@ -251,6 +251,7 @@
   "areas.nextPage": "Next page",
   "common.downloadCsv": "Download CSV",
   "common.print": "Print",
+  "common.back": "Back",
   "severity.unburned": "Unburned",
   "severity.low": "Low Severity",
   "severity.moderate": "Moderate Severity",
