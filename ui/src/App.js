@@ -50,6 +50,7 @@ function App() {
   // Page navigation state: "home", "analysis", "areas", or "analysis-detail"
   const [currentPage, setCurrentPage] = useState("dashboard");
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
+  const [scrollToDeliverable, setScrollToDeliverable] = useState(null);
 
   // Notification state
   const [notifications, setNotifications] = useState([]);
@@ -85,8 +86,9 @@ function App() {
     }
   }, []);
 
-  const handleAnalysisClick = useCallback((analysisId) => {
+  const handleAnalysisClick = useCallback((analysisId, deliverableName) => {
     setSelectedAnalysisId(analysisId);
+    setScrollToDeliverable(deliverableName || null);
     setCurrentPage("analysis-detail");
     window.history.pushState(
       { page: "analysis-detail", analysisId, landing: false },
@@ -1296,6 +1298,7 @@ function App() {
               analysisId={selectedAnalysisId}
               onBack={handleBackFromAnalysisDetail}
               onNotificationsRead={fetchUnreadCount}
+              scrollToDeliverable={scrollToDeliverable}
             />
           ) : currentPage === "areas" ? (
             <AreasOfInterest

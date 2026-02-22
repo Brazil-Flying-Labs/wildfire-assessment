@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import AIAnalysisModal from "./AIAnalysisModal";
 import { useLanguage } from "./LanguageContext";
 
-function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotificationsRead }) {
+function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotificationsRead, scrollToDeliverable }) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [deliverableStatus, setDeliverableStatus] = useState({});
   const pollIntervalsRef = useRef({});
+  const deliverablesRef = useRef(null);
 
   const loadAnalysis = useCallback(async () => {
     if (!baseUrl || !analysisId) return;
@@ -49,6 +50,13 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
       })
       .catch(() => {});
   }, [authorizedFetch, baseUrl, analysisId, onNotificationsRead]);
+
+  // Scroll to deliverables section when navigating from a notification
+  useEffect(() => {
+    if (scrollToDeliverable && !loading && analysis && deliverablesRef.current) {
+      deliverablesRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [scrollToDeliverable, loading, analysis]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -503,7 +511,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
       </div>
 
       {/* Scientific Deliverables */}
-      <div className="card shadow-sm mb-4 no-print">
+      <div className="card shadow-sm mb-4 no-print" ref={deliverablesRef}>
         <div className="card-header">
           <h3 className="h5 mb-0">{t("app.deliverableTitle")}</h3>
         </div>

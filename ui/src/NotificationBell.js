@@ -75,7 +75,10 @@ function NotificationBell({
     (notification) => {
       setIsOpen(false);
       if (notification.analysis_run_id && onNotificationClick) {
-        onNotificationClick(notification.analysis_run_id);
+        onNotificationClick(
+          notification.analysis_run_id,
+          notification.deliverable_name
+        );
       }
     },
     [onNotificationClick]
