@@ -36,7 +36,7 @@
       "title": "JS Errors",
       "description": "Total JavaScript errors in selected time range",
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -55,7 +55,7 @@
       "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "sum(count_over_time({service_name=\"wildfire-ui\", kind=\"exception\", deployment_environment=~\"$environment\"} [$__range]))",
           "legendFormat": "",
           "instant": true
@@ -67,7 +67,7 @@
       "title": "Sessions",
       "description": "Total sessions started in selected time range",
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -84,7 +84,7 @@
       "options": { "reduceOptions": { "calcs": ["sum"] }, "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "sum(count_over_time({service_name=\"wildfire-ui\", kind=\"event\", deployment_environment=~\"$environment\"} |= \"session_start\" [$__range]))",
           "legendFormat": "",
           "instant": true
@@ -96,7 +96,7 @@
       "title": "Avg LCP",
       "description": "Largest Contentful Paint — how fast the main content loads (< 2.5s good)",
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
@@ -115,7 +115,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "avg_over_time({service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" lcp=\" | logfmt | unwrap lcp [$__range])",
           "legendFormat": ""
         }
@@ -126,7 +126,7 @@
       "title": "Avg CLS",
       "description": "Cumulative Layout Shift — visual stability (< 0.1 good)",
       "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -145,7 +145,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "area" },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "avg_over_time({service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" cls=\" | logfmt | unwrap cls [$__range])",
           "legendFormat": ""
         }
@@ -162,7 +162,7 @@
       "title": "LCP — Largest Contentful Paint",
       "description": "How fast the main content loads. Good < 2.5s, Poor > 4s",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
@@ -177,17 +177,17 @@
       "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.50, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" lcp=\" | logfmt | unwrap lcp [5m])",
           "legendFormat": "p50"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.75, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" lcp=\" | logfmt | unwrap lcp [5m])",
           "legendFormat": "p75"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.95, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" lcp=\" | logfmt | unwrap lcp [5m])",
           "legendFormat": "p95"
         }
@@ -198,7 +198,7 @@
       "title": "FCP — First Contentful Paint",
       "description": "When the first content appears on screen. Good < 1.8s, Poor > 3s",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
@@ -213,17 +213,17 @@
       "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.50, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" fcp=\" | logfmt | unwrap fcp [5m])",
           "legendFormat": "p50"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.75, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" fcp=\" | logfmt | unwrap fcp [5m])",
           "legendFormat": "p75"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.95, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" fcp=\" | logfmt | unwrap fcp [5m])",
           "legendFormat": "p95"
         }
@@ -234,7 +234,7 @@
       "title": "CLS — Cumulative Layout Shift",
       "description": "Visual stability. Good < 0.1, Poor > 0.25",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -250,17 +250,17 @@
       "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.50, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" cls=\" | logfmt | unwrap cls [5m])",
           "legendFormat": "p50"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.75, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" cls=\" | logfmt | unwrap cls [5m])",
           "legendFormat": "p75"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.95, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" cls=\" | logfmt | unwrap cls [5m])",
           "legendFormat": "p95"
         }
@@ -271,7 +271,7 @@
       "title": "TTFB — Time to First Byte",
       "description": "Server response time. Good < 800ms, Poor > 1800ms",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
@@ -286,17 +286,17 @@
       "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.50, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" ttfb=\" | logfmt | unwrap ttfb [5m])",
           "legendFormat": "p50"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.75, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" ttfb=\" | logfmt | unwrap ttfb [5m])",
           "legendFormat": "p75"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.95, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" ttfb=\" | logfmt | unwrap ttfb [5m])",
           "legendFormat": "p95"
         }
@@ -307,7 +307,7 @@
       "title": "INP — Interaction to Next Paint",
       "description": "Responsiveness to user input. Good < 200ms, Poor > 500ms",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "ms",
@@ -322,17 +322,17 @@
       "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.50, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" inp=\" | logfmt | unwrap inp [5m])",
           "legendFormat": "p50"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.75, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" inp=\" | logfmt | unwrap inp [5m])",
           "legendFormat": "p75"
         },
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "quantile_over_time(0.95, {service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" inp=\" | logfmt | unwrap inp [5m])",
           "legendFormat": "p95"
         }
@@ -343,7 +343,7 @@
       "title": "Page Loads",
       "description": "Number of page loads over time (one TTFB measurement per page load)",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -357,7 +357,7 @@
       "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "sum(count_over_time({service_name=\"wildfire-ui\", kind=\"measurement\", deployment_environment=~\"$environment\"} |= \" ttfb=\" [5m]))",
           "legendFormat": "Page loads"
         }
@@ -373,7 +373,7 @@
       "type": "timeseries",
       "title": "JS Errors Over Time",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 31 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {
           "unit": "none",
@@ -387,7 +387,7 @@
       "options": { "tooltip": { "mode": "multi", "sort": "desc" } },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "sum(count_over_time({service_name=\"wildfire-ui\", kind=\"exception\", deployment_environment=~\"$environment\"} [5m]))",
           "legendFormat": "Errors"
         }
@@ -398,7 +398,7 @@
       "title": "Top Errors",
       "description": "Most frequent error messages in selected time range",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 31 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -409,7 +409,7 @@
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "topk(10, sum by (value_template) (count_over_time({service_name=\"wildfire-ui\", kind=\"exception\", deployment_environment=~\"$environment\"} [$__range])))",
           "legendFormat": "{{value_template}}",
           "instant": true
@@ -427,7 +427,7 @@
       "title": "Recent Errors",
       "description": "Raw exception log entries",
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 40 },
-      "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+      "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
       "options": {
         "showTime": true,
         "showLabels": false,
@@ -440,7 +440,7 @@
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "grafanacloud-diogohudson-logs" },
+          "datasource": { "type": "loki", "uid": "grafanacloud-brazilflyinglabs-logs" },
           "expr": "{service_name=\"wildfire-ui\", kind=\"exception\", deployment_environment=~\"$environment\"}",
           "legendFormat": ""
         }

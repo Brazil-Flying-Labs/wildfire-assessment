@@ -338,7 +338,7 @@
       "gridPos": { "h": 5, "w": 12, "x": 0, "y": 33 },
       "options": {
         "mode": "markdown",
-        "content": "### [Celery Task Runs](https://diogohudson.grafana.net/explore?schemaVersion=1&panes=%7B%22main%22%3A%7B%22datasource%22%3A%22grafanacloud-diogohudson-traces%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7Bresource.service.name%3D%5C%22wildfire-celery-worker%5C%22%20%26%26%20duration%20%3E%201s%7D%22%7D%5D%7D%7D)\n\nClick to view task executions with timing and status in Tempo."
+        "content": "### [Celery Task Runs](https://brazilflyinglabs.grafana.net/explore?schemaVersion=1&panes=%7B%22main%22%3A%7B%22datasource%22%3A%22grafanacloud-brazilflyinglabs-traces%22%2C%22queries%22%3A%5B%7B%22refId%22%3A%22A%22%2C%22queryType%22%3A%22traceql%22%2C%22query%22%3A%22%7Bresource.service.name%3D%5C%22wildfire-celery-worker%5C%22%20%26%26%20duration%20%3E%201s%7D%22%7D%5D%7D%7D)\n\nClick to view task executions with timing and status in Tempo."
       }
     }
   ]
