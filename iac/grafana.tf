@@ -5,7 +5,7 @@ locals {
     datasource = var.grafana_loki_uid
     queries = [{
       refId     = "A"
-      expr      = "{service_name=~\"wildfire-api|wildfire-celery-worker|wildfire-celery-beat\", detected_level=~\"error|critical\"}"
+      expr      = "{service_name=~\"wildfire-api|wildfire-celery-worker|wildfire-celery-beat\"} | detected_level=~\"error|critical\""
       queryType = "range"
     }]
     range = { from = "now-15m", to = "now" }
@@ -403,7 +403,7 @@ resource "grafana_rule_group" "backend_alerts" {
       datasource_uid = var.grafana_loki_uid
       model = jsonencode({
         refId         = "A"
-        expr          = "sum by (service_name) (count_over_time({service_name=~\"wildfire-api|wildfire-celery-worker|wildfire-celery-beat\", detected_level=~\"error|critical\"} [5m]))"
+        expr          = "sum by (service_name) (count_over_time({service_name=~\"wildfire-api|wildfire-celery-worker|wildfire-celery-beat\"} | detected_level=~\"error|critical\" [5m]))"
         intervalMs    = 1000
         maxDataPoints = 43200
       })
