@@ -30,7 +30,7 @@ function LandingPage({ onLogin, isAuthenticated }) {
                   const ts = Date.now();
                   logoClickCount.current = 0;
                   setTimeout(() => { throw new Error(`Faro test: 5-click Easter egg triggered (${ts})`); }, 0);
-                  fetch(`${process.env.REACT_APP_WILDLIFE_API_URL}test/error/`).catch(() => {});
+                  fetch(`${process.env.REACT_APP_WILDLIFE_API_URL}/test/error/`).catch(() => {});
                 }
                 logoClickTimer.current = setTimeout(() => { logoClickCount.current = 0; }, 2000);
               }}
