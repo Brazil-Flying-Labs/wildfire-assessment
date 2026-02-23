@@ -1,6 +1,6 @@
 {
   "title": "Wildfire API - Django",
-  "uid": "",
+  "uid": "wildfire-django",
   "version": 1,
   "schemaVersion": 39,
   "tags": ["django", "wildfire", "api"],

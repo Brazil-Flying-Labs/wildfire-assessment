@@ -100,3 +100,7 @@ flake8 api svc
 - **API**: Push to `dev` triggers test + deploy to ECS (`ecs-workflow.yml`).
 - **UI**: Push to `dev` triggers build + S3 sync + CloudFront invalidation (`ui-deploy.yml`).
 - Tests must pass before deploy. Coverage report generated in CI.
+
+## AWS Cli
+
+Always use `--profile bfl` when connection to AWS.

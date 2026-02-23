@@ -40,6 +40,29 @@ variable "ui_certificate_arn" {
   default     = ""
 }
 
+variable "grafana_url" {
+  description = "Grafana Cloud instance URL (e.g., https://your-org.grafana.net)"
+  type        = string
+}
+
+variable "grafana_auth" {
+  description = "Grafana Cloud Service Account token"
+  type        = string
+  sensitive   = true
+}
+
+variable "grafana_prometheus_uid" {
+  description = "UID of the Prometheus datasource in Grafana"
+  type        = string
+  default     = "grafanacloud-prom"
+}
+
+variable "grafana_loki_uid" {
+  description = "UID of the Loki datasource in Grafana"
+  type        = string
+  default     = "grafanacloud-diogohudson-logs"
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string

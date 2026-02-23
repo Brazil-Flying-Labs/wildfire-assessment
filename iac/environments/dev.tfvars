@@ -14,3 +14,5 @@ az_count = 2
 
 ui_domain_aliases  = ["wildfire-dev.droneai.com.br", "wildfire.droneai.com.br"]
 ui_certificate_arn = "arn:aws:acm:us-east-1:055213706289:certificate/9e1e42ad-114d-4dd4-b317-7aed7735a37c"
+
+grafana_url = "https://diogohudson.grafana.net/"

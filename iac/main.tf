@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 3.0"
+    }
   }
   required_version = ">= 1.0"
 
@@ -17,5 +21,10 @@ terraform {
 provider "aws" {
   region  = var.aws_region
   profile = var.aws_profile
+}
+
+provider "grafana" {
+  url  = var.grafana_url
+  auth = var.grafana_auth
 }
 

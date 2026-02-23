@@ -181,8 +181,78 @@ locals {
       }
     }
 
-    prometheus.scrape "cloudwatch" {
+    prometheus.exporter.cloudwatch "ecs" {
+      sts_region = "us-east-1"
+
+      discovery {
+        type    = "ECS/ContainerInsights"
+        regions = ["us-east-1"]
+
+        search_tags = {
+          "Environment" = sys.env("ENVIRONMENT"),
+        }
+
+        metric {
+          name       = "CpuUtilized"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "CpuReserved"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "MemoryUtilized"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "MemoryReserved"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "NetworkRxBytes"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "NetworkTxBytes"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "StorageReadBytes"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "StorageWriteBytes"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "RunningTaskCount"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+        metric {
+          name       = "DesiredTaskCount"
+          statistics = ["Average"]
+          period     = "5m"
+        }
+      }
+    }
+
+    prometheus.scrape "cloudwatch_aurora" {
       targets         = prometheus.exporter.cloudwatch.aurora.targets
+      forward_to      = [prometheus.remote_write.grafana.receiver]
+      scrape_interval = "5m"
+    }
+
+    prometheus.scrape "cloudwatch_ecs" {
+      targets         = prometheus.exporter.cloudwatch.ecs.targets
       forward_to      = [prometheus.remote_write.grafana.receiver]
       scrape_interval = "5m"
     }
@@ -322,8 +392,8 @@ resource "aws_ecs_task_definition" "api" {
   family                   = "wildfire-assessment-api-${var.environment}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "1024" # 1 vCPU
-  memory                   = "2048" # 2 GB (minimum for 1 vCPU on Fargate)
+  cpu                      = "512"  # 0.5 vCPU (needs CPU headroom for startup + request handling)
+  memory                   = "2048" # 2 GB
 
   execution_role_arn = aws_iam_role.task_execution.arn
   task_role_arn      = aws_iam_role.task_role.arn
@@ -414,7 +484,7 @@ resource "aws_ecs_task_definition" "redis" {
   family                   = "wildfire-assessment-redis-${var.environment}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "512"
+  cpu                      = "256"  # 0.25 vCPU
   memory                   = "1024"
 
   execution_role_arn = aws_iam_role.task_execution.arn
@@ -487,7 +557,7 @@ resource "aws_ecs_task_definition" "celery_worker" {
   family                   = "wildfire-assessment-celery-worker-${var.environment}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "1024"
+  cpu                      = "256"  # 0.25 vCPU
   memory                   = "2048"
 
   execution_role_arn = aws_iam_role.task_execution.arn
@@ -569,7 +639,7 @@ resource "aws_ecs_task_definition" "celery_beat" {
   family                   = "wildfire-assessment-celery-beat-${var.environment}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "512"
+  cpu                      = "256"  # 0.25 vCPU
   memory                   = "1024"
 
   execution_role_arn = aws_iam_role.task_execution.arn

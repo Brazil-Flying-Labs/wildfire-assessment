@@ -14,7 +14,7 @@ resource "aws_rds_cluster" "aurora_postgres" {
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5
-    max_capacity = 2
+    max_capacity = 1
   }
 
   enable_http_endpoint = true

@@ -1,6 +1,6 @@
 {
   "title": "Wildfire UI - Frontend",
-  "uid": "",
+  "uid": "wildfire-ui",
   "version": 1,
   "schemaVersion": 39,
   "tags": ["frontend", "faro", "wildfire", "ui"],
