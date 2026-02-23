@@ -1,3 +1,27 @@
+# --- Explore URLs ---
+
+locals {
+  explore_backend_errors = "${var.grafana_url}explore?orgId=1&left=${urlencode(jsonencode({
+    datasource = var.grafana_loki_uid
+    queries = [{
+      refId     = "A"
+      expr      = "{service_name=~\"wildfire-api|wildfire-celery-worker|wildfire-celery-beat\", detected_level=~\"error|critical\"}"
+      queryType = "range"
+    }]
+    range = { from = "now-15m", to = "now" }
+  }))}"
+
+  explore_ui_errors = "${var.grafana_url}explore?orgId=1&left=${urlencode(jsonencode({
+    datasource = var.grafana_loki_uid
+    queries = [{
+      refId     = "A"
+      expr      = "{service_name=\"wildfire-ui\", kind=\"exception\"}"
+      queryType = "range"
+    }]
+    range = { from = "now-15m", to = "now" }
+  }))}"
+}
+
 # --- Folders ---
 
 resource "grafana_folder" "wildfire_alerts" {
@@ -43,7 +67,20 @@ resource "grafana_contact_point" "wildfire_email" {
       "marcelo@brazilflyinglabs.org.br",
     ]
     subject = "{{ .Status | title }}: {{ .CommonLabels.alertname }}"
-    message = "{{ len .Alerts.Firing }} firing, {{ len .Alerts.Resolved }} resolved\n\n{{ range .Alerts }}\n{{ .Annotations.summary }}\nValue: {{ .ValueString }}\n{{ end }}"
+    message = <<-EOT
+{{ len .Alerts.Firing }} firing, {{ len .Alerts.Resolved }} resolved
+
+{{ range .Alerts }}
+⚠️ {{ .Annotations.summary }}
+{{ if .Annotations.description }}
+{{ .Annotations.description }}
+{{ end }}
+{{ if .DashboardURL }}Dashboard: {{ .DashboardURL }}{{ end }}
+{{ if .PanelURL }}Panel: {{ .PanelURL }}{{ end }}
+{{ if .SilenceURL }}Silence: {{ .SilenceURL }}{{ end }}
+---
+{{ end }}
+EOT
   }
 }
 
@@ -349,8 +386,8 @@ resource "grafana_rule_group" "backend_alerts" {
     no_data_state  = "OK"
 
     annotations = {
-      summary     = "Error logs detected in {{ $labels.service_name }}."
-      description = "{{ $values.B.Value }} errors in the last 5 minutes.\n\nView stack traces in Grafana Explore:\n{service_name=\"{{ $labels.service_name }}\", detected_level=~\"error|critical\"}"
+      summary     = "{{ $values.B.Value }} error logs detected in backend services in the last 5 minutes."
+      description = "View stack traces in Grafana Explore:\n${local.explore_backend_errors}"
     }
 
     labels = {
@@ -417,8 +454,8 @@ resource "grafana_rule_group" "backend_alerts" {
     no_data_state  = "OK"
 
     annotations = {
-      summary     = "API is returning HTTP 5xx errors."
-      description = "{{ $values.B.Value }} server errors per second in the last 5 minutes."
+      summary     = "API returned {{ $values.B.Value }} HTTP 5xx errors/sec in the last 5 minutes."
+      description = "View errors in Grafana Explore:\n${local.explore_backend_errors}"
     }
 
     labels = {
@@ -493,8 +530,8 @@ resource "grafana_rule_group" "ui_alerts" {
     no_data_state  = "OK"
 
     annotations = {
-      summary     = "New JavaScript errors detected in the Wildfire UI."
-      description = "{{ $values.B.Value }} errors in the last 5 minutes."
+      summary     = "{{ $values.B.Value }} JavaScript errors detected in the Wildfire UI in the last 5 minutes."
+      description = "View errors in Grafana Explore:\n${local.explore_ui_errors}"
     }
 
     labels = {
