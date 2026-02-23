@@ -179,7 +179,7 @@ function AIAnalysisModal({
       await readStream(response);
     } catch (err) {
       if (err.name === "AbortError") return;
-      console.error("AI Analysis error:", err);
+      if (!err?.isSessionExpired) console.error("AI Analysis error:", err);
       setError(err.message || "Failed to generate analysis");
       setMessages([]);
     } finally {
@@ -231,7 +231,7 @@ function AIAnalysisModal({
       await readStream(response);
     } catch (err) {
       if (err.name === "AbortError") return;
-      console.error("AI Follow-up error:", err);
+      if (!err?.isSessionExpired) console.error("AI Follow-up error:", err);
       setError(err.message || "Failed to get response");
       // Remove the empty assistant message
       setMessages((prev) => prev.slice(0, -1));

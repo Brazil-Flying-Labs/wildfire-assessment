@@ -192,14 +192,18 @@ function App() {
       } catch (error) {
         const message =
           error?.error_description || error?.message || "Unknown auth error";
-        console.error("Failed to retrieve access token:", message);
-        if (
+        const isExpiredSession =
           error?.error === "login_required" ||
           error?.error === "invalid_grant" ||
-          /missing refresh token/i.test(message)
-        ) {
+          /missing refresh token/i.test(message);
+        if (isExpiredSession) {
+          console.warn("Session expired, redirecting to login:", message);
           logout({ logoutParams: { returnTo: window.location.origin } });
+          const sessionError = new Error(message);
+          sessionError.isSessionExpired = true;
+          throw sessionError;
         }
+        console.error("Failed to retrieve access token:", message);
         throw error;
       }
 
@@ -241,7 +245,7 @@ function App() {
         return data;
       }
     } catch (error) {
-      console.error("Failed to fetch user profile:", error);
+      if (!error?.isSessionExpired) console.error("Failed to fetch user profile:", error);
     }
     return null;
   }, [authorizedFetch, baseUrl]);
@@ -361,7 +365,7 @@ function App() {
         body: JSON.stringify({ theme: newTheme }),
       });
     } catch (error) {
-      console.error("Failed to update theme:", error);
+      if (!error?.isSessionExpired) console.error("Failed to update theme:", error);
       // Revert on error
       await fetchBackendProfile();
     }
@@ -375,7 +379,7 @@ function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dashboard_widgets: widgetIds }),
     }).catch((error) => {
-      console.error("Failed to update dashboard widgets:", error);
+      if (!error?.isSessionExpired) console.error("Failed to update dashboard widgets:", error);
     });
   }, [authorizedFetch, baseUrl]);
 
@@ -405,7 +409,7 @@ function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ default_language: language }),
     }).catch((error) => {
-      console.error("Failed to update language preference:", error);
+      if (!error?.isSessionExpired) console.error("Failed to update language preference:", error);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
@@ -465,7 +469,7 @@ function App() {
       } catch (error) {
         if (error.name === "AbortError") return;
 
-        console.error("Failed to fetch ecological reserves:", error);
+        if (!error?.isSessionExpired) console.error("Failed to fetch ecological reserves:", error);
         setFetchState({ loading: false, error: error.message });
       }
     })();
@@ -901,7 +905,7 @@ function App() {
           );
         }
       } catch (error) {
-        console.error("Failed to request scientific deliverable:", error);
+        if (!error?.isSessionExpired) console.error("Failed to request scientific deliverable:", error);
         updateDeliverableStatus(deliverableName, {
           loading: false,
           error: error.message || "Unknown error",
@@ -1000,7 +1004,7 @@ function App() {
         return;
       }
 
-      console.error("Error during analysis:", error);
+      if (!error?.isSessionExpired) console.error("Error during analysis:", error);
       setAnalysisState({ loading: false, error: error.message });
     } finally {
       clearInterval(analysisStepRef.current);

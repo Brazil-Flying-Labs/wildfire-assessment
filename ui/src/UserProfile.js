@@ -105,7 +105,7 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
 
         setSuccess(t("profile.saveSuccess"));
       } catch (err) {
-        console.error("Error saving profile:", err);
+        if (!err?.isSessionExpired) console.error("Error saving profile:", err);
         setError(err.message);
       } finally {
         setSaving(false);

@@ -67,7 +67,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
         throw new Error(t("areas.errorLoading"));
       }
     } catch (err) {
-      console.error("Error loading areas:", err);
+      if (!err?.isSessionExpired) console.error("Error loading areas:", err);
       setError(err.message);
     } finally {
       hasLoadedRef.current = true;
@@ -86,7 +86,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
         setAuthorizedCountries(meData.authorized_countries || []);
       }
     } catch (err) {
-      console.error("Error loading authorized countries:", err);
+      if (!err?.isSessionExpired) console.error("Error loading authorized countries:", err);
     }
   }, [authorizedFetch, baseUrl]);
 
@@ -194,7 +194,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
         setDeleteConfirm(null);
         loadAreas(currentPage, searchTerm);
       } catch (err) {
-        console.error("Error deleting area:", err);
+        if (!err?.isSessionExpired) console.error("Error deleting area:", err);
         setSubmitError(err.message);
       } finally {
         setDeleting(false);
@@ -294,7 +294,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
         closeCreateModal();
         loadAreas(1, searchTerm);
       } catch (err) {
-        console.error("Error creating area:", err);
+        if (!err?.isSessionExpired) console.error("Error creating area:", err);
         setSubmitError(err.message);
       } finally {
         setCreateSubmitting(false);
@@ -396,7 +396,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
         closeEditModal();
         loadAreas(currentPage, searchTerm);
       } catch (err) {
-        console.error("Error updating area:", err);
+        if (!err?.isSessionExpired) console.error("Error updating area:", err);
         setSubmitError(err.message);
       } finally {
         setEditSubmitting(false);
