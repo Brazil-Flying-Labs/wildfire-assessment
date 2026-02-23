@@ -113,7 +113,8 @@ locals {
     }
 
     prometheus.exporter.postgres "rds" {
-      data_source_names = [sys.env("RDS_DSN")]
+      data_source_names    = [sys.env("RDS_DSN")]
+      disabled_collectors  = ["wal"]
     }
 
     prometheus.scrape "postgres" {
