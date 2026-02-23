@@ -60,7 +60,7 @@ variable "grafana_prometheus_uid" {
 variable "grafana_loki_uid" {
   description = "UID of the Loki datasource in Grafana"
   type        = string
-  default     = "grafanacloud-diogohudson-logs"
+  default     = "grafanacloud-logs"
 }
 
 variable "vpc_cidr" {

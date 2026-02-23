@@ -343,9 +343,10 @@ resource "grafana_rule_group" "backend_alerts" {
   interval_seconds = 300
 
   rule {
-    name      = "Backend Error Logs"
-    condition = "C"
-    for       = "0s"
+    name           = "Backend Error Logs"
+    condition      = "C"
+    for            = "0s"
+    no_data_state  = "OK"
 
     annotations = {
       summary     = "Error logs detected in {{ $labels.service_name }}."
@@ -410,9 +411,10 @@ resource "grafana_rule_group" "backend_alerts" {
   }
 
   rule {
-    name      = "API 5xx Responses"
-    condition = "C"
-    for       = "0s"
+    name           = "API 5xx Responses"
+    condition      = "C"
+    for            = "0s"
+    no_data_state  = "OK"
 
     annotations = {
       summary     = "API is returning HTTP 5xx errors."
@@ -485,9 +487,10 @@ resource "grafana_rule_group" "ui_alerts" {
   interval_seconds = 300
 
   rule {
-    name      = "Frontend JS Errors"
-    condition = "C"
-    for       = "0s"
+    name           = "Frontend JS Errors"
+    condition      = "C"
+    for            = "0s"
+    no_data_state  = "OK"
 
     annotations = {
       summary     = "New JavaScript errors detected in the Wildfire UI."
