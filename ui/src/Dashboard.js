@@ -192,7 +192,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         throw new Error(t("dashboard.errorLoading"));
       }
     } catch (err) {
-      if (!err?.isSessionExpired) console.error("Error loading dashboard:", err);
+      console.error("Error loading dashboard:", err);
       setError(err.message);
     } finally {
       setLoading(false);

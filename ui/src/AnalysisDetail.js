@@ -26,7 +26,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
         throw new Error(t("analysisDetail.errorLoading"));
       }
     } catch (err) {
-      if (!err?.isSessionExpired) console.error("Error loading analysis:", err);
+      console.error("Error loading analysis:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -306,7 +306,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
           startPolling(deliverableName, data.task_id);
         }
       } catch (err) {
-        if (!err?.isSessionExpired) console.error("Failed to request scientific deliverable:", err);
+        console.error("Failed to request scientific deliverable:", err);
         setDeliverableStatus((prev) => ({
           ...prev,
           [deliverableName]: { loading: false, error: err.message },
