@@ -58,38 +58,64 @@ resource "grafana_dashboard" "ui" {
   config_json = file("${path.module}/grafana/ui-dashboard.json")
 }
 
-resource "grafana_contact_point" "wildfire_email" {
-  name = "Wildfire Team Email"
+locals {
+  alert_email_addresses = [
+    "diogo.hudson@brazilflyinglabs.org.br",
+    "marcelo@brazilflyinglabs.org.br",
+  ]
 
-  email {
-    addresses = [
-      "diogo.hudson@brazilflyinglabs.org.br",
-      "marcelo@brazilflyinglabs.org.br",
-    ]
-    subject = "{{ .Status | title }}: {{ .CommonLabels.alertname }}"
-    message = <<-EOT
-{{ len .Alerts.Firing }} firing, {{ len .Alerts.Resolved }} resolved
-
+  alert_email_message = <<-EOT
 {{ range .Alerts }}
 ⚠️ {{ .Annotations.summary }}
 {{ if .Annotations.description }}
 {{ .Annotations.description }}
 {{ end }}
-{{ if .DashboardURL }}Dashboard: {{ .DashboardURL }}{{ end }}
-{{ if .PanelURL }}Panel: {{ .PanelURL }}{{ end }}
-{{ if .SilenceURL }}Silence: {{ .SilenceURL }}{{ end }}
 ---
 {{ end }}
 EOT
+}
+
+resource "grafana_contact_point" "error_alerts" {
+  name = "Error Alerts (no resolve)"
+
+  email {
+    addresses               = local.alert_email_addresses
+    disable_resolve_message = true
+    subject                 = "{{ .CommonLabels.alertname }}"
+    message                 = local.alert_email_message
+  }
+}
+
+resource "grafana_contact_point" "resource_alerts" {
+  name = "Resource Alerts (with resolve)"
+
+  email {
+    addresses               = local.alert_email_addresses
+    disable_resolve_message = false
+    subject                 = "{{ .Status | title }}: {{ .CommonLabels.alertname }}"
+    message                 = local.alert_email_message
   }
 }
 
 resource "grafana_notification_policy" "wildfire" {
-  contact_point   = grafana_contact_point.wildfire_email.name
+  contact_point   = grafana_contact_point.error_alerts.name
   group_by        = ["grafana_folder", "alertname"]
   group_wait      = "30s"
   group_interval  = "5m"
   repeat_interval = "4h"
+
+  policy {
+    contact_point = grafana_contact_point.resource_alerts.name
+    matcher {
+      label = "alert_type"
+      match = "="
+      value = "resource"
+    }
+    group_by        = ["grafana_folder", "alertname"]
+    group_wait      = "30s"
+    group_interval  = "5m"
+    repeat_interval = "4h"
+  }
 }
 
 # --- RDS Alerts ---
@@ -109,7 +135,8 @@ resource "grafana_rule_group" "rds_alerts" {
     }
 
     labels = {
-      severity = "warning"
+      severity   = "warning"
+      alert_type = "resource"
     }
 
     data {
@@ -175,7 +202,8 @@ resource "grafana_rule_group" "rds_alerts" {
     }
 
     labels = {
-      severity = "warning"
+      severity   = "warning"
+      alert_type = "resource"
     }
 
     data {
@@ -249,7 +277,8 @@ resource "grafana_rule_group" "ecs_alerts" {
     }
 
     labels = {
-      severity = "warning"
+      severity   = "warning"
+      alert_type = "resource"
     }
 
     data {
@@ -315,7 +344,8 @@ resource "grafana_rule_group" "ecs_alerts" {
     }
 
     labels = {
-      severity = "warning"
+      severity   = "warning"
+      alert_type = "resource"
     }
 
     data {
@@ -391,7 +421,8 @@ resource "grafana_rule_group" "backend_alerts" {
     }
 
     labels = {
-      severity = "critical"
+      severity   = "critical"
+      alert_type = "error"
     }
 
     data {
@@ -459,7 +490,8 @@ resource "grafana_rule_group" "backend_alerts" {
     }
 
     labels = {
-      severity = "critical"
+      severity   = "critical"
+      alert_type = "error"
     }
 
     data {
@@ -535,7 +567,8 @@ resource "grafana_rule_group" "ui_alerts" {
     }
 
     labels = {
-      severity = "warning"
+      severity   = "warning"
+      alert_type = "error"
     }
 
     data {
