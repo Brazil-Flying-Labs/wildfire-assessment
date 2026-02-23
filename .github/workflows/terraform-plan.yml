@@ -111,7 +111,7 @@ jobs:
       id: plan
       if: steps.check_env_file.outputs.exists == 'true'
       run: |
-        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -var="aws_profile=" -no-color -out=tfplan -detailed-exitcode
+        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -var="aws_profile=" -var="grafana_auth=${{ secrets.GRAFANA_AUTH }}" -no-color -out=tfplan -detailed-exitcode
       continue-on-error: true
 
     - name: Terraform Plan (Fallback)
@@ -119,7 +119,7 @@ jobs:
       if: steps.check_env_file.outputs.exists == 'false'
       run: |
         echo "Using default variables since environment file doesn't exist"
-        terraform plan -var="aws_profile=" -no-color -out=tfplan -detailed-exitcode
+        terraform plan -var="aws_profile=" -var="grafana_auth=${{ secrets.GRAFANA_AUTH }}" -no-color -out=tfplan -detailed-exitcode
       continue-on-error: true
 
     - name: Generate Plan Summary

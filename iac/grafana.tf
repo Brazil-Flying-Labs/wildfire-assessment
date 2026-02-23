@@ -335,6 +335,148 @@ resource "grafana_rule_group" "ecs_alerts" {
   }
 }
 
+# --- Backend Alerts ---
+
+resource "grafana_rule_group" "backend_alerts" {
+  name             = "Backend Alerts"
+  folder_uid       = grafana_folder.wildfire_alerts.uid
+  interval_seconds = 300
+
+  rule {
+    name      = "Backend Error Logs"
+    condition = "C"
+    for       = "0s"
+
+    annotations = {
+      summary     = "Error logs detected in {{ $labels.service_name }}."
+      description = "{{ $values.B.Value }} errors in the last 5 minutes.\n\nView stack traces in Grafana Explore:\n{service_name=\"{{ $labels.service_name }}\", detected_level=~\"error|critical\"}"
+    }
+
+    labels = {
+      severity = "critical"
+    }
+
+    data {
+      ref_id = "A"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = var.grafana_loki_uid
+      model = jsonencode({
+        refId         = "A"
+        expr          = "sum by (service_name) (count_over_time({service_name=~\"wildfire-api|wildfire-celery-worker|wildfire-celery-beat\", detected_level=~\"error|critical\"} [5m]))"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+      })
+    }
+
+    data {
+      ref_id = "B"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "B"
+        type       = "reduce"
+        expression = "A"
+        reducer    = "last"
+        settings   = { mode = "replaceNN", replaceWithValue = 0 }
+      })
+    }
+
+    data {
+      ref_id = "C"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "C"
+        type       = "threshold"
+        expression = "B"
+        conditions = [{
+          evaluator = { params = [0], type = "gt" }
+          operator  = { type = "and" }
+          query     = { params = ["C"] }
+          reducer   = { params = [], type = "last" }
+          type      = "query"
+        }]
+      })
+    }
+  }
+
+  rule {
+    name      = "API 5xx Responses"
+    condition = "C"
+    for       = "0s"
+
+    annotations = {
+      summary     = "API is returning HTTP 5xx errors."
+      description = "{{ $values.B.Value }} server errors per second in the last 5 minutes."
+    }
+
+    labels = {
+      severity = "critical"
+    }
+
+    data {
+      ref_id = "A"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = var.grafana_prometheus_uid
+      model = jsonencode({
+        refId         = "A"
+        expr          = "sum(rate(http_server_duration_milliseconds_count{service_name=\"wildfire-api\", http_status_code=~\"5..\"}[5m]))"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+      })
+    }
+
+    data {
+      ref_id = "B"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "B"
+        type       = "reduce"
+        expression = "A"
+        reducer    = "last"
+        settings   = { mode = "replaceNN", replaceWithValue = 0 }
+      })
+    }
+
+    data {
+      ref_id = "C"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "C"
+        type       = "threshold"
+        expression = "B"
+        conditions = [{
+          evaluator = { params = [0], type = "gt" }
+          operator  = { type = "and" }
+          query     = { params = ["C"] }
+          reducer   = { params = [], type = "last" }
+          type      = "query"
+        }]
+      })
+    }
+  }
+}
+
 # --- UI Alerts ---
 
 resource "grafana_rule_group" "ui_alerts" {

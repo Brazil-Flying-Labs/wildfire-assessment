@@ -117,7 +117,7 @@ jobs:
       working-directory: ./iac
       if: steps.check_env_file.outputs.exists == 'true'
       run: |
-        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -var="aws_profile=" -out=tfplan -detailed-exitcode
+        terraform plan -var-file="${{ steps.determine_env.outputs.env_file }}" -var="aws_profile=" -var="grafana_auth=${{ secrets.GRAFANA_AUTH }}" -out=tfplan -detailed-exitcode
         terraform show -no-color tfplan > plan_output.txt
 
     - name: Terraform Apply
