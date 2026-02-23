@@ -4,6 +4,7 @@ import { faro } from "./faroConfig";
 import "./App.css";
 import AIAnalysisModal from "./AIAnalysisModal";
 import AnalysisDetail from "./AnalysisDetail";
+import DateRangePicker from "./DateRangePicker";
 import LandingPage from "./LandingPage";
 import { useLanguage } from "./LanguageContext";
 import LanguageSelector from "./LanguageSelector";
@@ -163,8 +164,6 @@ function App() {
     return url.endsWith("/") ? url.slice(0, -1) : url;
   }, []);
   const analyzeControllerRef = useRef(null);
-  const preFirePickerRef = useRef(null);
-  const postFirePickerRef = useRef(null);
   const deliverablePollRef = useRef({});
 
   const authReady = !authLoading && isAuthenticated;
@@ -517,27 +516,6 @@ function App() {
     }
 
     return parsed.toISOString().slice(0, 10);
-  }, []);
-
-  const formatIsoInput = useCallback((rawValue) => {
-    if (!rawValue) {
-      return "";
-    }
-
-    const digits = rawValue.replace(/[^0-9]/g, "").slice(0, 8);
-    if (!digits) {
-      return "";
-    }
-
-    if (digits.length <= 4) {
-      return digits;
-    }
-
-    if (digits.length <= 6) {
-      return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-    }
-
-    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
   }, []);
 
   const isIsoDate = useCallback(
@@ -1408,86 +1386,18 @@ function App() {
                 <div className="card-body">
                   <form onSubmit={handleSubmit}>
                     <div className="row g-3">
-                      <div className="col-12 col-md-6 col-lg-3">
-                        <label htmlFor="preFireDate" className="form-label">
-                          {t("app.preFireDate")}
-                        </label>
-                        <div className="date-input-wrapper">
-                          <input
-                            type="text"
-                            className="form-control date-input-text"
-                            id="preFireDate"
-                            name="preFireDate"
-                            placeholder="YYYY-MM-DD"
-                            value={preFireInput}
-                            onChange={(event) =>
-                              setPreFireInput(formatIsoInput(event.target.value))
-                            }
-                          />
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary date-picker-button"
-                            aria-label={t("app.preFireDate")}
-                            onClick={() =>
-                              preFirePickerRef.current?.showPicker?.() ||
-                              preFirePickerRef.current?.focus()
-                            }
-                          >
-                            {t("common.pick")}
-                          </button>
-                          <input
-                            ref={preFirePickerRef}
-                            type="date"
-                            className="date-input-native"
-                            tabIndex={-1}
-                            value={preFireDate}
-                            onChange={(event) =>
-                              setPreFireInput(normalizeDateValue(event.target.value))
-                            }
-                            max={postFireDate || undefined}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="col-12 col-md-6 col-lg-3">
-                        <label htmlFor="postFireDate" className="form-label">
-                          {t("app.postFireDate")}
-                        </label>
-                        <div className="date-input-wrapper">
-                          <input
-                            type="text"
-                            className="form-control date-input-text"
-                            id="postFireDate"
-                            name="postFireDate"
-                            placeholder="YYYY-MM-DD"
-                            value={postFireInput}
-                            onChange={(event) =>
-                              setPostFireInput(formatIsoInput(event.target.value))
-                            }
-                          />
-                          <button
-                            type="button"
-                            className="btn btn-outline-secondary date-picker-button"
-                            aria-label={t("app.postFireDate")}
-                            onClick={() =>
-                              postFirePickerRef.current?.showPicker?.() ||
-                              postFirePickerRef.current?.focus()
-                            }
-                          >
-                            {t("common.pick")}
-                          </button>
-                          <input
-                            ref={postFirePickerRef}
-                            type="date"
-                            className="date-input-native"
-                            tabIndex={-1}
-                            value={postFireDate}
-                            onChange={(event) =>
-                              setPostFireInput(normalizeDateValue(event.target.value))
-                            }
-                            min={preFireDate || undefined}
-                          />
-                        </div>
+                      <div className="col-12 col-lg-6">
+                        <DateRangePicker
+                          startDate={preFireDate}
+                          endDate={postFireDate}
+                          onRangeChange={(start, end) => {
+                            setPreFireInput(start);
+                            setPostFireInput(end);
+                          }}
+                          label={t("app.dateRange")}
+                          startLabel={t("app.preFire")}
+                          endLabel={t("app.postFire")}
+                        />
                       </div>
 
                       <div className="col-12 col-md-6 col-lg-4">
@@ -1605,8 +1515,18 @@ function App() {
                   </div>
                   {bestDates ? (
                     <div className="card shadow-sm">
-                      <div className="card-header">
+                      <div className="card-header d-flex align-items-center justify-content-between">
                         <h3 className="h5 mb-0">{t("app.bestDates")}</h3>
+                        <button
+                          type="button"
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => {
+                            if (bestDates.preBest) setPreFireInput(bestDates.preBest);
+                            if (bestDates.postBest) setPostFireInput(bestDates.postBest);
+                          }}
+                        >
+                          {t("app.useBestDates")}
+                        </button>
                       </div>
                       <div className="card-body">
                         <dl className="row mb-0">

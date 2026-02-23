@@ -1,0 +1,240 @@
+.drp-container {
+  position: relative;
+}
+
+/* ── Trigger row: two inputs with arrow ── */
+.drp-trigger-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.drp-trigger-half {
+  flex: 1;
+  display: flex !important;
+  align-items: center;
+  gap: 0.375rem;
+  cursor: pointer;
+  padding: 0.375rem 0.75rem !important;
+  font-size: 1rem;
+  line-height: 1.5;
+  border: 1px solid var(--input-border, #ced4da);
+  border-radius: 0.375rem;
+  background-color: var(--input-bg, #fff);
+  color: var(--text-primary, #212529);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  /* Match exact height of .form-select / .form-control */
+  height: calc(1.5em + 0.75rem + 2px);
+}
+
+.drp-trigger-half:hover {
+  border-color: #6366f1;
+}
+
+.drp-trigger-half.drp-active {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 0.2rem rgba(99, 102, 241, 0.25);
+}
+
+.drp-trigger-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.55;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.5rem;
+}
+
+.drp-arrow {
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+
+.drp-date-filled {
+  white-space: nowrap;
+}
+
+.drp-date-placeholder {
+  opacity: 0.35;
+  white-space: nowrap;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+/* ── Popover ── */
+.drp-popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: auto;
+  z-index: 1050;
+  margin-top: 4px;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15);
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border-color, #e9ecef);
+}
+
+.drp-popover-end {
+  left: auto;
+  right: 0;
+}
+
+/* ── Step indicator ── */
+.drp-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color, #e9ecef);
+  font-size: 0.85rem;
+}
+
+.drp-step-active {
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.drp-step-dim {
+  color: var(--text-muted, #6c757d);
+}
+
+.drp-step-arrow {
+  color: var(--text-muted, #6c757d);
+  font-size: 0.75rem;
+}
+
+/* ── react-day-picker base overrides ── */
+.drp-popover .rdp-root {
+  --rdp-accent-color: #6366f1;
+  --rdp-accent-background-color: rgba(99, 102, 241, 0.12);
+  --rdp-today-color: #6366f1;
+  --rdp-selected-border: 2px solid #6366f1;
+  --rdp-day-height: 38px;
+  --rdp-day-width: 38px;
+  --rdp-day_button-height: 36px;
+  --rdp-day_button-width: 36px;
+  color: var(--text-primary, #212529);
+  background: transparent;
+}
+
+.drp-popover .rdp-month_caption {
+  color: var(--text-primary, #212529);
+  font-weight: 600;
+}
+
+.drp-popover .rdp-weekday {
+  color: var(--text-muted, #6c757d);
+}
+
+.drp-popover .rdp-day_button:hover {
+  background-color: rgba(99, 102, 241, 0.15);
+}
+
+.drp-popover .rdp-chevron {
+  fill: var(--text-secondary, #6c757d);
+}
+
+.drp-popover .rdp-button_previous:hover .rdp-chevron,
+.drp-popover .rdp-button_next:hover .rdp-chevron {
+  fill: var(--text-primary, #212529);
+}
+
+.drp-popover .rdp-outside {
+  opacity: 0.4;
+}
+
+.drp-popover .rdp-selected .rdp-day_button {
+  color: #fff;
+  background-color: #6366f1;
+}
+
+/* Range highlight between from and to */
+.drp-in-range {
+  background-color: rgba(99, 102, 241, 0.1);
+}
+
+/* ── Dark theme ── */
+[data-theme="dark"] .drp-trigger-half {
+  background-color: var(--input-bg);
+  border-color: var(--input-border);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .drp-trigger-half:hover {
+  border-color: #6366f1;
+}
+
+[data-theme="dark"] .drp-popover {
+  background: var(--bg-card);
+  border-color: var(--border-color);
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .drp-step-indicator {
+  border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .drp-popover .rdp-root {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .drp-popover .rdp-month_caption {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .drp-popover .rdp-weekday {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .drp-popover .rdp-chevron {
+  fill: var(--text-secondary);
+}
+
+[data-theme="dark"] .drp-popover .rdp-button_previous:hover .rdp-chevron,
+[data-theme="dark"] .drp-popover .rdp-button_next:hover .rdp-chevron {
+  fill: var(--text-primary);
+}
+
+[data-theme="dark"] .drp-popover .rdp-day_button {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .drp-popover .rdp-day_button:hover {
+  background-color: rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="dark"] .drp-popover .rdp-outside .rdp-day_button {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .drp-popover .rdp-selected .rdp-day_button {
+  color: #fff;
+}
+
+[data-theme="dark"] .drp-in-range {
+  background-color: rgba(99, 102, 241, 0.12);
+}
+
+[data-theme="dark"] .drp-in-range .rdp-day_button {
+  color: #a5b4fc;
+}
+
+@media (max-width: 768px) {
+  .drp-popover {
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.75rem;
+  }
+
+  .drp-popover .rdp-root {
+    --rdp-day-height: 36px;
+    --rdp-day-width: 36px;
+    --rdp-day_button-height: 34px;
+    --rdp-day_button-width: 34px;
+  }
+}
