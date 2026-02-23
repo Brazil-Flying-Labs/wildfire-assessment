@@ -104,3 +104,7 @@ flake8 api svc
 ## AWS Cli
 
 Always use `--profile bfl` when connection to AWS.
+
+## TRACK DEPLOYMENTS
+
+- Every time you push changes to dev/staging/prod branchs, track the github actions deployments, one background agent for each deployment and notify me with a sound when deployments are ready.
