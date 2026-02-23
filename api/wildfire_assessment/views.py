@@ -60,6 +60,13 @@ def health_status(_request):
     return JsonResponse({"status": "ok"})
 
 
+def test_error(_request):
+    ts = uuid.uuid4().hex[:8]
+    msg = f"Test error endpoint triggered ({ts})"
+    LOG.error(msg)
+    raise Exception(msg)
+
+
 class AreaOfInterestPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = "page_size"

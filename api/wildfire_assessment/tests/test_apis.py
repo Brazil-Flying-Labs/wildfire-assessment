@@ -181,6 +181,17 @@ class WildfireAssessmentTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    def test_error_endpoint_returns_500(self):
+        self.client.raise_request_exception = False
+        response = self.client.get("/test/error/")
+        self.assertEqual(response.status_code, 500)
+
+    def test_error_endpoint_no_auth_required(self):
+        self.client.logout()
+        self.client.raise_request_exception = False
+        response = self.client.get("/test/error/")
+        self.assertEqual(response.status_code, 500)
+
     def test_search_by_name(self):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
