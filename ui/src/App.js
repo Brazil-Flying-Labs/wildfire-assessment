@@ -1093,21 +1093,23 @@ function App() {
   }
 
   if (!authReady) {
-    return <LandingPage onLogin={login} />;
+    return <div className="page-fade-in"><LandingPage onLogin={login} /></div>;
   }
 
   if (showLandingPage) {
     return (
-      <LandingPage
-        isAuthenticated
-        onLogin={() => {
-          setShowLandingPage(false);
-          window.history.replaceState(
-            { page: "dashboard", analysisId: null, landing: false },
-            ""
-          );
-        }}
-      />
+      <div className="page-fade-in">
+        <LandingPage
+          isAuthenticated
+          onLogin={() => {
+            setShowLandingPage(false);
+            window.history.replaceState(
+              { page: "dashboard", analysisId: null, landing: false },
+              ""
+            );
+          }}
+        />
+      </div>
     );
   }
 
