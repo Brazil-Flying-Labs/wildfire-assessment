@@ -61,7 +61,6 @@ jobs:
 
       - name: Upload source maps to Grafana Cloud
         if: env.FARO_APP_ID != ''
-        continue-on-error: true
         working-directory: ${{ env.UI_DIRECTORY }}
         run: |
           npx faro-cli upload \

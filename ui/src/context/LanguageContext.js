@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import en from "./translations/en.json";
-import ptBR from "./translations/pt-BR.json";
-import fr from "./translations/fr.json";
+import en from "../translations/en.json";
+import ptBR from "../translations/pt-BR.json";
+import fr from "../translations/fr.json";
 
 const SUPPORTED_LANGUAGES = ["en", "pt-BR", "fr"];
 const STORAGE_KEY = "preferred_language";

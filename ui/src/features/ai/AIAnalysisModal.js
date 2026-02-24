@@ -1,6 +1,6 @@
 import { useCallback, useState, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { useLanguage } from "./LanguageContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 const RESPONSE_ID_REGEX = /\n?\n?\[RESPONSE_ID\](.*?)\[\/RESPONSE_ID\]/;
 

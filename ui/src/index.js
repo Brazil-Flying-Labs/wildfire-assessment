@@ -1,12 +1,12 @@
-import { faro } from './faroConfig'; // eslint-disable-line no-unused-vars
+import { faro } from './config/faroConfig'; // eslint-disable-line no-unused-vars
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Auth0Provider } from '@auth0/auth0-react';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { authConfig, hasValidAuthConfig } from './authConfig';
-import { LanguageProvider, useLanguage } from './LanguageContext';
+import { authConfig, hasValidAuthConfig } from './config/authConfig';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 

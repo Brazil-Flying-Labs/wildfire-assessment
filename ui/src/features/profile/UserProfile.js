@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLanguage, SUPPORTED_LANGUAGES } from "./LanguageContext";
+import BackButton from "../../components/BackButton";
+import { useLanguage, SUPPORTED_LANGUAGES } from "../../context/LanguageContext";
 
 const LANGUAGE_LABELS = {
   en: "English",
@@ -128,18 +129,7 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
     <div className="user-profile p-4">
       <div className="d-flex align-items-center justify-content-between mb-4 page-header-sticky">
         <h2 className="h4 mb-0">{t("profile.title")}</h2>
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 no-print"
-          onClick={onBackToDashboard}
-          title={t("common.back")}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
-          {t("common.back")}
-        </button>
+        <BackButton onClick={onBackToDashboard} />
       </div>
 
       <div className="card shadow-sm">

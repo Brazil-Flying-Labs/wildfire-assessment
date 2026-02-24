@@ -9,36 +9,15 @@ import {
   Tooltip,
   ReferenceLine,
 } from "recharts";
-import { useLanguage } from "./LanguageContext";
-
-const SEVERITY_LABELS = {
-  en: ["Unburned", "Low", "Moderate", "High", "Very High"],
-  "pt-BR": ["Não queimado", "Baixa", "Moderada", "Alta", "Muito Alta"],
-  fr: ["Non brûlé", "Faible", "Modéré", "Élevé", "Très élevé"],
-};
-
-function severityColor(value) {
-  if (value < 1) return "#22c55e";
-  if (value < 2) return "#facc15";
-  if (value < 3) return "#f97316";
-  if (value < 4) return "#ef4444";
-  return "#7f1d1d";
-}
-
-function formatDate(dateStr) {
-  const [year, month, day] = dateStr.split("-");
-  return `${year}/${month}/${day}`;
-}
-
-function formatDateFull(dateStr) {
-  const [year, month, day] = dateStr.split("-");
-  return `${year}/${month}/${day}`;
-}
+import { useLanguage } from "../../context/LanguageContext";
+import InfoTooltip from "../../components/InfoTooltip";
+import { SEVERITY_CHART_LABELS, severityChartColor } from "../../constants/severity";
+import { formatDateFromIso } from "../../utils/formatting";
 
 export default function SeverityTrendWidget({ severityTrend }) {
   const { t, language } = useLanguage();
 
-  const labels = SEVERITY_LABELS[language] || SEVERITY_LABELS.en;
+  const labels = SEVERITY_CHART_LABELS[language] || SEVERITY_CHART_LABELS.en;
 
   const chartData = useMemo(() => {
     if (!severityTrend || severityTrend.length === 0) return [];
@@ -59,7 +38,7 @@ export default function SeverityTrendWidget({ severityTrend }) {
       .map((key) => ({
         date: key,
         avg_severity: parseFloat((daily[key].sum / daily[key].count).toFixed(2)),
-        label: formatDate(key),
+        label: formatDateFromIso(key),
       }));
   }, [severityTrend]);
 
@@ -77,9 +56,9 @@ export default function SeverityTrendWidget({ severityTrend }) {
           color: "var(--text-primary, #212529)",
         }}
       >
-        <div className="fw-bold mb-1">{formatDateFull(data.date, language)}</div>
+        <div className="fw-bold mb-1">{formatDateFromIso(data.date, language)}</div>
         <div>
-          {t("dashboard.severityTrendAvg")}: <strong style={{ color: severityColor(val) }}>{val.toFixed(2)}</strong>
+          {t("dashboard.severityTrendAvg")}: <strong style={{ color: severityChartColor(val) }}>{val.toFixed(2)}</strong>
         </div>
         <div className="text-muted small">{labels[severityIdx]}</div>
       </div>
@@ -91,12 +70,7 @@ export default function SeverityTrendWidget({ severityTrend }) {
       <div className="card h-100 shadow-sm">
         <div className="card-header">
           <h3 className="h5 mb-0">{t("dashboard.severityTrend")}
-            <span className="info-tooltip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
-              <span className="info-tooltip-text">{t("dashboard.tooltipSeverityTrend")}</span>
-            </span>
+            <InfoTooltip text={t("dashboard.tooltipSeverityTrend")} />
           </h3>
         </div>
         <div className="card-body d-flex align-items-center justify-content-center text-muted">
@@ -110,12 +84,7 @@ export default function SeverityTrendWidget({ severityTrend }) {
     <div className="card h-100 shadow-sm">
       <div className="card-header">
         <h3 className="h5 mb-0">{t("dashboard.severityTrend")}
-            <span className="info-tooltip">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
-              <span className="info-tooltip-text">{t("dashboard.tooltipSeverityTrend")}</span>
-            </span>
+            <InfoTooltip text={t("dashboard.tooltipSeverityTrend")} />
           </h3>
       </div>
       <div className="card-body" style={{ height: 300 }}>

@@ -1,7 +1,7 @@
 import { useRef, useMemo } from "react";
 import "./LandingPage.css";
-import { useLanguage } from "./LanguageContext";
-import LanguageSelector from "./LanguageSelector";
+import { useLanguage } from "../../context/LanguageContext";
+import LanguageSelector from "../../LanguageSelector";
 
 function LandingPage({ onLogin, isAuthenticated }) {
   const { t } = useLanguage();

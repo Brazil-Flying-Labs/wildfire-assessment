@@ -4,7 +4,7 @@ import { format, parse } from "date-fns";
 import { enUS, ptBR, fr } from "date-fns/locale";
 import "react-day-picker/style.css";
 import "./DateRangePicker.css";
-import { useLanguage } from "./LanguageContext";
+import { useLanguage } from "../context/LanguageContext";
 
 const LOCALE_MAP = { en: enUS, "pt-BR": ptBR, fr };
 

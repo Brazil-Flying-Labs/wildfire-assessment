@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { useLanguage, SUPPORTED_LANGUAGES } from "./LanguageContext";
+import { useState, useRef, useCallback } from "react";
+import { useLanguage, SUPPORTED_LANGUAGES } from "./context/LanguageContext";
+import useClickOutside from "./hooks/useClickOutside";
 
 const FLAGS = {
   en: "\ud83c\uddfa\ud83c\uddf8",
@@ -18,6 +19,7 @@ function LanguageSelector() {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
 
+  const close = useCallback(() => setIsOpen(false), []);
   const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
 
   const select = useCallback(
@@ -28,16 +30,7 @@ function LanguageSelector() {
     [setLanguage]
   );
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [isOpen]);
+  useClickOutside(menuRef, close, isOpen);
 
   return (
     <div className="lang-selector" ref={menuRef}>
