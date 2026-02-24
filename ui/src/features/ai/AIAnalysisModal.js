@@ -56,12 +56,33 @@ function AIAnalysisModal({
     responseIdRef.current = null;
   }, [preFireDate, postFireDate, areaOfInterest, severityDistribution]);
 
-  // Auto-scroll to bottom as content changes
+  // Track whether user is scrolled to the bottom
+  const [showScrollDown, setShowScrollDown] = useState(false);
+
   useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+      setShowScrollDown(!nearBottom);
+    };
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [isModalOpen]);
+
+  // Update arrow visibility when content grows during streaming
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    setShowScrollDown(!nearBottom);
+  }, [messages]);
+
+  const scrollToBottom = useCallback(() => {
     if (contentRef.current) {
-      contentRef.current.scrollTop = contentRef.current.scrollHeight;
+      contentRef.current.scrollTo({ top: contentRef.current.scrollHeight, behavior: "smooth" });
     }
-  }, [messages, isLoading]);
+  }, []);
 
   const startAnalysisRef = useRef(null);
 
@@ -360,6 +381,28 @@ function AIAnalysisModal({
                   )}
                 </div>
               ))}
+
+              {showScrollDown && (
+                <button
+                  type="button"
+                  className="ai-scroll-down-btn"
+                  onClick={scrollToBottom}
+                  aria-label={t("ai.scrollToBottom")}
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              )}
             </div>
 
             <div className="ai-analysis-modal-footer">

@@ -107,6 +107,7 @@
   "ai.send": "Envoyer",
   "ai.poweredBy": "Propulsé par {provider}",
   "ai.openAnalysis": "Ouvrir l'analyse par IA",
+  "ai.scrollToBottom": "Défiler vers le bas",
   "notifications.title": "Notifications",
   "notifications.empty": "Aucune notification pour le moment",
   "notifications.deliverableReady": "Le produit scientifique {deliverable} pour {area} est prêt à télécharger",

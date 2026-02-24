@@ -107,6 +107,7 @@
   "ai.send": "Enviar",
   "ai.poweredBy": "Desenvolvido com {provider}",
   "ai.openAnalysis": "Abrir Análise por IA",
+  "ai.scrollToBottom": "Rolar para o final",
   "notifications.title": "Notificações",
   "notifications.empty": "Nenhuma notificação ainda",
   "notifications.deliverableReady": "Produto científico {deliverable} para {area} está pronto para download",

@@ -107,6 +107,7 @@
   "ai.send": "Send",
   "ai.poweredBy": "Powered by {provider}",
   "ai.openAnalysis": "Open AI Analysis",
+  "ai.scrollToBottom": "Scroll to bottom",
   "notifications.title": "Notifications",
   "notifications.empty": "No notifications yet",
   "notifications.deliverableReady": "Scientific {deliverable} for {area} is ready to download",

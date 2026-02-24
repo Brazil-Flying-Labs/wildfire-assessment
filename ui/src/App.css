@@ -801,6 +801,34 @@
   overflow-y: auto;
   padding: 20px;
   min-height: 200px;
+  position: relative;
+}
+
+.ai-scroll-down-btn {
+  position: sticky;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.95);
+  color: #667eea;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: background 0.2s, box-shadow 0.2s;
+  z-index: 5;
+  margin: 0 auto;
+}
+
+.ai-scroll-down-btn:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  color: #4f46e5;
 }
 
 .ai-analysis-content {
@@ -913,6 +941,7 @@
 
   .ai-analysis-modal {
     max-height: 90vh;
+    height: 90vh;
   }
 
   .ai-analysis-modal-body {
@@ -1793,6 +1822,19 @@
 
 [data-theme="dark"] .ai-chat-footer-meta {
   color: var(--text-muted);
+}
+
+[data-theme="dark"] .ai-scroll-down-btn {
+  background: rgba(31, 41, 55, 0.95);
+  border-color: var(--border-color);
+  color: #818cf8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .ai-scroll-down-btn:hover {
+  background: var(--bg-card);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  color: #a5b4fc;
 }
 
 [data-theme="dark"] .ai-analysis-cursor {
