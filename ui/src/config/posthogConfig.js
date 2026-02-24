@@ -14,7 +14,7 @@ if (hasValidPosthogConfig) {
       capture_pageview: false, // We handle pageviews manually in useNavigation
       capture_pageleave: true,
       autocapture: true,
-      enable_recording_console_log: true,
+      disable_session_recording: true,
     });
     posthog = posthogJs;
   } catch (error) {
