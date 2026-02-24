@@ -38,14 +38,8 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
     if (faro) faro.api.setView({ name: "analysis-detail" });
   }, []);
 
-  const handleBackFromAnalysisDetail = useCallback(() => {
-    setSelectedAnalysisId(null);
-    setCurrentPage("dashboard");
-    window.history.pushState(
-      { page: "dashboard", analysisId: null, landing: false },
-      ""
-    );
-    if (faro) faro.api.setView({ name: "dashboard" });
+  const goBack = useCallback(() => {
+    window.history.back();
   }, []);
 
   // Handle browser back/forward buttons
@@ -75,6 +69,6 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
     scrollToDeliverable,
     navigateTo,
     handleAnalysisClick,
-    handleBackFromAnalysisDetail,
+    goBack,
   };
 }

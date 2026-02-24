@@ -102,7 +102,7 @@ function App() {
     scrollToDeliverable,
     navigateTo,
     handleAnalysisClick,
-    handleBackFromAnalysisDetail,
+    goBack,
   } = useNavigation({
     onNavigateTo: closeNav,
     onPopState: useCallback(() => {
@@ -281,7 +281,7 @@ function App() {
                   authorizedFetch={authorizedFetch}
                   baseUrl={baseUrl}
                   analysisId={selectedAnalysisId}
-                  onBack={handleBackFromAnalysisDetail}
+                  onBack={goBack}
                   onNotificationsRead={fetchUnreadCount}
                   scrollToDeliverable={scrollToDeliverable}
                 />
@@ -289,7 +289,7 @@ function App() {
                 <AreasOfInterest
                   authorizedFetch={authorizedFetch}
                   baseUrl={baseUrl}
-                  onBackToDashboard={handleBackFromAnalysisDetail}
+                  onBack={goBack}
                 />
               ) : currentPage === "profile" ? (
                 <UserProfile
@@ -299,13 +299,13 @@ function App() {
                   backendProfile={backendProfile}
                   onProfileUpdate={fetchBackendProfile}
                   onThemeChange={updateTheme}
-                  onBackToDashboard={handleBackFromAnalysisDetail}
+                  onBack={goBack}
                 />
               ) : (
                 <AnalysisPage
                   authorizedFetch={authorizedFetch}
                   baseUrl={baseUrl}
-                  onBack={handleBackFromAnalysisDetail}
+                  onBack={goBack}
                   onAnalysisComplete={() => setDashboardRefreshKey((k) => k + 1)}
                 />
               )}

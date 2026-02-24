@@ -6,7 +6,7 @@ import useDebouncedSearch from "../../hooks/useDebouncedSearch";
 import AreaFormModal from "./AreaFormModal";
 import AreaTable from "./AreaTable";
 
-function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
+function AreasOfInterest({ authorizedFetch, baseUrl, onBack }) {
   const { t } = useLanguage();
   const [areas, setAreas] = useState([]);
   const [authorizedCountries, setAuthorizedCountries] = useState([]);
@@ -197,7 +197,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBackToDashboard }) {
     <div className="areas-management p-4">
       <div className="d-flex align-items-center justify-content-between mb-4 page-header-sticky">
         <h2 className="h4 mb-0">{t("areas.title")}</h2>
-        <BackButton onClick={onBackToDashboard} />
+        <BackButton onClick={onBack} />
       </div>
 
       {submitSuccess && (
