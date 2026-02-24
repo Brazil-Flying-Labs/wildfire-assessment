@@ -126,9 +126,10 @@ resource "grafana_rule_group" "rds_alerts" {
   interval_seconds = 300
 
   rule {
-    name      = "High ACU Utilization"
-    condition = "C"
-    for       = "5m"
+    name           = "High ACU Utilization"
+    condition      = "C"
+    for            = "5m"
+    no_data_state  = "OK"
 
     annotations = {
       summary = "Aurora ACU utilization is above 85% — database is near its max capacity (1 ACU)."
@@ -193,9 +194,10 @@ resource "grafana_rule_group" "rds_alerts" {
   }
 
   rule {
-    name      = "High RDS CPU Utilization"
-    condition = "C"
-    for       = "5m"
+    name           = "High RDS CPU Utilization"
+    condition      = "C"
+    for            = "5m"
+    no_data_state  = "OK"
 
     annotations = {
       summary = "Aurora CPU utilization is above 85%."
@@ -268,9 +270,10 @@ resource "grafana_rule_group" "ecs_alerts" {
   interval_seconds = 300
 
   rule {
-    name      = "High ECS CPU Usage"
-    condition = "C"
-    for       = "5m"
+    name           = "High ECS CPU Usage"
+    condition      = "C"
+    for            = "5m"
+    no_data_state  = "OK"
 
     annotations = {
       summary = "ECS service {{ $labels.dimension_ServiceName }} CPU usage is above 80%."
@@ -335,9 +338,10 @@ resource "grafana_rule_group" "ecs_alerts" {
   }
 
   rule {
-    name      = "High ECS Memory Usage"
-    condition = "C"
-    for       = "5m"
+    name           = "High ECS Memory Usage"
+    condition      = "C"
+    for            = "5m"
+    no_data_state  = "OK"
 
     annotations = {
       summary = "ECS service {{ $labels.dimension_ServiceName }} memory usage is above 80% — risk of OOM."
