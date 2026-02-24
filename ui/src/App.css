@@ -917,12 +917,17 @@
 
 .ai-chat-input-row {
   display: flex;
+  align-items: center;
   gap: 0.5rem;
   width: 100%;
 }
 
 .ai-chat-input-row input {
   flex: 1;
+}
+
+.ai-analysis-modal-footer .btn-sm {
+  min-width: 5rem;
 }
 
 .ai-chat-footer-meta {
