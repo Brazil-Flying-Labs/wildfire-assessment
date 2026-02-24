@@ -1101,9 +1101,7 @@
 }
 
 .kebab-dropdown {
-  position: absolute;
-  right: 0;
-  top: 100%;
+  position: fixed;
   min-width: 140px;
   background: #fff;
   border: 1px solid #e9ecef;

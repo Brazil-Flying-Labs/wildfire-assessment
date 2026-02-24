@@ -1,7 +1,30 @@
+import { useRef, useEffect, useState, useCallback } from "react";
+
 function KebabMenu({ items, isOpen, onToggle, onClose, ariaLabel }) {
+  const triggerRef = useRef(null);
+  const [position, setPosition] = useState(null);
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const dropdownHeight = items.length * 40 + 8; // approximate height
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < dropdownHeight;
+
+    setPosition({
+      top: openUpward ? rect.top - dropdownHeight : rect.bottom + 4,
+      left: rect.right - 140, // align right edge with button
+    });
+  }, [items.length]);
+
+  useEffect(() => {
+    if (isOpen) updatePosition();
+  }, [isOpen, updatePosition]);
+
   return (
     <div className="kebab-menu">
       <button
+        ref={triggerRef}
         type="button"
         className="btn btn-link text-secondary p-1 kebab-trigger"
         onClick={onToggle}
@@ -13,10 +36,13 @@ function KebabMenu({ items, isOpen, onToggle, onClose, ariaLabel }) {
           <circle cx="12" cy="19" r="2" />
         </svg>
       </button>
-      {isOpen && (
+      {isOpen && position && (
         <>
           <div className="kebab-backdrop" onClick={onClose}></div>
-          <div className="kebab-dropdown">
+          <div
+            className="kebab-dropdown"
+            style={{ top: position.top, left: position.left }}
+          >
             {items.map((item, i) => (
               <button
                 key={i}
