@@ -91,6 +91,8 @@
   "app.deliverableOpen": "Abrir",
   "app.deliverableError": "Falhou",
   "app.footer": "UI versão {version} · Wildfire Analyser 0.2.18",
+  "app.accountPending": "Sua conta foi criada, mas ainda não está autorizada. Entre em contato com um administrador para ativar sua conta.",
+  "app.noCountryAccess": "Você ainda não tem acesso a nenhum país. Entre em contato com um administrador para começar.",
   "app.envNotConfigured": "A variável de ambiente REACT_APP_WILDLIFE_API_URL não está configurada.",
   "app.errorLoadingReserves": "Erro ao carregar reservas ({status})",
   "app.apiNotConfigured": "O endpoint da API não está configurado.",

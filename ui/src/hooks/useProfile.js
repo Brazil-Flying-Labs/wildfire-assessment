@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function useProfile(authorizedFetch, baseUrl, authReady, language, setLanguage) {
   const [backendProfile, setBackendProfile] = useState(null);
+  const [accountStatus, setAccountStatus] = useState("loading"); // "loading" | "active" | "pending"
   const languageLoadedRef = useRef(false);
 
   const fetchBackendProfile = useCallback(async () => {
@@ -11,7 +12,12 @@ export default function useProfile(authorizedFetch, baseUrl, authReady, language
       if (response.ok) {
         const data = await response.json();
         setBackendProfile(data);
+        setAccountStatus("active");
         return data;
+      }
+      if (response.status === 401 || response.status === 403) {
+        setAccountStatus("pending");
+        return null;
       }
     } catch (error) {
       console.error("Failed to fetch user profile:", error);
@@ -79,5 +85,5 @@ export default function useProfile(authorizedFetch, baseUrl, authReady, language
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  return { backendProfile, fetchBackendProfile, updateTheme, updateDashboardWidgets };
+  return { backendProfile, accountStatus, fetchBackendProfile, updateTheme, updateDashboardWidgets };
 }

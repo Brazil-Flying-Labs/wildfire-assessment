@@ -91,6 +91,8 @@
   "app.deliverableOpen": "Ouvrir",
   "app.deliverableError": "Échoué",
   "app.footer": "UI version {version} · Wildfire Analyser 0.2.18",
+  "app.accountPending": "Votre compte a été créé mais n'est pas encore autorisé. Veuillez contacter un administrateur pour activer votre compte.",
+  "app.noCountryAccess": "Vous n'avez pas encore accès à un pays. Veuillez contacter un administrateur pour commencer.",
   "app.envNotConfigured": "La variable d'environnement REACT_APP_WILDLIFE_API_URL n'est pas configurée.",
   "app.errorLoadingReserves": "Erreur lors du chargement des réserves ({status})",
   "app.apiNotConfigured": "Le point de terminaison de l'API n'est pas configuré.",

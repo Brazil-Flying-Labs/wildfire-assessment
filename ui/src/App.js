@@ -112,7 +112,7 @@ function App() {
   });
 
   // Profile & theme
-  const { backendProfile, fetchBackendProfile, updateTheme, updateDashboardWidgets } =
+  const { backendProfile, accountStatus, fetchBackendProfile, updateTheme, updateDashboardWidgets } =
     useProfile(authorizedFetch, baseUrl, authReady, language, setLanguage);
 
   // Notifications
@@ -217,6 +217,26 @@ function App() {
             );
           }}
         />
+      </div>
+    );
+  }
+
+  if (accountStatus === "pending" || (backendProfile && !backendProfile.authorized_countries?.length)) {
+    const messageKey = accountStatus === "pending" ? "app.accountPending" : "app.noCountryAccess";
+    return (
+      <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
+        <div className="text-center p-4">
+          <img src={logoSrc} alt="" className="brand-logo mb-4" />
+          <h2>{t("app.title")}</h2>
+          <p className="text-muted mt-3">{t(messageKey)}</p>
+          <button
+            type="button"
+            className="btn btn-outline-secondary mt-3"
+            onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+          >
+            {t("common.logout")}
+          </button>
+        </div>
       </div>
     );
   }
