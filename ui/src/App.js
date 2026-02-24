@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { faro } from "./config/faroConfig";
 import "./App.css";
+import Breadcrumbs from "./components/Breadcrumbs";
 import AnalysisDetail from "./features/analysis-detail/AnalysisDetail";
 import AreasOfInterest from "./features/areas/AreasOfInterest";
 import Dashboard from "./features/dashboard/Dashboard";
@@ -280,6 +281,7 @@ function App() {
         />
 
         <main className="app-main flex-grow-1 d-flex flex-column">
+          <Breadcrumbs currentPage={currentPage} navigateTo={navigateTo} />
           <div
             ref={dashboardRef}
             className="page-fade-in"
