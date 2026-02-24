@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
 import { faro } from "./config/faroConfig";
+import { posthog } from "./config/posthogConfig";
 import "./App.css";
 import Breadcrumbs from "./components/Breadcrumbs";
 import AnalysisDetail from "./features/analysis-detail/AnalysisDetail";
@@ -161,6 +162,15 @@ function App() {
       id: user.sub || "",
       email: user.email || "",
       username: user.name || user.nickname || "",
+    });
+  }, [authReady, user]);
+
+  // Identify user in PostHog for analytics
+  useEffect(() => {
+    if (!posthog || !authReady || !user) return;
+    posthog.identify(user.sub, {
+      email: user.email,
+      name: user.name || user.nickname,
     });
   }, [authReady, user]);
 

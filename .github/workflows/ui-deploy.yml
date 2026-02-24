@@ -43,6 +43,8 @@ jobs:
           echo "REACT_APP_FARO_COLLECTOR_URL=${{ secrets.REACT_APP_FARO_COLLECTOR_URL }}" >> $GITHUB_ENV
           echo "REACT_APP_FARO_APP_NAME=wildfire-ui" >> $GITHUB_ENV
           echo "REACT_APP_FARO_ENVIRONMENT=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "REACT_APP_POSTHOG_KEY=${{ secrets.REACT_APP_POSTHOG_KEY }}" >> $GITHUB_ENV
+          echo "REACT_APP_POSTHOG_HOST=${{ secrets.REACT_APP_POSTHOG_HOST }}" >> $GITHUB_ENV
 
       - name: Build UI
         working-directory: ${{ env.UI_DIRECTORY }}

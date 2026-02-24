@@ -1,4 +1,5 @@
 import { faro } from './config/faroConfig'; // eslint-disable-line no-unused-vars
+import { posthog } from './config/posthogConfig'; // eslint-disable-line no-unused-vars
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Auth0Provider } from '@auth0/auth0-react';
