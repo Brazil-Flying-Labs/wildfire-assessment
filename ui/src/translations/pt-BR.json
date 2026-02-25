@@ -286,5 +286,6 @@
   "cookies.accepted": "Aceitos",
   "cookies.rejected": "Rejeitados",
   "profile.cookieSettings": "Configurações de Cookies",
-  "profile.cookieSettingsHint": "Controle se cookies opcionais são utilizados para análise e monitoramento de desempenho."
+  "profile.cookieConsentLabel": "Permitir cookies opcionais para análise e monitoramento de desempenho",
+  "profile.cookieSettingsHint": "Desmarque para revogar o consentimento de cookies opcionais."
 }

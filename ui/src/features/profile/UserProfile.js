@@ -242,20 +242,17 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
             </div>
 
             <div className="mb-3">
-              <label className="form-label">
-                {t("profile.cookieSettings")}
-              </label>
-              <div className="d-flex align-items-center gap-2">
-                <span className={`badge ${consent === "accepted" ? "bg-success" : "bg-secondary"}`}>
-                  {consent === "accepted" ? t("cookies.accepted") : t("cookies.rejected")}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={consent === "accepted" ? rejectCookies : acceptCookies}
-                >
-                  {consent === "accepted" ? t("cookies.reject") : t("cookies.accept")}
-                </button>
+              <div className="form-check">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  id="cookieConsent"
+                  checked={consent === "accepted"}
+                  onChange={(e) => e.target.checked ? acceptCookies() : rejectCookies()}
+                />
+                <label className="form-check-label" htmlFor="cookieConsent">
+                  {t("profile.cookieConsentLabel")}
+                </label>
               </div>
               <div className="form-text">{t("profile.cookieSettingsHint")}</div>
             </div>

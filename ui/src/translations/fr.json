@@ -286,5 +286,6 @@
   "cookies.accepted": "Acceptés",
   "cookies.rejected": "Refusés",
   "profile.cookieSettings": "Paramètres des Cookies",
-  "profile.cookieSettingsHint": "Contrôlez si les cookies optionnels sont utilisés pour l'analyse et le suivi des performances."
+  "profile.cookieConsentLabel": "Autoriser les cookies optionnels pour l'analyse et le suivi des performances",
+  "profile.cookieSettingsHint": "Décochez pour révoquer le consentement des cookies optionnels."
 }
