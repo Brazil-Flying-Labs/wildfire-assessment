@@ -270,7 +270,7 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_IMPORTS = ("wildfire_assessment.svc.processor",)
 
 # Terms of Service — bump this date to force all users to re-accept.
-TERMS_LAST_UPDATED = "2026-02-24"
+TERMS_LAST_UPDATED = "2026-02-25"
 
 
 if ENV in ["local", "dev"]:
