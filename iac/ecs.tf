@@ -454,6 +454,8 @@ resource "aws_ecs_service" "api" {
   task_definition = aws_ecs_task_definition.api.arn
   desired_count   = 1
 
+  health_check_grace_period_seconds = 300
+
   network_configuration {
     subnets          = [for subnet in aws_subnet.private : subnet.id]
     security_groups  = [aws_security_group.ecs_api.id]
