@@ -8,6 +8,7 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { authConfig, hasValidAuthConfig } from './config/authConfig';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import CookieConsentBanner from './components/CookieConsentBanner';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
@@ -51,6 +52,7 @@ root.render(
   <React.StrictMode>
     <LanguageProvider>
       <AppWithProviders />
+      <CookieConsentBanner />
     </LanguageProvider>
   </React.StrictMode>
 );

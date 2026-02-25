@@ -30,6 +30,7 @@ if (hasValidFaroConfig) {
       sessionTracking: {
         enabled: true,
       },
+      paused: true,
     });
   } catch (error) {
     // eslint-disable-next-line no-console

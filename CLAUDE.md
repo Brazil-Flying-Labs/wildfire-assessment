@@ -32,6 +32,8 @@ The API container mounts `./api:/api` so local edits are hot-reloaded. Tests run
 
 5. if anything changes on our terms and services we need to update TERMS_LAST_UPDATED settings so the users will be forced to accept the new terms and conditions.
 
+6. Never push code without EXPLICITLY asked by me. Always wait for my instructions before pushing code to the repository. This is important to ensure that all changes are coordinated and reviewed properly. If you have made changes and are ready to push, please notify me and wait for my confirmation before proceeding. This allows me to review the changes, run tests, and ensure that everything is in order before the code is merged into the main branch. Always communicate with me before pushing code to maintain a smooth workflow and avoid any potential issues.
+
 ## Commands
 
 ### Start/stop services

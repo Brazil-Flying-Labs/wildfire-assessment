@@ -274,5 +274,17 @@
   "severity.high": "High Severity",
   "severity.veryHigh": "Very High Severity",
   "severity.totalBurned": "Total Burned Area",
-  "severity.totalArea": "Total Area"
+  "severity.totalArea": "Total Area",
+  "cookies.title": "Cookie Notice",
+  "cookies.description": "We use necessary cookies to ensure the proper and secure functioning of this website. We also use optional cookies for analytics and performance monitoring.",
+  "cookies.optionalNotice": "Optional cookies will only be used with your consent.",
+  "cookies.acceptExplanation": "By clicking \"Accept\", you agree to the use of optional cookies.",
+  "cookies.rejectExplanation": "By clicking \"Reject\", only necessary cookies will be used.",
+  "cookies.settingsHint": "You can change your preference at any time in the Cookie Settings.",
+  "cookies.accept": "Accept",
+  "cookies.reject": "Reject",
+  "cookies.accepted": "Accepted",
+  "cookies.rejected": "Rejected",
+  "profile.cookieSettings": "Cookie Settings",
+  "profile.cookieSettingsHint": "Control whether optional cookies are used for analytics and performance monitoring."
 }

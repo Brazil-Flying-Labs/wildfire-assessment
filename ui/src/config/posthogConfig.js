@@ -15,6 +15,7 @@ if (hasValidPosthogConfig) {
       capture_pageleave: true,
       autocapture: true,
       disable_session_recording: true,
+      opt_out_capturing_by_default: true,
     });
     posthog = posthogJs;
   } catch (error) {

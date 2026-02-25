@@ -274,5 +274,17 @@
   "severity.high": "Haute sévérité",
   "severity.veryHigh": "Très haute sévérité",
   "severity.totalBurned": "Surface totale brûlée",
-  "severity.totalArea": "Surface totale"
+  "severity.totalArea": "Surface totale",
+  "cookies.title": "Avis sur les Cookies",
+  "cookies.description": "Nous utilisons des cookies essentiels pour assurer le bon fonctionnement et la sécurité de ce site. Nous utilisons également des cookies optionnels pour l'analyse et le suivi des performances.",
+  "cookies.optionalNotice": "Les cookies optionnels ne seront utilisés qu'avec votre consentement.",
+  "cookies.acceptExplanation": "En cliquant sur « Accepter », vous acceptez l'utilisation de cookies optionnels.",
+  "cookies.rejectExplanation": "En cliquant sur « Refuser », seuls les cookies essentiels seront utilisés.",
+  "cookies.settingsHint": "Vous pouvez modifier votre préférence à tout moment dans les Paramètres des Cookies.",
+  "cookies.accept": "Accepter",
+  "cookies.reject": "Refuser",
+  "cookies.accepted": "Acceptés",
+  "cookies.rejected": "Refusés",
+  "profile.cookieSettings": "Paramètres des Cookies",
+  "profile.cookieSettingsHint": "Contrôlez si les cookies optionnels sont utilisés pour l'analyse et le suivi des performances."
 }
