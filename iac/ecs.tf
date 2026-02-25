@@ -114,7 +114,7 @@ locals {
 
     prometheus.exporter.postgres "rds" {
       data_source_names    = [sys.env("RDS_DSN")]
-      enabled_collectors   = ["database", "locks", "replication_slot", "replication", "stat_bgwriter", "stat_database", "stat_progress_vacuum", "stat_user_tables", "statio_user_tables"]
+      enabled_collectors   = ["database", "locks", "replication_slot", "replication", "stat_bgwriter", "stat_database", "stat_user_tables", "statio_user_tables"]
     }
 
     prometheus.scrape "postgres" {
