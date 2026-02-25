@@ -14,6 +14,8 @@
 {% if user.is_superuser %}
 <div style="background: #275B71; padding: 8px 40px; font-size: 13px;">
     <a href="{% url 'admin-analytics' %}" style="color: #fff; text-decoration: none;">Analytics Dashboard</a>
+    &nbsp;|&nbsp;
+    <a href="{% url 'admin-user-activity' %}" style="color: #fff; text-decoration: none;">User Activity</a>
 </div>
 {% endif %}
 {% endblock %}

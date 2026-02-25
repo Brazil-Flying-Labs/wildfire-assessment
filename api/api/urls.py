@@ -25,7 +25,10 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 from rest_framework import routers
-from wildfire_assessment.admin import analytics_dashboard_view
+from wildfire_assessment.admin import (
+    analytics_dashboard_view,
+    user_activity_report_view,
+)
 from wildfire_assessment.views import (
     AIAnalysisFollowUpView,
     AIAnalysisView,
@@ -65,6 +68,11 @@ urlpatterns = [
         "admin/analytics/",
         admin.site.admin_view(analytics_dashboard_view),
         name="admin-analytics",
+    ),
+    path(
+        "admin/user-activity/",
+        admin.site.admin_view(user_activity_report_view),
+        name="admin-user-activity",
     ),
     path("admin/", admin.site.urls),
     # YOUR PATTERNS

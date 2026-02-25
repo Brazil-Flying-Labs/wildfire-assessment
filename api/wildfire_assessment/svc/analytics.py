@@ -76,6 +76,20 @@ def get_daily_run_counts(days=90):
     )
 
 
+def get_user_analysis_counts(start_date=None, end_date=None):
+    """Return per-user analysis counts within an optional date range."""
+    qs = AnalysisRun.objects.all()
+    if start_date:
+        qs = qs.filter(created_at__date__gte=start_date)
+    if end_date:
+        qs = qs.filter(created_at__date__lte=end_date)
+    return list(
+        qs.values("user__first_name", "user__last_name", "user__email")
+        .annotate(analysis_count=Count("id"))
+        .order_by("-analysis_count")
+    )
+
+
 def get_recent_analyses(limit=20):
     """Return the most recent analysis runs."""
     return list(

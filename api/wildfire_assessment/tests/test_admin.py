@@ -130,6 +130,84 @@ class AnalyticsDashboardViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
 
+class UserActivityReportViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.superuser = User.objects.create_superuser(
+            username="activityadmin", password="pw", email="activity@example.com"
+        )
+        self.regular_user = User.objects.create_user(
+            username="activityreg",
+            password="pw",
+            email="activityreg@example.com",
+            is_staff=True,
+        )
+        self.country = Country.objects.create(name="Activity Country", code="AT")
+        self.area = AreaOfInterest.objects.create(
+            name="Activity Area", polygon_path="act.geojson", country=self.country
+        )
+        self.url = reverse("admin-user-activity")
+
+    def test_superuser_can_access_report(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "User Activity Report")
+
+    def test_non_superuser_gets_forbidden(self):
+        self.client.force_login(self.regular_user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_user_gets_redirect(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
+
+    def test_default_date_range_is_90_days(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("start_date", response.context)
+        self.assertIn("end_date", response.context)
+
+    def test_custom_date_range(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(
+            self.url, {"start_date": "2024-01-01", "end_date": "2024-12-31"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["start_date"], "2024-01-01")
+        self.assertEqual(response.context["end_date"], "2024-12-31")
+
+    def test_invalid_dates_fallback_to_defaults(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(
+            self.url, {"start_date": "bad", "end_date": "invalid"}
+        )
+        self.assertEqual(response.status_code, 200)
+        # Should not crash, falls back to defaults
+
+    def test_shows_user_analysis_counts(self):
+        AnalysisRun.objects.create(
+            user=self.superuser,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        self.client.force_login(self.superuser)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "activity@example.com")
+
+    def test_empty_results(self):
+        self.client.force_login(self.superuser)
+        response = self.client.get(
+            self.url, {"start_date": "2020-01-01", "end_date": "2020-01-02"}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No analyses found")
+
+
 class AnalysisRunAdminTests(TestCase):
     def setUp(self):
         User = get_user_model()

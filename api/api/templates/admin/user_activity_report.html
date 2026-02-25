@@ -1,0 +1,193 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}User Activity Report{% endblock %}
+
+{% block content_title %}<h1>User Activity Report</h1>{% endblock %}
+
+{% block content %}
+<style>
+    .report-filters {
+        display: flex;
+        gap: 16px;
+        align-items: flex-end;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+    .report-filters label {
+        display: block;
+        font-size: 0.85em;
+        font-weight: bold;
+        margin-bottom: 4px;
+        color: var(--body-quiet-color, #666);
+    }
+    .report-filters input[type="date"] {
+        padding: 6px 10px;
+        border: 1px solid var(--hairline-color, #ddd);
+        border-radius: 4px;
+        background: var(--body-bg, #fff);
+        color: var(--body-fg, #333);
+    }
+    .report-filters .btn {
+        padding: 6px 20px;
+        background: var(--header-bg, #417690);
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85em;
+    }
+    .report-filters .btn:hover {
+        opacity: 0.9;
+    }
+    .report-summary {
+        margin-bottom: 16px;
+        font-size: 0.95em;
+        color: var(--body-quiet-color, #666);
+    }
+    .report-summary strong {
+        color: var(--header-bg, #417690);
+        font-size: 1.1em;
+    }
+    #result_list th, #result_list td {
+        padding: 8px 12px;
+    }
+    #result_list td.number {
+        text-align: right;
+        font-weight: bold;
+    }
+    .btn-print {
+        padding: 6px 20px;
+        background: #333;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.85em;
+        margin-left: auto;
+    }
+    .btn-print:hover {
+        opacity: 0.9;
+    }
+    @media print {
+        /* Hide admin nav, header, sidebar, breadcrumbs, filters, print button */
+        #header, #branding, #user-tools, #nav-global,
+        nav, .breadcrumbs, .report-filters, .btn-print,
+        #nav-sidebar, #changelist-filter, .messagelist {
+            display: none !important;
+        }
+        /* Remove admin layout margins */
+        #container, #content, .main, #content-main {
+            margin: 0 !important;
+            padding: 0 !important;
+            max-width: 100% !important;
+        }
+        body {
+            background: #fff !important;
+            color: #000 !important;
+            font-size: 12pt;
+        }
+        /* Print header */
+        .print-header {
+            display: block !important;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .print-header h1 {
+            font-size: 18pt;
+            margin: 0 0 4px;
+            color: #000;
+        }
+        .print-header p {
+            font-size: 10pt;
+            margin: 0;
+            color: #333;
+        }
+        /* Summary */
+        .report-summary {
+            color: #000 !important;
+            font-size: 10pt;
+        }
+        .report-summary strong {
+            color: #000 !important;
+        }
+        /* Table black/white */
+        #result_list {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #result_list th {
+            background: #000 !important;
+            color: #fff !important;
+            border: 1px solid #000;
+            font-size: 10pt;
+        }
+        #result_list td {
+            border: 1px solid #333;
+            color: #000 !important;
+            background: #fff !important;
+            font-size: 10pt;
+        }
+        #result_list tr.row2 td {
+            background: #f0f0f0 !important;
+        }
+        .module {
+            border: none !important;
+            box-shadow: none !important;
+        }
+    }
+    .print-header {
+        display: none;
+    }
+</style>
+
+<div class="print-header">
+    <h1>User Activity Report</h1>
+    <p>{{ start_date }} to {{ end_date }}</p>
+</div>
+
+<form method="get" class="report-filters">
+    <div>
+        <label for="start_date">Start Date</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+    </div>
+    <div>
+        <label for="end_date">End Date</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+    </div>
+    <button type="submit" class="btn">Filter</button>
+    <button type="button" class="btn-print" onclick="window.print()">Print Report</button>
+</form>
+
+<div class="report-summary">
+    Showing <strong>{{ total_analyses }}</strong> analyses from <strong>{{ start_date }}</strong> to <strong>{{ end_date }}</strong>
+    by <strong>{{ user_counts|length }}</strong> user{{ user_counts|length|pluralize }}.
+</div>
+
+<div class="module">
+    <table id="result_list">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>First Name</th>
+                <th>Last Name</th>
+                <th>Email</th>
+                <th style="text-align: right;">Analyses</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in user_counts %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+                <td>{{ forloop.counter }}</td>
+                <td>{{ row.user__first_name|default:"-" }}</td>
+                <td>{{ row.user__last_name|default:"-" }}</td>
+                <td>{{ row.user__email }}</td>
+                <td class="number">{{ row.analysis_count }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">No analyses found in this date range.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

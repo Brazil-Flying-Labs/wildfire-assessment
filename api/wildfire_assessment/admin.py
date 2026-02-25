@@ -1,4 +1,5 @@
 import json
+from datetime import date, timedelta
 
 from django import forms
 from django.contrib import admin
@@ -27,6 +28,7 @@ from wildfire_assessment.svc.analytics import (
     get_monthly_stats,
     get_recent_analyses,
     get_top_areas,
+    get_user_analysis_counts,
     get_user_stats,
 )
 from wildfire_assessment.svc.aws import (
@@ -335,3 +337,35 @@ def analytics_dashboard_view(request):
         "chart_data": chart_data,
     }
     return render(request, "admin/analytics_dashboard.html", context)
+
+
+def user_activity_report_view(request):
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("Superuser access required.")
+    default_end = date.today()
+    default_start = default_end - timedelta(days=90)
+    start_date = request.GET.get("start_date", default_start.isoformat())
+    end_date = request.GET.get("end_date", default_end.isoformat())
+    try:
+        parsed_start = date.fromisoformat(start_date)
+    except (ValueError, TypeError):
+        parsed_start = default_start
+        start_date = default_start.isoformat()
+    try:
+        parsed_end = date.fromisoformat(end_date)
+    except (ValueError, TypeError):
+        parsed_end = default_end
+        end_date = default_end.isoformat()
+    user_counts = get_user_analysis_counts(
+        start_date=parsed_start, end_date=parsed_end
+    )
+    total_analyses = sum(row["analysis_count"] for row in user_counts)
+    context = {
+        **admin.site.each_context(request),
+        "title": "User Activity Report",
+        "user_counts": user_counts,
+        "start_date": start_date,
+        "end_date": end_date,
+        "total_analyses": total_analyses,
+    }
+    return render(request, "admin/user_activity_report.html", context)

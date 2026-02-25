@@ -1076,6 +1076,38 @@ class AnalyticsServiceTests(TestCase):
         # Most recent first
         self.assertEqual(recent[0]["user__email"], "analyst2@example.com")
 
+    def test_get_user_analysis_counts_no_filter(self):
+        counts = analytics.get_user_analysis_counts()
+        self.assertEqual(len(counts), 2)
+        top = counts[0]
+        self.assertEqual(top["analysis_count"], 2)
+        self.assertIn("user__first_name", top)
+        self.assertIn("user__last_name", top)
+
+    def test_get_user_analysis_counts_with_date_range(self):
+        from datetime import date, timedelta
+
+        tomorrow = date.today() + timedelta(days=1)
+        yesterday = date.today() - timedelta(days=1)
+        counts = analytics.get_user_analysis_counts(
+            start_date=yesterday, end_date=tomorrow
+        )
+        self.assertEqual(len(counts), 2)
+
+    def test_get_user_analysis_counts_excludes_outside_range(self):
+        from datetime import date, timedelta
+
+        future = date.today() + timedelta(days=10)
+        counts = analytics.get_user_analysis_counts(
+            start_date=future, end_date=future
+        )
+        self.assertEqual(len(counts), 0)
+
+    def test_get_user_analysis_counts_empty(self):
+        AnalysisRun.objects.all().delete()
+        counts = analytics.get_user_analysis_counts()
+        self.assertEqual(counts, [])
+
 
 class DashboardServiceTests(TestCase):
     def setUp(self):
