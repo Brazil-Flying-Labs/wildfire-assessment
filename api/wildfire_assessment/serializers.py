@@ -324,7 +324,6 @@ class UserMeSerializer(serializers.ModelSerializer):
     authorized_countries = serializers.SerializerMethodField()
     terms_accepted_at = serializers.SerializerMethodField()
     terms_last_updated = serializers.SerializerMethodField()
-    cookie_consent = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -338,7 +337,6 @@ class UserMeSerializer(serializers.ModelSerializer):
             "authorized_countries",
             "terms_accepted_at",
             "terms_last_updated",
-            "cookie_consent",
         ]
         read_only_fields = [
             "email",
@@ -388,16 +386,6 @@ class UserMeSerializer(serializers.ModelSerializer):
         """Return the date the Terms of Service were last modified."""
         return settings.TERMS_LAST_UPDATED
 
-    def get_cookie_consent(self, obj):
-        """Return cookie consent status, or None if not set."""
-        try:
-            profile = obj.profile
-            if profile:
-                return profile.cookie_consent
-        except UserProfile.DoesNotExist:  # pragma: no cover
-            pass  # pragma: no cover
-        return None
-
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
 
@@ -406,7 +394,6 @@ class UserMeSerializer(serializers.ModelSerializer):
         theme = initial.get("theme")
         dashboard_widgets = initial.get("dashboard_widgets")
         accept_terms = initial.get("accept_terms")
-        cookie_consent = initial.get("cookie_consent")
 
         # Update first_name and last_name if provided
         if "first_name" in validated_data:
@@ -434,11 +421,6 @@ class UserMeSerializer(serializers.ModelSerializer):
         if accept_terms:
             profile.terms_accepted_at = timezone.now()
             update_fields.append("terms_accepted_at")
-
-        if cookie_consent is not None:
-            profile.cookie_consent = cookie_consent
-            profile.cookie_consent_updated_at = timezone.now()
-            update_fields.extend(["cookie_consent", "cookie_consent_updated_at"])
 
         if update_fields:
             profile.save(update_fields=update_fields)

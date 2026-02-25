@@ -101,8 +101,6 @@ class UserProfile(models.Model):
         help_text="Ordered list of visible dashboard widget IDs",
     )
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
-    cookie_consent = models.BooleanField(null=True, blank=True, default=None)
-    cookie_consent_updated_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.user} - {self.default_language}"
