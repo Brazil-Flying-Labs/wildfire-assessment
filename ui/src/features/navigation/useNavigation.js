@@ -2,17 +2,44 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { faro } from "../../config/faroConfig";
 import { posthog } from "../../config/posthogConfig";
 
+const PAGE_PATHS = {
+  dashboard: "/dashboard",
+  analysis: "/analysis",
+  areas: "/areas",
+  profile: "/profile",
+  "analysis-detail": "/analysis-detail",
+};
+
+const PATH_TO_PAGE = Object.fromEntries(
+  Object.entries(PAGE_PATHS).map(([page, path]) => [path, page])
+);
+
+function pageFromPathname() {
+  return PATH_TO_PAGE[window.location.pathname] || null;
+}
+
 export default function useNavigation({ onNavigateTo, onPopState } = {}) {
-  // Initialize state from browser history on page refresh
+  // Initialize state from URL pathname first, then history state, then default
   const [currentPage, setCurrentPage] = useState(() => {
-    const state = window.history.state;
-    return state?.page || "dashboard";
+    return pageFromPathname() || window.history.state?.page || "dashboard";
   });
   const [selectedAnalysisId, setSelectedAnalysisId] = useState(() => {
-    const state = window.history.state;
-    return state?.analysisId || null;
+    return window.history.state?.analysisId || null;
   });
   const [scrollToDeliverable, setScrollToDeliverable] = useState(null);
+
+  // Sync initial URL on mount (replace state so URL matches)
+  useEffect(() => {
+    const path = PAGE_PATHS[currentPage] || "/dashboard";
+    if (window.location.pathname !== path) {
+      window.history.replaceState(
+        { page: currentPage, analysisId: selectedAnalysisId, landing: false },
+        "",
+        path
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Use refs so callbacks have stable identity
   const onNavigateToRef = useRef(onNavigateTo);
@@ -27,10 +54,11 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
     setSelectedAnalysisId(null);
     if (onNavigateToRef.current) onNavigateToRef.current();
     const state = { page, analysisId: null, landing: false };
+    const path = PAGE_PATHS[page] || "/dashboard";
     if (replace) {
-      window.history.replaceState(state, "");
+      window.history.replaceState(state, "", path);
     } else {
-      window.history.pushState(state, "");
+      window.history.pushState(state, "", path);
     }
     if (faro) faro.api.setView({ name: page });
     if (posthog) posthog.capture("$pageview", { page });
@@ -42,7 +70,8 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
     setCurrentPage("analysis-detail");
     window.history.pushState(
       { page: "analysis-detail", analysisId, landing: false },
-      ""
+      "",
+      PAGE_PATHS["analysis-detail"]
     );
     if (faro) faro.api.setView({ name: "analysis-detail" });
     if (posthog) posthog.capture("$pageview", { page: "analysis-detail" });
@@ -57,10 +86,16 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
     const handlePopState = (event) => {
       const state = event.state;
       if (!state) {
-        window.history.pushState(
-          { page: "dashboard", analysisId: null, landing: false },
-          ""
+        const page = pageFromPathname() || "dashboard";
+        setCurrentPage(page);
+        setSelectedAnalysisId(null);
+        window.history.replaceState(
+          { page, analysisId: null, landing: false },
+          "",
+          PAGE_PATHS[page] || "/dashboard"
         );
+        if (faro) faro.api.setView({ name: page });
+        if (posthog) posthog.capture("$pageview", { page });
         return;
       }
       setCurrentPage(state.page || "dashboard");
