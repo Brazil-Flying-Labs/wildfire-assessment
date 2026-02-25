@@ -286,6 +286,9 @@
   "cookies.accepted": "Accepted",
   "cookies.rejected": "Rejected",
   "profile.cookieSettings": "Cookie Settings",
-  "profile.cookieConsentLabel": "Allow optional cookies for analytics and performance monitoring",
-  "profile.cookieSettingsHint": "Uncheck to revoke consent for optional cookies."
+  "profile.cookieConsenting": "You are currently consenting to optional cookies.",
+  "profile.cookieNotConsenting": "You are currently not consenting to optional cookies.",
+  "profile.revokeCookieConsent": "Revoke Consent",
+  "profile.manageCookiePreferences": "Manage Cookie Preferences",
+  "profile.cookieSettingsHint": "Opens the cookie consent banner so you can update your preferences."
 }

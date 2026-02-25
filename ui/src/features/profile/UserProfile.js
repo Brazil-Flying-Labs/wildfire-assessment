@@ -16,7 +16,7 @@ const THEME_LABELS = {
 
 function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate, onThemeChange, onBack }) {
   const { t, language, setLanguage } = useLanguage();
-  const { consent, acceptCookies, rejectCookies } = useCookieConsent();
+  const { consent, resetConsent } = useCookieConsent();
   const [loading, setLoading] = useState(!backendProfile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -241,22 +241,6 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
               <div className="form-text">{t("profile.themeHint")}</div>
             </div>
 
-            <div className="mb-3">
-              <div className="form-check">
-                <input
-                  className="form-check-input"
-                  type="checkbox"
-                  id="cookieConsent"
-                  checked={consent === "accepted"}
-                  onChange={(e) => e.target.checked ? acceptCookies() : rejectCookies()}
-                />
-                <label className="form-check-label" htmlFor="cookieConsent">
-                  {t("profile.cookieConsentLabel")}
-                </label>
-              </div>
-              <div className="form-text">{t("profile.cookieSettingsHint")}</div>
-            </div>
-
             <button
               type="submit"
               className="btn btn-primary"
@@ -272,6 +256,23 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
               )}
             </button>
           </form>
+        </div>
+      </div>
+
+      <div className="card shadow-sm mt-4">
+        <div className="card-body">
+          <h5 className="card-title mb-3">{t("profile.cookieSettings")}</h5>
+          <div className={`mb-3 ${consent === "accepted" ? "text-success" : "text-danger"}`}>
+            {consent === "accepted" ? t("profile.cookieConsenting") : t("profile.cookieNotConsenting")}
+          </div>
+          <button
+            type="button"
+            className="btn btn-outline-secondary btn-sm"
+            onClick={resetConsent}
+          >
+            {consent === "accepted" ? t("profile.revokeCookieConsent") : t("profile.manageCookiePreferences")}
+          </button>
+          <div className="form-text mt-2">{t("profile.cookieSettingsHint")}</div>
         </div>
       </div>
     </div>

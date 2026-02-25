@@ -286,6 +286,9 @@
   "cookies.accepted": "Aceitos",
   "cookies.rejected": "Rejeitados",
   "profile.cookieSettings": "Configurações de Cookies",
-  "profile.cookieConsentLabel": "Permitir cookies opcionais para análise e monitoramento de desempenho",
-  "profile.cookieSettingsHint": "Desmarque para revogar o consentimento de cookies opcionais."
+  "profile.cookieConsenting": "Você está consentindo com cookies opcionais.",
+  "profile.cookieNotConsenting": "Você não está consentindo com cookies opcionais.",
+  "profile.revokeCookieConsent": "Revogar Consentimento",
+  "profile.manageCookiePreferences": "Gerenciar Preferências de Cookies",
+  "profile.cookieSettingsHint": "Abre o banner de consentimento de cookies para que você possa atualizar suas preferências."
 }
