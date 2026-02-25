@@ -85,5 +85,19 @@ export default function useProfile(authorizedFetch, baseUrl, authReady, language
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]);
 
-  return { backendProfile, accountStatus, fetchBackendProfile, updateTheme, updateDashboardWidgets };
+  const acceptTerms = useCallback(async () => {
+    if (!baseUrl) return;
+    try {
+      await authorizedFetch(`${baseUrl}/me/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accept_terms: true }),
+      });
+      await fetchBackendProfile();
+    } catch (error) {
+      console.error("Failed to accept terms:", error);
+    }
+  }, [authorizedFetch, baseUrl, fetchBackendProfile]);
+
+  return { backendProfile, accountStatus, fetchBackendProfile, updateTheme, updateDashboardWidgets, acceptTerms };
 }

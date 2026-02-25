@@ -8,6 +8,7 @@ import AnalysisDetail from "./features/analysis-detail/AnalysisDetail";
 import AreasOfInterest from "./features/areas/AreasOfInterest";
 import Dashboard from "./features/dashboard/Dashboard";
 import LandingPage from "./features/landing/LandingPage";
+import TermsPage from "./features/terms/TermsPage";
 import UserProfile from "./features/profile/UserProfile";
 import AnalysisPage from "./features/analysis/AnalysisPage";
 import AppHeader from "./features/navigation/AppHeader";
@@ -114,7 +115,7 @@ function App() {
   });
 
   // Profile & theme
-  const { backendProfile, accountStatus, fetchBackendProfile, updateTheme, updateDashboardWidgets } =
+  const { backendProfile, accountStatus, fetchBackendProfile, updateTheme, updateDashboardWidgets, acceptTerms } =
     useProfile(authorizedFetch, baseUrl, authReady, language, setLanguage);
 
   // Notifications
@@ -249,6 +250,22 @@ function App() {
           </button>
         </div>
       </div>
+    );
+  }
+
+  const needsTermsAcceptance = backendProfile && (
+    !backendProfile.terms_accepted_at ||
+    (backendProfile.terms_last_updated &&
+      backendProfile.terms_accepted_at < backendProfile.terms_last_updated)
+  );
+
+  if (needsTermsAcceptance) {
+    return (
+      <TermsPage
+        logoSrc={logoSrc}
+        onAccept={acceptTerms}
+        onLogout={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+      />
     );
   }
 

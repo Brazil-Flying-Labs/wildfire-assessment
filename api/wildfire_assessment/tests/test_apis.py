@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.urls import reverse
 from rest_framework import status
@@ -1056,6 +1057,75 @@ class UserMeViewExtendedTests(APITestCase):
         countries = response.json()["authorized_countries"]
         self.assertEqual(len(countries), 1)
         self.assertEqual(countries[0]["code"], "AU")
+
+
+class UserMeTermsAcceptanceTests(APITestCase):
+    """Tests for terms of service acceptance via /me/ endpoint."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="tester",
+            email="tester@example.com",
+            password="password",
+        )
+        self.url = reverse("user-me")
+
+    def test_get_terms_accepted_at_returns_null_by_default(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.json()["terms_accepted_at"])
+
+    def test_patch_accept_terms_sets_timestamp(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            self.url,
+            {"accept_terms": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.profile.refresh_from_db()
+        self.assertIsNotNone(self.user.profile.terms_accepted_at)
+
+    def test_get_terms_accepted_at_returns_datetime_after_acceptance(self):
+        self.client.force_authenticate(user=self.user)
+        self.client.patch(self.url, {"accept_terms": True}, format="json")
+        # Re-fetch user to clear cached profile relation
+        self.user = User.objects.get(pk=self.user.pk)
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(response.json()["terms_accepted_at"])
+
+    def test_patch_accept_terms_again_updates_timestamp(self):
+        self.client.force_authenticate(user=self.user)
+        self.client.patch(self.url, {"accept_terms": True}, format="json")
+        self.user.profile.refresh_from_db()
+        original_timestamp = self.user.profile.terms_accepted_at
+
+        self.client.patch(self.url, {"accept_terms": True}, format="json")
+        self.user.profile.refresh_from_db()
+        self.assertGreaterEqual(
+            self.user.profile.terms_accepted_at, original_timestamp
+        )
+
+    def test_regular_patch_does_not_affect_terms(self):
+        self.client.force_authenticate(user=self.user)
+        self.client.patch(
+            self.url,
+            {"first_name": "Updated"},
+            format="json",
+        )
+        self.user.profile.refresh_from_db()
+        self.assertIsNone(self.user.profile.terms_accepted_at)
+
+    def test_get_returns_terms_last_updated(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertIn("terms_last_updated", data)
+        self.assertEqual(data["terms_last_updated"], settings.TERMS_LAST_UPDATED)
 
 
 class AnalysisRunDeleteTests(APITestCase):

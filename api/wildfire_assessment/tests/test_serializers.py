@@ -99,6 +99,8 @@ class UserMeSerializerTests(TestCase):
                 "theme",
                 "dashboard_widgets",
                 "authorized_countries",
+                "terms_accepted_at",
+                "terms_last_updated",
             },
         )
 
@@ -106,6 +108,7 @@ class UserMeSerializerTests(TestCase):
         meta = UserMeSerializer.Meta
         self.assertIn("email", meta.read_only_fields)
         self.assertIn("authorized_countries", meta.read_only_fields)
+        self.assertIn("terms_last_updated", meta.read_only_fields)
         # first_name and last_name should be editable
         self.assertNotIn("first_name", meta.read_only_fields)
         self.assertNotIn("last_name", meta.read_only_fields)

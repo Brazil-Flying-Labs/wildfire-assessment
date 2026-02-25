@@ -1,6 +1,8 @@
 import uuid
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import serializers
 from shapely.geometry import shape
 from shapely.validation import explain_validity
@@ -320,6 +322,8 @@ class UserMeSerializer(serializers.ModelSerializer):
     theme = serializers.SerializerMethodField()
     dashboard_widgets = serializers.SerializerMethodField()
     authorized_countries = serializers.SerializerMethodField()
+    terms_accepted_at = serializers.SerializerMethodField()
+    terms_last_updated = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -331,8 +335,16 @@ class UserMeSerializer(serializers.ModelSerializer):
             "theme",
             "dashboard_widgets",
             "authorized_countries",
+            "terms_accepted_at",
+            "terms_last_updated",
         ]
-        read_only_fields = ["email", "dashboard_widgets", "authorized_countries"]
+        read_only_fields = [
+            "email",
+            "dashboard_widgets",
+            "authorized_countries",
+            "terms_accepted_at",
+            "terms_last_updated",
+        ]
 
     def get_authorized_countries(self, obj):
         countries = Country.objects.filter(authorized_users__user=obj).values(
@@ -360,6 +372,20 @@ class UserMeSerializer(serializers.ModelSerializer):
             pass  # pragma: no cover
         return None  # pragma: no cover
 
+    def get_terms_accepted_at(self, obj):
+        """Return terms acceptance timestamp, or None if not accepted."""
+        try:
+            profile = obj.profile
+            if profile and profile.terms_accepted_at:
+                return profile.terms_accepted_at.isoformat()
+        except UserProfile.DoesNotExist:  # pragma: no cover
+            pass  # pragma: no cover
+        return None
+
+    def get_terms_last_updated(self, obj):
+        """Return the date the Terms of Service were last modified."""
+        return settings.TERMS_LAST_UPDATED
+
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
 
@@ -367,6 +393,7 @@ class UserMeSerializer(serializers.ModelSerializer):
         initial = getattr(self, "initial_data", {})
         theme = initial.get("theme")
         dashboard_widgets = initial.get("dashboard_widgets")
+        accept_terms = initial.get("accept_terms")
 
         # Update first_name and last_name if provided
         if "first_name" in validated_data:
@@ -390,6 +417,10 @@ class UserMeSerializer(serializers.ModelSerializer):
         if dashboard_widgets is not None:
             profile.dashboard_widgets = dashboard_widgets
             update_fields.append("dashboard_widgets")
+
+        if accept_terms:
+            profile.terms_accepted_at = timezone.now()
+            update_fields.append("terms_accepted_at")
 
         if update_fields:
             profile.save(update_fields=update_fields)

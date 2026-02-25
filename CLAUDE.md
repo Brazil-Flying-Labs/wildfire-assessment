@@ -30,6 +30,8 @@ The API container mounts `./api:/api` so local edits are hot-reloaded. Tests run
 
 4. NEVER, NEVER add ORM logic on the view. The correct place for ORM logic is the service layer (svc/). Views should only handle request parsing, authentication, and calling the appropriate service functions. All business logic, including database queries, should be encapsulated in the service layer. This separation of concerns makes the code more maintainable and testable. If you find yourself writing ORM queries in a view, stop and refactor that code into a service function instead.
 
+5. if anything changes on our terms and services we need to update TERMS_LAST_UPDATED settings so the users will be forced to accept the new terms and conditions.
+
 ## Commands
 
 ### Start/stop services
