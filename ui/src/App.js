@@ -44,7 +44,14 @@ function App() {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isSidebarPinned, setIsSidebarPinned] = useState(false);
   const [sidebarCollapsing, setSidebarCollapsing] = useState(false);
-  const [showLandingPage, setShowLandingPageState] = useState(true);
+  const [showLandingPage, setShowLandingPageState] = useState(() => {
+    // On page refresh, check history state to preserve current page
+    const state = window.history.state;
+    if (state && state.landing === false) {
+      return false;
+    }
+    return true;
+  });
   const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
   const dashboardRef = useRef(null);
 

@@ -3,8 +3,15 @@ import { faro } from "../../config/faroConfig";
 import { posthog } from "../../config/posthogConfig";
 
 export default function useNavigation({ onNavigateTo, onPopState } = {}) {
-  const [currentPage, setCurrentPage] = useState("dashboard");
-  const [selectedAnalysisId, setSelectedAnalysisId] = useState(null);
+  // Initialize state from browser history on page refresh
+  const [currentPage, setCurrentPage] = useState(() => {
+    const state = window.history.state;
+    return state?.page || "dashboard";
+  });
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState(() => {
+    const state = window.history.state;
+    return state?.analysisId || null;
+  });
   const [scrollToDeliverable, setScrollToDeliverable] = useState(null);
 
   // Use refs so callbacks have stable identity
