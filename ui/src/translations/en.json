@@ -286,5 +286,6 @@
   "cookies.accepted": "Accepted",
   "cookies.rejected": "Rejected",
   "profile.cookieSettings": "Cookie Settings",
-  "profile.cookieSettingsHint": "Control whether optional cookies are used for analytics and performance monitoring."
+  "profile.cookieConsentLabel": "Allow optional cookies for analytics and performance monitoring",
+  "profile.cookieSettingsHint": "Uncheck to revoke consent. Your preference is saved and synced across devices."
 }
