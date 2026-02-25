@@ -75,7 +75,6 @@ jobs:
             --app-name "wildfire-ui" \
             --output-path "./build/static" \
             --recursive \
-            --gzip-payload \
             --verbose
 
       - name: Remove source maps from build
