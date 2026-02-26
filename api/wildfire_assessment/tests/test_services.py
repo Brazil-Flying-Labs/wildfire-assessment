@@ -1,8 +1,10 @@
 import json
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_assessment.models import (
     AnalysisRun,
@@ -16,6 +18,7 @@ from wildfire_assessment.svc import analytics
 from wildfire_assessment.svc import area_of_interest as aoi_service
 from wildfire_assessment.svc import aws
 from wildfire_assessment.svc import dashboard as dashboard_service
+from wildfire_assessment.svc import notification as notification_service
 from wildfire_assessment.svc import processor
 
 User = get_user_model()
@@ -1492,3 +1495,58 @@ class ExtractGeometryTests(TestCase):
         data = {"coordinates": [0, 0]}
         result = dashboard_service._extract_geometry(data)
         self.assertIsNone(result)
+
+
+class NotificationCleanupTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="cleanup_user", password="pass"
+        )
+        self.now = timezone.now()
+
+    def _create_notification(self, is_read, age_hours):
+        n = Notification.objects.create(
+            user=self.user,
+            message="test",
+            is_read=is_read,
+        )
+        # Override auto_now_add by updating at DB level
+        Notification.objects.filter(pk=n.pk).update(
+            created_at=self.now - timedelta(hours=age_hours)
+        )
+        return n
+
+    def test_deletes_old_read_notifications(self):
+        old_read = self._create_notification(is_read=True, age_hours=25)
+        deleted = notification_service.delete_old_read_notifications()
+        self.assertEqual(deleted, 1)
+        self.assertFalse(Notification.objects.filter(pk=old_read.pk).exists())
+
+    def test_preserves_unread_notifications(self):
+        old_unread = self._create_notification(is_read=False, age_hours=48)
+        deleted = notification_service.delete_old_read_notifications()
+        self.assertEqual(deleted, 0)
+        self.assertTrue(Notification.objects.filter(pk=old_unread.pk).exists())
+
+    def test_preserves_recent_read_notifications(self):
+        recent_read = self._create_notification(is_read=True, age_hours=12)
+        deleted = notification_service.delete_old_read_notifications()
+        self.assertEqual(deleted, 0)
+        self.assertTrue(
+            Notification.objects.filter(pk=recent_read.pk).exists()
+        )
+
+    def test_returns_correct_count(self):
+        self._create_notification(is_read=True, age_hours=30)
+        self._create_notification(is_read=True, age_hours=50)
+        self._create_notification(is_read=True, age_hours=10)
+        self._create_notification(is_read=False, age_hours=30)
+        deleted = notification_service.delete_old_read_notifications()
+        self.assertEqual(deleted, 2)
+        self.assertEqual(Notification.objects.count(), 2)
+
+    def test_shared_task_calls_service(self):
+        self._create_notification(is_read=True, age_hours=25)
+        result = notification_service.cleanup_old_read_notifications()
+        self.assertEqual(result, 1)
+        self.assertEqual(Notification.objects.count(), 0)

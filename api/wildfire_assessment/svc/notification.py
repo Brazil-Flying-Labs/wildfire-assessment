@@ -1,6 +1,13 @@
 """Service layer for Notification queries and mutations."""
 
+import logging
+from datetime import timedelta
+
+from celery import shared_task
+from django.utils import timezone
 from wildfire_assessment.models import Notification
+
+logger = logging.getLogger(__name__)
 
 
 def get_notifications_queryset(user):
@@ -36,3 +43,21 @@ def mark_all_notifications_read(user):
         user=user,
         is_read=False,
     ).update(is_read=True)
+
+
+def delete_old_read_notifications():
+    """Delete read notifications older than 24 hours. Returns count deleted."""
+    cutoff = timezone.now() - timedelta(hours=24)
+    deleted, _ = Notification.objects.filter(
+        is_read=True,
+        created_at__lt=cutoff,
+    ).delete()
+    return deleted
+
+
+@shared_task
+def cleanup_old_read_notifications():
+    """Celery task: delete read notifications older than 24 hours."""
+    deleted = delete_old_read_notifications()
+    logger.info("Deleted %d old read notifications.", deleted)
+    return deleted

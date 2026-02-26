@@ -16,6 +16,8 @@ import logging
 import os
 from pathlib import Path
 
+from celery.schedules import crontab
+
 # Auto-configure OpenTelemetry if the SDK is installed and not disabled.
 # This ensures instrumentation works even when the process is forked
 # (e.g. runserver_plus auto-reloader, debugpy).
@@ -267,7 +269,16 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_IMPORTS = ("wildfire_assessment.svc.processor",)
+CELERY_IMPORTS = (
+    "wildfire_assessment.svc.processor",
+    "wildfire_assessment.svc.notification",
+)
+CELERY_BEAT_SCHEDULE = {
+    "cleanup-old-read-notifications": {
+        "task": "wildfire_assessment.svc.notification.cleanup_old_read_notifications",
+        "schedule": crontab(hour=9, minute=0),  # 09:00 UTC = 06:00 BRT
+    },
+}
 
 # Terms of Service — bump this date to force all users to re-accept.
 TERMS_LAST_UPDATED = "2026-02-25"
