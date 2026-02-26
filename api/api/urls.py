@@ -38,7 +38,6 @@ from wildfire_assessment.views import (
     NotificationViewSet,
     UserMeView,
     health_status,
-    test_error,
 )
 
 router = routers.DefaultRouter()
@@ -48,7 +47,6 @@ router.register(r"notifications", NotificationViewSet, basename="notification")
 
 urlpatterns = [
     path("", health_status, name="health-status"),
-    path("test/error/", test_error, name="test-error"),
     path("me/", UserMeView.as_view(), name="user-me"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("analysis/", AIAnalysisView.as_view(), name="ai-analysis"),
