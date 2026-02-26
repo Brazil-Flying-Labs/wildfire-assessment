@@ -417,6 +417,8 @@ resource "aws_ecs_task_definition" "api" {
         { name = "OTEL_EXPORTER_OTLP_PROTOCOL", value = "http/protobuf" },
         { name = "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", value = "true" },
         { name = "OTEL_LOGS_EXPORTER", value = "otlp" },
+        { name = "OTEL_TRACES_EXPORTER", value = "otlp" },
+        { name = "OTEL_TRACES_SAMPLER", value = "always_on" },
         { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.name=wildfire-api,service.namespace=wildfire-assessment,deployment.environment=${var.environment}" }
       ]
 
@@ -581,6 +583,8 @@ resource "aws_ecs_task_definition" "celery_worker" {
         { name = "OTEL_EXPORTER_OTLP_PROTOCOL", value = "http/protobuf" },
         { name = "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", value = "true" },
         { name = "OTEL_LOGS_EXPORTER", value = "otlp" },
+        { name = "OTEL_TRACES_EXPORTER", value = "otlp" },
+        { name = "OTEL_TRACES_SAMPLER", value = "always_on" },
         { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.name=wildfire-celery-worker,service.namespace=wildfire-assessment,deployment.environment=${var.environment}" }
       ]
 
@@ -663,6 +667,8 @@ resource "aws_ecs_task_definition" "celery_beat" {
         { name = "OTEL_EXPORTER_OTLP_PROTOCOL", value = "http/protobuf" },
         { name = "OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED", value = "true" },
         { name = "OTEL_LOGS_EXPORTER", value = "otlp" },
+        { name = "OTEL_TRACES_EXPORTER", value = "otlp" },
+        { name = "OTEL_TRACES_SAMPLER", value = "always_on" },
         { name = "OTEL_RESOURCE_ATTRIBUTES", value = "service.name=wildfire-celery-beat,service.namespace=wildfire-assessment,deployment.environment=${var.environment}" }
       ]
 

@@ -102,6 +102,7 @@ REST_FRAMEWORK = {
         "wildfire_assessment.authentication.Auth0JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "EXCEPTION_HANDLER": "wildfire_assessment.exception_handler.custom_exception_handler",
 }
 
 

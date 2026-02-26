@@ -24,6 +24,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
       OTEL_LOGS_EXPORTER: otlp
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_TRACES_SAMPLER: always_on
       OTEL_RESOURCE_ATTRIBUTES: service.name=wildfire-api,service.namespace=wildfire-assessment,deployment.environment=local
     restart: on-failure
     depends_on:
@@ -84,6 +86,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
       OTEL_LOGS_EXPORTER: otlp
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_TRACES_SAMPLER: always_on
       OTEL_RESOURCE_ATTRIBUTES: service.name=wildfire-celery-worker,service.namespace=wildfire-assessment,deployment.environment=local
     volumes:
       - ./api:/api
@@ -110,6 +114,8 @@ services:
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
       OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
       OTEL_LOGS_EXPORTER: otlp
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_TRACES_SAMPLER: always_on
       OTEL_RESOURCE_ATTRIBUTES: service.name=wildfire-celery-beat,service.namespace=wildfire-assessment,deployment.environment=local
     command: >
       sh -c "opentelemetry-instrument celery -A wildfire_assessment beat --loglevel=info"
