@@ -45,6 +45,11 @@ function App() {
   const [isSidebarPinned, setIsSidebarPinned] = useState(false);
   const [sidebarCollapsing, setSidebarCollapsing] = useState(false);
   const [showLandingPage, setShowLandingPageState] = useState(() => {
+    // Skip landing page when returning from Auth0 callback
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("code") && params.has("state")) {
+      return false;
+    }
     // On page refresh, check history state to preserve current page
     const state = window.history.state;
     if (state && state.landing === false) {

@@ -30,6 +30,11 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
 
   // Sync initial URL on mount (replace state so URL matches)
   useEffect(() => {
+    // Don't touch the URL if Auth0 callback params are present —
+    // Auth0Provider needs them to complete the code exchange.
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("code") && params.has("state")) return;
+
     const path = PAGE_PATHS[currentPage] || "/dashboard";
     if (window.location.pathname !== path) {
       window.history.replaceState(
