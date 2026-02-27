@@ -128,7 +128,7 @@ resource "grafana_rule_group" "rds_alerts" {
   rule {
     name           = "High ACU Utilization"
     condition      = "C"
-    for            = "5m"
+    for            = "0s"
     no_data_state  = "OK"
 
     annotations = {
