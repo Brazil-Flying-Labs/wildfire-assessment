@@ -1,7 +1,9 @@
 import json
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from celery.exceptions import SoftTimeLimitExceeded
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -729,6 +731,408 @@ class AwsUtilsTests(TestCase):
         self.assertEqual(result, "COMPLETED")
 
 
+class ProcessorErrorPersistenceTests(TestCase):
+    """Tests for error persistence when scientific deliverable tasks fail."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="erruser", email="err@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="Err Country", code="ER")
+        self.area = AreaOfInterest.objects.create(
+            name="Err Area",
+            polygon_path="err.geojson",
+            country=self.country,
+        )
+        self.analysis_run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            scientific_dnbr_task_id="old-task-id",
+        )
+        self.base_kwargs = {
+            "pre_fire_date": "2024-01-01",
+            "post_fire_date": "2024-01-15",
+            "polygon_path": "err.geojson",
+            "deliverable_name": Deliverable.DNBR.name,
+            "email": "err@example.com",
+            "reserve_name": "Err Reserve",
+            "analysis_run_id": None,  # set per test
+        }
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.time.time")
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_gee_timeout_persists_error(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        mock_time,
+        _mock_sleep,
+        mock_unlink,
+    ):
+        """GEE timeout persists error and clears task_id on AnalysisRun."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
+        }
+        mock_assessment.return_value = assessment_instance
+        # Simulate time passing beyond 45-minute timeout
+        mock_time.side_effect = [0, 2701]
+        mock_ee.data.getTaskStatus.return_value = [{"state": "RUNNING"}]
+
+        with self.assertRaises(TimeoutError):
+            processor.process_scientific_deliverable(
+                **{**self.base_kwargs, "analysis_run_id": self.analysis_run.id}
+            )
+
+        self.analysis_run.refresh_from_db()
+        self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
+        self.assertIn("timed out", self.analysis_run.scientific_dnbr_error)
+        self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_gee_failure_persists_error(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_unlink,
+    ):
+        """GEE FAILED state persists error and clears task_id."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [
+            {"state": "FAILED", "error_message": "GEE computation error"}
+        ]
+
+        with self.assertRaises(RuntimeError):
+            processor.process_scientific_deliverable(
+                **{**self.base_kwargs, "analysis_run_id": self.analysis_run.id}
+            )
+
+        self.analysis_run.refresh_from_db()
+        self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
+        self.assertIn("GEE computation error", self.analysis_run.scientific_dnbr_error)
+        self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_generic_exception_persists_error(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_unlink,
+    ):
+        """Generic exception during run() persists error and clears task_id."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.side_effect = RuntimeError("PostFireAssessment crash")
+        mock_assessment.return_value = assessment_instance
+
+        with self.assertRaises(RuntimeError):
+            processor.process_scientific_deliverable(
+                **{**self.base_kwargs, "analysis_run_id": self.analysis_run.id}
+            )
+
+        self.analysis_run.refresh_from_db()
+        self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
+        self.assertIn(
+            "PostFireAssessment crash", self.analysis_run.scientific_dnbr_error
+        )
+        self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_soft_time_limit_persists_error(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_unlink,
+    ):
+        """SoftTimeLimitExceeded persists error and clears task_id."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.side_effect = SoftTimeLimitExceeded(
+            "SoftTimeLimitExceeded"
+        )
+        mock_assessment.return_value = assessment_instance
+
+        with self.assertRaises(SoftTimeLimitExceeded):
+            processor.process_scientific_deliverable(
+                **{**self.base_kwargs, "analysis_run_id": self.analysis_run.id}
+            )
+
+        self.analysis_run.refresh_from_db()
+        self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
+        self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_error_without_analysis_run_id_does_not_fail(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_unlink,
+    ):
+        """Error without analysis_run_id should not try to persist."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.side_effect = RuntimeError("boom")
+        mock_assessment.return_value = assessment_instance
+
+        with self.assertRaises(RuntimeError):
+            processor.process_scientific_deliverable(
+                **{**self.base_kwargs, "analysis_run_id": None}
+            )
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_error_persistence_db_failure_still_raises(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_unlink,
+    ):
+        """If DB update in error handler fails, original exception is still raised."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.side_effect = RuntimeError("original error")
+        mock_assessment.return_value = assessment_instance
+
+        with patch.object(AnalysisRun.objects, "filter") as mock_filter:
+            mock_filter.return_value.update.side_effect = Exception("DB down")
+            with self.assertRaises(RuntimeError) as ctx:
+                processor.process_scientific_deliverable(
+                    **{
+                        **self.base_kwargs,
+                        "analysis_run_id": self.analysis_run.id,
+                    }
+                )
+            self.assertIn("original error", str(ctx.exception))
+
+
+class CleanupStaleDeliverablesTests(TestCase):
+    """Tests for the cleanup_stale_deliverables periodic task."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="cleanupuser", email="cleanup@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="Cleanup Country", code="CL")
+        self.area = AreaOfInterest.objects.create(
+            name="Cleanup Area",
+            polygon_path="cleanup.geojson",
+            country=self.country,
+        )
+
+    def _create_run(self, completed_minutes_ago=60, **kwargs):
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            status="completed",
+            **kwargs,
+        )
+        # Override auto_now_add completed_at
+        completed_at = timezone.now() - timedelta(minutes=completed_minutes_ago)
+        AnalysisRun.objects.filter(id=run.id).update(completed_at=completed_at)
+        run.refresh_from_db()
+        return run
+
+    @patch("wildfire_assessment.svc.processor.AsyncResult")
+    def test_cleanup_failed_task(self, mock_async_cls):
+        """FAILURE state: persist error from result, clear task_id."""
+        run = self._create_run(
+            scientific_dnbr_task_id="celery-task-1",
+        )
+        mock_result = SimpleNamespace(state="FAILURE", result=RuntimeError("Task boom"))
+        mock_async_cls.return_value = mock_result
+
+        processor.cleanup_stale_deliverables()
+
+        run.refresh_from_db()
+        self.assertIsNone(run.scientific_dnbr_task_id)
+        self.assertIsNotNone(run.scientific_dnbr_error)
+        self.assertIn("Task boom", run.scientific_dnbr_error)
+
+    @patch("wildfire_assessment.svc.processor.AsyncResult")
+    def test_cleanup_pending_task(self, mock_async_cls):
+        """PENDING state: task is gone (container killed, etc.) → mark as error."""
+        run = self._create_run(
+            scientific_rgb_pre_fire_task_id="celery-task-2",
+        )
+        mock_result = SimpleNamespace(state="PENDING", result=None)
+        mock_async_cls.return_value = mock_result
+
+        processor.cleanup_stale_deliverables()
+
+        run.refresh_from_db()
+        self.assertIsNone(run.scientific_rgb_pre_fire_task_id)
+        self.assertIsNotNone(run.scientific_rgb_pre_fire_error)
+        self.assertIn("no longer running", run.scientific_rgb_pre_fire_error)
+
+    @patch("wildfire_assessment.svc.processor.AsyncResult")
+    def test_cleanup_started_task_left_alone(self, mock_async_cls):
+        """STARTED state: task is still running, do not clean up."""
+        run = self._create_run(
+            scientific_dndvi_task_id="celery-task-3",
+        )
+        mock_result = SimpleNamespace(state="STARTED", result=None)
+        mock_async_cls.return_value = mock_result
+
+        processor.cleanup_stale_deliverables()
+
+        run.refresh_from_db()
+        self.assertEqual(run.scientific_dndvi_task_id, "celery-task-3")
+        self.assertIsNone(run.scientific_dndvi_error)
+
+    @patch("wildfire_assessment.svc.processor.AsyncResult")
+    def test_cleanup_skips_recent_runs(self, mock_async_cls):
+        """Runs completed less than 30 minutes ago are skipped."""
+        run = self._create_run(
+            completed_minutes_ago=10,
+            scientific_dnbr_task_id="celery-task-4",
+        )
+        mock_async_cls.return_value = SimpleNamespace(state="PENDING", result=None)
+
+        processor.cleanup_stale_deliverables()
+
+        run.refresh_from_db()
+        # Should NOT have been cleaned up
+        self.assertEqual(run.scientific_dnbr_task_id, "celery-task-4")
+        self.assertIsNone(run.scientific_dnbr_error)
+
+    @patch("wildfire_assessment.svc.processor.AsyncResult")
+    def test_cleanup_multiple_deliverables(self, mock_async_cls):
+        """Multiple stale deliverables on same run are all cleaned up."""
+        run = self._create_run(
+            scientific_dnbr_task_id="task-a",
+            scientific_rbr_task_id="task-b",
+        )
+
+        def mock_async(task_id):
+            if task_id == "task-a":
+                return SimpleNamespace(state="FAILURE", result=RuntimeError("A failed"))
+            return SimpleNamespace(state="PENDING", result=None)
+
+        mock_async_cls.side_effect = mock_async
+
+        processor.cleanup_stale_deliverables()
+
+        run.refresh_from_db()
+        self.assertIsNone(run.scientific_dnbr_task_id)
+        self.assertIn("A failed", run.scientific_dnbr_error)
+        self.assertIsNone(run.scientific_rbr_task_id)
+        self.assertIn("no longer running", run.scientific_rbr_error)
+
+    @patch("wildfire_assessment.svc.processor.AsyncResult")
+    def test_cleanup_failure_no_result(self, mock_async_cls):
+        """FAILURE state with no result uses fallback error message."""
+        run = self._create_run(
+            scientific_dnbr_task_id="celery-task-5",
+        )
+        mock_result = SimpleNamespace(state="FAILURE", result=None)
+        mock_async_cls.return_value = mock_result
+
+        processor.cleanup_stale_deliverables()
+
+        run.refresh_from_db()
+        self.assertIsNone(run.scientific_dnbr_task_id)
+        self.assertEqual(run.scientific_dnbr_error, "Task failed")
+
+    @patch("wildfire_assessment.svc.processor.AsyncResult")
+    def test_cleanup_db_error_handled_gracefully(self, mock_async_cls):
+        """DB update failure during cleanup is handled gracefully."""
+        run = self._create_run(
+            scientific_dnbr_task_id="celery-task-6",
+        )
+        mock_async_cls.return_value = SimpleNamespace(
+            state="FAILURE", result=RuntimeError("boom")
+        )
+
+        with patch.object(AnalysisRun.objects, "filter") as mock_filter:
+            # First call for the queryset, second for the update
+            real_filter = AnalysisRun.objects.__class__.filter
+
+            call_count = [0]
+
+            def side_effect(*args, **kwargs):
+                call_count[0] += 1
+                qs = real_filter(AnalysisRun.objects, *args, **kwargs)
+                if call_count[0] > 1:
+                    # The update call inside cleanup
+                    mock_qs = MagicMock()
+                    mock_qs.update.side_effect = Exception("DB down")
+                    return mock_qs
+                return qs
+
+            mock_filter.side_effect = side_effect
+
+            # Should not raise
+            processor.cleanup_stale_deliverables()
+
+    @patch("wildfire_assessment.svc.processor.AsyncResult")
+    def test_cleanup_skips_non_completed_runs(self, mock_async_cls):
+        """Runs with status != 'completed' are not cleaned up."""
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            status="running",
+            scientific_dnbr_task_id="celery-task-7",
+        )
+        AnalysisRun.objects.filter(id=run.id).update(
+            completed_at=timezone.now() - timedelta(minutes=60)
+        )
+        mock_async_cls.return_value = SimpleNamespace(state="PENDING", result=None)
+
+        processor.cleanup_stale_deliverables()
+
+        run.refresh_from_db()
+        self.assertEqual(run.scientific_dnbr_task_id, "celery-task-7")
+        self.assertIsNone(run.scientific_dnbr_error)
+
+
 class AreaOfInterestServiceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="svcuser", password="pw")
@@ -1101,9 +1505,7 @@ class AnalyticsServiceTests(TestCase):
         from datetime import date, timedelta
 
         future = date.today() + timedelta(days=10)
-        counts = analytics.get_user_analysis_counts(
-            start_date=future, end_date=future
-        )
+        counts = analytics.get_user_analysis_counts(start_date=future, end_date=future)
         self.assertEqual(len(counts), 0)
 
     def test_get_user_analysis_counts_empty(self):
@@ -1499,9 +1901,7 @@ class ExtractGeometryTests(TestCase):
 
 class NotificationCleanupTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(
-            username="cleanup_user", password="pass"
-        )
+        self.user = User.objects.create_user(username="cleanup_user", password="pass")
         self.now = timezone.now()
 
     def _create_notification(self, is_read, age_hours):
@@ -1532,9 +1932,7 @@ class NotificationCleanupTests(TestCase):
         recent_read = self._create_notification(is_read=True, age_hours=12)
         deleted = notification_service.delete_old_read_notifications()
         self.assertEqual(deleted, 0)
-        self.assertTrue(
-            Notification.objects.filter(pk=recent_read.pk).exists()
-        )
+        self.assertTrue(Notification.objects.filter(pk=recent_read.pk).exists())
 
     def test_returns_correct_count(self):
         self._create_notification(is_read=True, age_hours=30)

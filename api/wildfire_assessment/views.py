@@ -46,6 +46,7 @@ from wildfire_assessment.svc.notification import (
     mark_notifications_read_by_run,
 )
 from wildfire_assessment.svc.processor import (
+    DELIVERABLE_ERROR_FIELD_MAP,
     DELIVERABLE_FIELD_MAP,
     DELIVERABLE_TASK_FIELD_MAP,
     process_fire_assessment,
@@ -58,7 +59,6 @@ LOG = logging.getLogger(__name__)
 
 def health_status(_request):
     return JsonResponse({"status": "ok"})
-
 
 
 class AreaOfInterestPagination(PageNumberPagination):
@@ -294,12 +294,20 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             user_id=request.user.id,
         )
 
-        # Persist the Celery task ID so the frontend can detect in-progress
-        # deliverables when loading an existing analysis run.
+        # Persist the Celery task ID and clear any previous error so the
+        # frontend can detect in-progress deliverables when loading an
+        # existing analysis run.
         if analysis_run_id:
             task_field = DELIVERABLE_TASK_FIELD_MAP.get(deliverable_enum.name)
             if task_field:
                 save_deliverable_task_id(analysis_run_id, task_field, task.id)
+            error_field = DELIVERABLE_ERROR_FIELD_MAP.get(deliverable_enum.name)
+            if error_field:
+                from wildfire_assessment.models import AnalysisRun
+
+                AnalysisRun.objects.filter(id=analysis_run_id).update(
+                    **{error_field: None}
+                )
 
         return Response({"task_id": task.id})
 
@@ -383,6 +391,17 @@ class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
                 str(result.result) if result.result else "Task failed"
             )
 
+        # When AsyncResult says PENDING it may mean the result expired or
+        # the task was lost.  Check if the DB already has a persisted error.
+        if state == "PENDING" and deliverable:
+            error_field = DELIVERABLE_ERROR_FIELD_MAP.get(deliverable)
+            if error_field:
+                instance = self.get_object()
+                db_error = getattr(instance, error_field, None)
+                if db_error:
+                    response_data["state"] = "FAILURE"
+                    response_data["error"] = db_error
+
         return Response(response_data)
 
 
@@ -417,7 +436,11 @@ def _handle_ai_stream(generate_fn, language, empty_key, failed_key, log_message)
     """Execute an AI stream generator and return a streaming response or error."""
     try:
         provider = get_active_provider()
-        provider_display = PROVIDER_DISPLAY.get(provider.provider, provider.provider) if provider else "AI"
+        provider_display = (
+            PROVIDER_DISPLAY.get(provider.provider, provider.provider)
+            if provider
+            else "AI"
+        )
         stream, holder = generate_fn()
         first_chunk = next(stream)
     except StopIteration:

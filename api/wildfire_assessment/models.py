@@ -170,6 +170,17 @@ class AnalysisRun(models.Model):
     scientific_dnbr_task_id = models.CharField(max_length=255, null=True, blank=True)
     scientific_rbr_task_id = models.CharField(max_length=255, null=True, blank=True)
 
+    # Error messages for failed scientific deliverables
+    scientific_rgb_pre_fire_error = models.CharField(
+        max_length=500, null=True, blank=True
+    )
+    scientific_rgb_post_fire_error = models.CharField(
+        max_length=500, null=True, blank=True
+    )
+    scientific_dndvi_error = models.CharField(max_length=500, null=True, blank=True)
+    scientific_dnbr_error = models.CharField(max_length=500, null=True, blank=True)
+    scientific_rbr_error = models.CharField(max_length=500, null=True, blank=True)
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)

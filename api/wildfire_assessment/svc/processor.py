@@ -3,10 +3,15 @@ import logging
 import os
 import tempfile
 import time
+from datetime import timedelta
 
 import ee
 from celery import shared_task
+from celery.exceptions import SoftTimeLimitExceeded
+from celery.result import AsyncResult
 from django.contrib.auth import get_user_model
+from django.db.models import Q
+from django.utils.timezone import now
 from dotenv import load_dotenv
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAssessment
@@ -94,6 +99,17 @@ DELIVERABLE_TASK_FIELD_MAP = {
     "RBR": "scientific_rbr_task_id",
 }
 
+# Map deliverable names to AnalysisRun error field names
+DELIVERABLE_ERROR_FIELD_MAP = {
+    "RGB_PRE_FIRE": "scientific_rgb_pre_fire_error",
+    "RGB_POST_FIRE": "scientific_rgb_post_fire_error",
+    "DNDVI": "scientific_dndvi_error",
+    "DNBR": "scientific_dnbr_error",
+    "RBR": "scientific_rbr_error",
+}
+
+GEE_TASK_TIMEOUT_SECONDS = 2700  # 45 minutes
+
 
 @shared_task
 def process_scientific_deliverable(
@@ -130,7 +146,15 @@ def process_scientific_deliverable(
     POLL_INTERVAL_SECONDS = 15
 
     def wait_for_task(gee_task_id: str):
+        start_time = time.time()
         while True:
+            elapsed = time.time() - start_time
+            if elapsed > GEE_TASK_TIMEOUT_SECONDS:
+                raise TimeoutError(
+                    f"GEE task {gee_task_id} timed out after "
+                    f"{GEE_TASK_TIMEOUT_SECONDS}s"
+                )
+
             statuses = ee.data.getTaskStatus(gee_task_id)
 
             if not statuses:
@@ -150,6 +174,8 @@ def process_scientific_deliverable(
 
             time.sleep(POLL_INTERVAL_SECONDS)
 
+    deliverable_key = deliverable.name
+
     # Download polygon from S3 to a temp file for PostFireAssessment
     geojson_content = download_polygon_from_s3(polygon_path)
     tmp = tempfile.NamedTemporaryFile(suffix=".geojson", delete=False)
@@ -168,8 +194,6 @@ def process_scientific_deliverable(
         )
 
         result = runner.run()
-
-        deliverable_key = deliverable.name
 
         result_wait = wait_for_task(
             result["scientific"][deliverable_key]["gee_task_id"]
@@ -251,8 +275,82 @@ def process_scientific_deliverable(
             )
 
         return result_wait
+    except (Exception, SoftTimeLimitExceeded) as exc:
+        # Persist the error on the AnalysisRun so the UI can show it
+        if analysis_run_id:
+            error_field = DELIVERABLE_ERROR_FIELD_MAP.get(deliverable_key)
+            task_field = DELIVERABLE_TASK_FIELD_MAP.get(deliverable_key)
+            updates = {}
+            if error_field:
+                updates[error_field] = str(exc)[:500]
+            if task_field:
+                updates[task_field] = None
+            if updates:
+                try:
+                    AnalysisRun.objects.filter(id=analysis_run_id).update(**updates)
+                except Exception:
+                    logger.warning(
+                        "Failed to persist error for AnalysisRun %s, " "deliverable %s",
+                        analysis_run_id,
+                        deliverable_key,
+                    )
+        raise
     finally:
         os.unlink(tmp.name)
+
+
+@shared_task
+def cleanup_stale_deliverables():
+    """
+    Periodic task that detects scientific deliverables whose Celery tasks
+    are no longer running and marks them as failed.
+
+    Runs every 30 minutes via Celery Beat.
+    """
+    cutoff = now() - timedelta(minutes=30)
+
+    stale_runs = AnalysisRun.objects.filter(
+        status="completed",
+        completed_at__lt=cutoff,
+    ).filter(
+        Q(scientific_rgb_pre_fire_task_id__isnull=False)
+        | Q(scientific_rgb_post_fire_task_id__isnull=False)
+        | Q(scientific_dndvi_task_id__isnull=False)
+        | Q(scientific_dnbr_task_id__isnull=False)
+        | Q(scientific_rbr_task_id__isnull=False)
+    )
+
+    for run in stale_runs:
+        updates = {}
+        for deliverable_key, task_field in DELIVERABLE_TASK_FIELD_MAP.items():
+            task_id = getattr(run, task_field)
+            if not task_id:
+                continue
+
+            result = AsyncResult(task_id)
+            state = result.state
+
+            if state == "FAILURE":
+                error_field = DELIVERABLE_ERROR_FIELD_MAP[deliverable_key]
+                error_msg = str(result.result) if result.result else "Task failed"
+                updates[error_field] = error_msg[:500]
+                updates[task_field] = None
+            elif state == "PENDING":
+                # PENDING means the task is not in Celery at all (container
+                # killed, Redis flushed, result expired, etc.)
+                error_field = DELIVERABLE_ERROR_FIELD_MAP[deliverable_key]
+                updates[error_field] = "Task is no longer running"
+                updates[task_field] = None
+            # STARTED / RETRY → still running, leave alone
+
+        if updates:
+            try:
+                AnalysisRun.objects.filter(id=run.id).update(**updates)
+            except Exception:
+                logger.warning(
+                    "Failed to clean up stale deliverables for AnalysisRun %s",
+                    run.id,
+                )
 
 
 def get_gee_private_key_json() -> str:

@@ -286,6 +286,8 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_SOFT_TIME_LIMIT = 3000  # 50 min soft limit (GEE timeout is 45 min)
+CELERY_TASK_TIME_LIMIT = 3300  # 55 min hard kill
 CELERY_IMPORTS = (
     "wildfire_assessment.svc.processor",
     "wildfire_assessment.svc.notification",
@@ -294,6 +296,10 @@ CELERY_BEAT_SCHEDULE = {
     "cleanup-old-read-notifications": {
         "task": "wildfire_assessment.svc.notification.cleanup_old_read_notifications",
         "schedule": crontab(hour=9, minute=0),  # 09:00 UTC = 06:00 BRT
+    },
+    "cleanup-stale-deliverables": {
+        "task": "wildfire_assessment.svc.processor.cleanup_stale_deliverables",
+        "schedule": crontab(minute="*/30"),
     },
 }
 

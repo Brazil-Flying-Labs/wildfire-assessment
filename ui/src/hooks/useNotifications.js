@@ -106,9 +106,30 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
     };
   }, [authReady, baseUrl, fetchUnreadCount]);
 
+  // Badge count = number of groups that contain at least one unread notification.
+  // Groups are consecutive notifications sharing the same area_name (matching
+  // the visual grouping in NotificationBell).
+  const unreadGroupCount = (() => {
+    const unread = notifications.filter((n) => !n.is_read);
+    if (unread.length === 0) return 0;
+    let count = 0;
+    let prevArea = null;
+    for (const n of unread) {
+      if (n.area_name !== prevArea) {
+        count++;
+        prevArea = n.area_name;
+      }
+    }
+    return count;
+  })();
+
+  // Use grouped count when notifications are loaded, otherwise fall back to
+  // the polled unreadCount so the badge shows something before the list loads.
+  const badgeCount = notifications.length > 0 ? unreadGroupCount : unreadCount;
+
   return {
     notifications,
-    unreadCount,
+    unreadCount: badgeCount,
     loading,
     hasMore: !!nextUrl,
     fetchNotifications,

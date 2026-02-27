@@ -885,6 +885,111 @@ class ScientificDeliverableWithRunIdTests(APITestCase):
         self.assertEqual(response.json()["task_id"], "celery-task-abc")
 
 
+class TaskStatusDbErrorTests(APITestCase):
+    """Tests for task_status returning DB-persisted errors on stale PENDING."""
+
+    def setUp(self):
+        self.country = Country.objects.create(name="DbErr Country", code="DE")
+        self.area = AreaOfInterest.objects.create(
+            name="DbErr Area",
+            polygon_path="polygon.json",
+            country=self.country,
+        )
+        self.user = User.objects.create_user(
+            username="dberruser", email="dberr@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            scientific_dnbr_error="Task is no longer running",
+        )
+
+    @patch("wildfire_assessment.views.AsyncResult")
+    def test_task_status_returns_db_error_on_stale_pending(self, mock_async):
+        """When AsyncResult is PENDING and DB has error, return FAILURE with DB error."""
+        mock_result = SimpleNamespace(state="PENDING", result=None)
+        mock_async.return_value = mock_result
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(f"{url}?task_id=abc-123&deliverable=DNBR")
+        data = response.json()
+        self.assertEqual(data["state"], "FAILURE")
+        self.assertEqual(data["error"], "Task is no longer running")
+
+    @patch("wildfire_assessment.views.AsyncResult")
+    def test_task_status_pending_without_db_error_stays_pending(self, mock_async):
+        """When AsyncResult is PENDING but no DB error, return PENDING."""
+        # Clear the error
+        self.analysis.scientific_dnbr_error = None
+        self.analysis.save()
+        mock_result = SimpleNamespace(state="PENDING", result=None)
+        mock_async.return_value = mock_result
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(f"{url}?task_id=abc-123&deliverable=DNBR")
+        data = response.json()
+        self.assertEqual(data["state"], "PENDING")
+
+    @patch("wildfire_assessment.views.AsyncResult")
+    def test_task_status_pending_without_deliverable_param(self, mock_async):
+        """When AsyncResult is PENDING but no deliverable param, return PENDING."""
+        mock_result = SimpleNamespace(state="PENDING", result=None)
+        mock_async.return_value = mock_result
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-task-status", args=[self.analysis.id])
+        response = self.client.get(f"{url}?task_id=abc-123")
+        data = response.json()
+        self.assertEqual(data["state"], "PENDING")
+
+
+class ScientificDeliverableClearsErrorTests(APITestCase):
+    """Tests for clearing error on retry of scientific_deliverable."""
+
+    def setUp(self):
+        self.country = Country.objects.create(name="Retry Country", code="RT")
+        self.area = AreaOfInterest.objects.create(
+            name="Retry Area",
+            polygon_path="polygon.json",
+            country=self.country,
+        )
+        self.user = User.objects.create_user(
+            username="retryuser", email="retry@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            scientific_dnbr_error="Previous failure",
+            scientific_dnbr_task_id=None,
+        )
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    def test_scientific_deliverable_clears_error_on_retry(self, mock_process):
+        """Retrying a failed deliverable clears the error field."""
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-scientific-deliverable", args=[self.area.id])
+        query = urlencode(
+            {
+                "pre_fire_date": "2024-01-01",
+                "post_fire_date": "2024-01-15",
+                "deliverable": "DNBR",
+                "analysis_run_id": self.analysis.id,
+            }
+        )
+        mock_process.return_value = SimpleNamespace(id="new-celery-task")
+        response = self.client.post(f"{url}?{query}")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.analysis.refresh_from_db()
+        self.assertIsNone(self.analysis.scientific_dnbr_error)
+        self.assertEqual(self.analysis.scientific_dnbr_task_id, "new-celery-task")
+
+
 class AreaOfInterestUpdateTests(APITestCase):
     """Tests for updating areas of interest."""
 
@@ -1094,9 +1199,7 @@ class UserMeTermsAcceptanceTests(APITestCase):
 
         self.client.patch(self.url, {"accept_terms": True}, format="json")
         self.user.profile.refresh_from_db()
-        self.assertGreaterEqual(
-            self.user.profile.terms_accepted_at, original_timestamp
-        )
+        self.assertGreaterEqual(self.user.profile.terms_accepted_at, original_timestamp)
 
     def test_regular_patch_does_not_affect_terms(self):
         self.client.force_authenticate(user=self.user)

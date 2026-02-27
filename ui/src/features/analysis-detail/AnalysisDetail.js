@@ -97,11 +97,11 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
 
   const scientificDeliverables = useMemo(
     () => [
-      { label: "dNBR", value: "DNBR", urlKey: "scientific_dnbr_url", taskKey: "scientific_dnbr_task_id" },
-      { label: "RBR", value: "RBR", urlKey: "scientific_rbr_url", taskKey: "scientific_rbr_task_id" },
-      { label: "dNDVI", value: "DNDVI", urlKey: "scientific_dndvi_url", taskKey: "scientific_dndvi_task_id" },
-      { label: "RGB Pre-fire", value: "RGB_PRE_FIRE", urlKey: "scientific_rgb_pre_fire_url", taskKey: "scientific_rgb_pre_fire_task_id" },
-      { label: "RGB Post-fire", value: "RGB_POST_FIRE", urlKey: "scientific_rgb_post_fire_url", taskKey: "scientific_rgb_post_fire_task_id" },
+      { label: "dNBR", value: "DNBR", urlKey: "scientific_dnbr_url", taskKey: "scientific_dnbr_task_id", errorKey: "scientific_dnbr_error" },
+      { label: "RBR", value: "RBR", urlKey: "scientific_rbr_url", taskKey: "scientific_rbr_task_id", errorKey: "scientific_rbr_error" },
+      { label: "dNDVI", value: "DNDVI", urlKey: "scientific_dndvi_url", taskKey: "scientific_dndvi_task_id", errorKey: "scientific_dndvi_error" },
+      { label: "RGB Pre-fire", value: "RGB_PRE_FIRE", urlKey: "scientific_rgb_pre_fire_url", taskKey: "scientific_rgb_pre_fire_task_id", errorKey: "scientific_rgb_pre_fire_error" },
+      { label: "RGB Post-fire", value: "RGB_POST_FIRE", urlKey: "scientific_rgb_post_fire_url", taskKey: "scientific_rgb_post_fire_task_id", errorKey: "scientific_rgb_post_fire_error" },
     ],
     []
   );
@@ -155,18 +155,25 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
 
   useEffect(() => {
     if (!analysis) return;
-    for (const { value, urlKey, taskKey } of scientificDeliverables) {
+    for (const { value, urlKey, taskKey, errorKey } of scientificDeliverables) {
       const hasUrl = analysis[urlKey];
       const taskId = analysis[taskKey];
+      const dbError = analysis[errorKey];
       if (!hasUrl && taskId && !pollIntervalsRef.current[value]) {
         setDeliverableStatus((prev) => ({
           ...prev,
           [value]: { polling: true },
         }));
         startPolling(value, taskId);
+      } else if (!hasUrl && !taskId && dbError) {
+        // DB-persisted error: task failed and was cleaned up
+        setDeliverableStatus((prev) => ({
+          ...prev,
+          [value]: { error: t("app.deliverableError") },
+        }));
       }
     }
-  }, [analysis, scientificDeliverables, startPolling]);
+  }, [analysis, scientificDeliverables, startPolling, t]);
 
   useEffect(() => {
     const intervals = pollIntervalsRef.current;

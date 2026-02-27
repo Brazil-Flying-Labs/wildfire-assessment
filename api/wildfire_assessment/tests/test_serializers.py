@@ -799,6 +799,22 @@ class AnalysisRunSerializerTests(TestCase):
         self.assertIsNone(data["rgb_pre_fire_url"])
         self.assertIsNone(data["dndvi_url"])
 
+    def test_serializer_includes_error_fields(self):
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            scientific_dnbr_error="GEE timeout",
+            scientific_rbr_error="Task is no longer running",
+        )
+        data = AnalysisRunSerializer(run).data
+        self.assertEqual(data["scientific_dnbr_error"], "GEE timeout")
+        self.assertEqual(data["scientific_rbr_error"], "Task is no longer running")
+        self.assertIsNone(data["scientific_rgb_pre_fire_error"])
+        self.assertIsNone(data["scientific_rgb_post_fire_error"])
+        self.assertIsNone(data["scientific_dndvi_error"])
+
 
 class AreaOfInterestCreateCentroidTests(TestCase):
     """Tests for centroid computation branches in create serializer."""

@@ -470,6 +470,11 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
             "scientific_dndvi_task_id",
             "scientific_dnbr_task_id",
             "scientific_rbr_task_id",
+            "scientific_rgb_pre_fire_error",
+            "scientific_rgb_post_fire_error",
+            "scientific_dndvi_error",
+            "scientific_dnbr_error",
+            "scientific_rbr_error",
             "created_at",
             "completed_at",
         ]
