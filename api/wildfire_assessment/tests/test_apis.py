@@ -378,6 +378,45 @@ class UserMeViewTests(APITestCase):
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.default_language, "pt-BR")
 
+    def test_me_get_includes_push_token(self):
+        UserProfile.objects.update_or_create(
+            user=self.user,
+            defaults={"expo_push_token": "ExponentPushToken[test]"},
+        )
+        # Re-fetch user to avoid stale cached profile relation
+        user = User.objects.get(pk=self.user.pk)
+        self.client.force_authenticate(user=user)
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["expo_push_token"], "ExponentPushToken[test]")
+
+    def test_me_patch_updates_push_token(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            self.url,
+            {"expo_push_token": "ExponentPushToken[new]"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(
+            self.user.profile.expo_push_token, "ExponentPushToken[new]"
+        )
+
+    def test_me_patch_clears_push_token(self):
+        profile, _ = UserProfile.objects.get_or_create(user=self.user)
+        profile.expo_push_token = "ExponentPushToken[old]"
+        profile.save()
+        self.client.force_authenticate(user=self.user)
+        response = self.client.patch(
+            self.url,
+            {"expo_push_token": ""},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.profile.refresh_from_db()
+        self.assertIsNone(self.user.profile.expo_push_token)
+
 
 class AIAnalysisViewTests(APITestCase):
     """Tests for the AI analysis streaming endpoint."""

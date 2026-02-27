@@ -20,6 +20,7 @@ from wildfire_assessment.svc.aws import (
     download_polygon_from_s3,
     get_aws_secret_manager_secret,
 )
+from wildfire_assessment.svc.notification import send_push_notification
 from wildfire_assessment.translations import get_email_translation
 from wildfire_assessment.utils import send_gmail_email
 
@@ -233,15 +234,22 @@ def process_scientific_deliverable(
                             .first()
                         )
                         area_name = run.area_of_interest.name if run else "Unknown"
+                        notification_message = (
+                            f"Scientific {deliverable_key} deliverable "
+                            f"for {area_name} is ready to download."
+                        )
                         Notification.objects.create(
                             user=user,
                             analysis_run_id=analysis_run_id,
                             notification_type="deliverable_ready",
                             deliverable_name=deliverable_key,
-                            message=(
-                                f"Scientific {deliverable_key} deliverable "
-                                f"for {area_name} is ready to download."
-                            ),
+                            message=notification_message,
+                        )
+                        send_push_notification(
+                            user_id=user_id,
+                            title="Deliverable Ready",
+                            body=notification_message,
+                            data={"analysis_run_id": analysis_run_id},
                         )
                 except Exception:
                     logger.warning(

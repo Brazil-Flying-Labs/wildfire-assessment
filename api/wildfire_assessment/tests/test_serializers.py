@@ -101,6 +101,7 @@ class UserMeSerializerTests(TestCase):
                 "authorized_countries",
                 "terms_accepted_at",
                 "terms_last_updated",
+                "expo_push_token",
             },
         )
 
@@ -135,6 +136,38 @@ class UserMeSerializerTests(TestCase):
         self.assertTrue(UserProfile.objects.filter(user=self.user).exists())
         profile = UserProfile.objects.get(user=self.user)
         self.assertEqual(profile.default_language, "fr")
+
+    def test_expo_push_token_serialized(self):
+        profile = self.user.profile
+        profile.expo_push_token = "ExponentPushToken[abc123]"
+        profile.save()
+        serializer = UserMeSerializer(self.user)
+        self.assertEqual(
+            serializer.data["expo_push_token"], "ExponentPushToken[abc123]"
+        )
+
+    def test_expo_push_token_null_when_not_set(self):
+        serializer = UserMeSerializer(self.user)
+        self.assertIsNone(serializer.data["expo_push_token"])
+
+    def test_update_expo_push_token(self):
+        serializer = UserMeSerializer(self.user)
+        serializer.initial_data = {"expo_push_token": "ExponentPushToken[xyz]"}
+        serializer.update(self.user, {})
+        self.user.profile.refresh_from_db()
+        self.assertEqual(
+            self.user.profile.expo_push_token, "ExponentPushToken[xyz]"
+        )
+
+    def test_update_clears_expo_push_token(self):
+        profile = self.user.profile
+        profile.expo_push_token = "ExponentPushToken[old]"
+        profile.save()
+        serializer = UserMeSerializer(self.user)
+        serializer.initial_data = {"expo_push_token": ""}
+        serializer.update(self.user, {})
+        self.user.profile.refresh_from_db()
+        self.assertIsNone(self.user.profile.expo_push_token)
 
 
 class AreaOfInterestCreateSerializerTests(TestCase):

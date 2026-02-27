@@ -438,7 +438,7 @@ resource "grafana_rule_group" "backend_alerts" {
       datasource_uid = var.grafana_loki_uid
       model = jsonencode({
         refId         = "A"
-        expr          = "sum by (service_name) (count_over_time({service_name=~\"wildfire-api|wildfire-celery-worker|wildfire-celery-beat\"} | detected_level=~\"error|critical\" [5m]))"
+        expr          = "sum by (service_name) (count_over_time({service_name=~\"wildfire-api|wildfire-celery-worker|wildfire-celery-beat\", deployment_environment!=\"local\"} | detected_level=~\"error|critical\" [5m]))"
         intervalMs    = 1000
         maxDataPoints = 43200
       })
@@ -507,7 +507,7 @@ resource "grafana_rule_group" "backend_alerts" {
       datasource_uid = var.grafana_prometheus_uid
       model = jsonencode({
         refId         = "A"
-        expr          = "sum(rate(http_server_duration_milliseconds_count{service_name=\"wildfire-api\", http_status_code=~\"5..\"}[5m]))"
+        expr          = "sum(rate(http_server_duration_milliseconds_count{service_name=\"wildfire-api\", deployment_environment!=\"local\", http_status_code=~\"5..\"}[5m]))"
         intervalMs    = 1000
         maxDataPoints = 43200
       })
@@ -584,7 +584,7 @@ resource "grafana_rule_group" "ui_alerts" {
       datasource_uid = var.grafana_loki_uid
       model = jsonencode({
         refId         = "A"
-        expr          = "sum(count_over_time({service_name=\"wildfire-ui\", kind=\"exception\"} [5m]))"
+        expr          = "sum(count_over_time({service_name=\"wildfire-ui\", kind=\"exception\", deployment_environment!=\"local\"} [5m]))"
         intervalMs    = 1000
         maxDataPoints = 43200
       })
