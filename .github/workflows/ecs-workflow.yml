@@ -45,7 +45,7 @@ jobs:
 
       - name: Set up Docker Compose services
         run: |
-          docker compose up -d --no-build api db
+          docker compose up -d --no-build api db redis
 
       - name: Wait for services
         run: |

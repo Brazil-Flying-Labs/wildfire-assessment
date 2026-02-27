@@ -108,6 +108,7 @@
   "ai.poweredBy": "Desenvolvido com {provider}",
   "ai.openAnalysis": "Abrir Análise por IA",
   "ai.scrollToBottom": "Rolar para o final",
+  "ai.errorMessage": "Desculpe, estamos com dificuldades para conectar ao provedor de IA no momento. Por favor, tente novamente mais tarde.",
   "terms.title": "Termos de Serviço",
   "terms.accept": "Aceito os Termos de Serviço",
   "terms.decline": "Recusar",

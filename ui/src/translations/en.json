@@ -108,6 +108,7 @@
   "ai.poweredBy": "Powered by {provider}",
   "ai.openAnalysis": "Open AI Analysis",
   "ai.scrollToBottom": "Scroll to bottom",
+  "ai.errorMessage": "Sorry, we're having trouble connecting to the AI provider right now. Please try again later.",
   "terms.title": "Terms of Service",
   "terms.accept": "I Accept the Terms of Service",
   "terms.decline": "Decline",
