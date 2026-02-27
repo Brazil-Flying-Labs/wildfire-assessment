@@ -133,7 +133,7 @@ resource "grafana_rule_group" "rds_alerts" {
     no_data_state  = "OK"
 
     annotations = {
-      summary = "Aurora ACU utilization is above 85% — database is near its max capacity (1 ACU)."
+      summary = "Aurora ACU utilization is above 95% — database is near its max capacity (1 ACU)."
     }
 
     labels = {
@@ -184,7 +184,7 @@ resource "grafana_rule_group" "rds_alerts" {
         type       = "threshold"
         expression = "B"
         conditions = [{
-          evaluator = { params = [85], type = "gt" }
+          evaluator = { params = [95], type = "gt" }
           operator  = { type = "and" }
           query     = { params = ["C"] }
           reducer   = { params = [], type = "last" }
@@ -201,7 +201,7 @@ resource "grafana_rule_group" "rds_alerts" {
     no_data_state  = "OK"
 
     annotations = {
-      summary = "Aurora CPU utilization is above 85%."
+      summary = "Aurora CPU utilization is above 95%."
     }
 
     labels = {
@@ -252,7 +252,7 @@ resource "grafana_rule_group" "rds_alerts" {
         type       = "threshold"
         expression = "B"
         conditions = [{
-          evaluator = { params = [85], type = "gt" }
+          evaluator = { params = [95], type = "gt" }
           operator  = { type = "and" }
           query     = { params = ["C"] }
           reducer   = { params = [], type = "last" }
