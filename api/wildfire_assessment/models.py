@@ -190,6 +190,14 @@ class AnalysisRun(models.Model):
         ordering = ["-created_at"]
         verbose_name = "Analysis Run"
         verbose_name_plural = "Analysis Runs"
+        indexes = [
+            models.Index(fields=["user", "severity_data"], name="analysisrun_user_severity"),
+            models.Index(fields=["user", "created_at"], name="analysisrun_user_created"),
+            models.Index(
+                fields=["user", "severity_data", "created_at"],
+                name="analysisrun_user_sev_created",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.area_of_interest.name} - {self.pre_fire_date} to {self.post_fire_date}"
