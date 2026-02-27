@@ -3,7 +3,6 @@ Test settings - uses SQLite for fast local testing.
 """
 
 import os
-import sys
 
 # Force skip AWS secrets for tests
 os.environ["SKIP_AWS_SECRETS"] = "1"
@@ -30,6 +29,13 @@ class DisableMigrations:
 
 
 MIGRATION_MODULES = DisableMigrations()
+
+# Use in-memory cache for tests (no Redis dependency)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
 
 # Faster password hasher for tests
 PASSWORD_HASHERS = [

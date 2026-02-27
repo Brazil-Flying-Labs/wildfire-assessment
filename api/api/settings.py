@@ -263,8 +263,24 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
+# Redis cache — use db 1 so it does not collide with Celery (db 0).
+# Needed for multi-worker deployments (gunicorn on ECS) where LocMemCache
+# is per-process and AI conversation cache becomes invisible across workers.
+_REDIS_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
+_REDIS_CACHE_URL = _REDIS_URL.rsplit("/", 1)[0] + "/1"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": _REDIS_CACHE_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
+
 # Celery configuration — Redis runs in the docker-compose service named "redis"
-CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
+CELERY_BROKER_URL = _REDIS_URL
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", CELERY_BROKER_URL)
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
