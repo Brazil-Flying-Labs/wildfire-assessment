@@ -116,12 +116,19 @@ function AIAnalysisModal({
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullText = "";
+    let isFirstChunk = true;
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       const chunk = decoder.decode(value, { stream: true });
       fullText += chunk;
+
+      // Scroll to show the beginning of the response on first chunk
+      if (isFirstChunk) {
+        isFirstChunk = false;
+        setTimeout(scrollToBottom, 50);
+      }
 
       // Strip markers for display
       const { text: cleanText } = extractMarkers(fullText);
@@ -141,7 +148,7 @@ function AIAnalysisModal({
       updated[updated.length - 1] = { role: "assistant", text: finalText };
       return updated;
     });
-  }, []);
+  }, [scrollToBottom]);
 
   const startAnalysis = useCallback(async () => {
     if (!baseUrl || isLoading) return;
@@ -230,6 +237,8 @@ function AIAnalysisModal({
       { role: "user", text: trimmed },
       { role: "assistant", text: "" },
     ]);
+    // Scroll so the user sees their message
+    setTimeout(scrollToBottom, 50);
 
     try {
       const response = await authorizedFetch(`${baseUrl}/analysis/followup/`, {
@@ -264,7 +273,7 @@ function AIAnalysisModal({
         abortControllerRef.current = null;
       }
     }
-  }, [authorizedFetch, baseUrl, isLoading, question, readStream, t]);
+  }, [authorizedFetch, baseUrl, isLoading, question, readStream, scrollToBottom, t]);
 
   const retryLast = useCallback(async () => {
     if (!baseUrl || isLoading) return;
@@ -291,6 +300,7 @@ function AIAnalysisModal({
       const withoutError = prev.filter((m) => !m.isError);
       return [...withoutError, { role: "assistant", text: "" }];
     });
+    setTimeout(scrollToBottom, 50);
 
     try {
       const response = await authorizedFetch(`${baseUrl}/analysis/followup/`, {
@@ -323,7 +333,7 @@ function AIAnalysisModal({
         abortControllerRef.current = null;
       }
     }
-  }, [authorizedFetch, baseUrl, isLoading, messages, readStream, startAnalysis, t]);
+  }, [authorizedFetch, baseUrl, isLoading, messages, readStream, scrollToBottom, startAnalysis, t]);
 
   const handleKeyDown = useCallback(
     (e) => {
