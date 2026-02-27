@@ -58,6 +58,7 @@ def generate_analysis_stream(
         A tuple of (generator yielding text chunks, holder dict).
         holder["response_id"] is set after the generator is exhausted.
     """
+    LOG.info("Starting analysis with OpenAI (model=%s)", model)
     client = _get_openai_client()
     prompt = build_analysis_prompt(
         pre_fire_date, post_fire_date, area_of_interest, severity_distribution
@@ -107,6 +108,7 @@ def generate_followup_stream(
     """
     Generate a streaming follow-up response using cached conversation history.
     """
+    LOG.info("Follow-up message with OpenAI (model=%s)", model)
     conv_data = cache.get(f"ai_chat_{previous_response_id}")
     if not conv_data:
         raise ValueError("Conversation not found or expired")

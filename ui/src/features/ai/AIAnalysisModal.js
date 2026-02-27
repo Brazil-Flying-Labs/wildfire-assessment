@@ -36,7 +36,6 @@ function AIAnalysisModal({
   // messages: [{ role: "assistant"|"user", text: string }]
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [question, setQuestion] = useState("");
   const [aiProvider, setAiProvider] = useState(null);
   const responseIdRef = useRef(null);
@@ -51,7 +50,7 @@ function AIAnalysisModal({
   // Clear cached AI analysis when a new fire analysis is run
   useEffect(() => {
     setMessages([]);
-    setError(null);
+
     setIsModalOpen(false);
     responseIdRef.current = null;
   }, [preFireDate, postFireDate, areaOfInterest, severityDistribution]);
@@ -89,7 +88,7 @@ function AIAnalysisModal({
   const openModal = useCallback(() => {
     setIsModalOpen(true);
     if (!messages.length && !isLoading) {
-      setError(null);
+  
       startAnalysisRef.current = true;
     }
   }, [messages.length, isLoading]);
@@ -156,7 +155,7 @@ function AIAnalysisModal({
 
     setIsLoading(true);
     setMessages([{ role: "assistant", text: "" }]);
-    setError(null);
+
     responseIdRef.current = null;
 
     try {
@@ -201,7 +200,7 @@ function AIAnalysisModal({
     } catch (err) {
       if (err.name === "AbortError") return;
       console.error("AI Analysis error:", err);
-      setError(true);
+
       setMessages([{ role: "assistant", text: t("ai.errorMessage"), isError: true }]);
     } finally {
       if (abortControllerRef.current === controller) {
@@ -225,7 +224,7 @@ function AIAnalysisModal({
 
     setQuestion("");
     setIsLoading(true);
-    setError(null);
+
     setMessages((prev) => [
       ...prev,
       { role: "user", text: trimmed },
@@ -253,7 +252,7 @@ function AIAnalysisModal({
     } catch (err) {
       if (err.name === "AbortError") return;
       console.error("AI Follow-up error:", err);
-      setError(true);
+
       // Replace the empty assistant placeholder with the error message
       setMessages((prev) => [
         ...prev.slice(0, -1),
@@ -286,7 +285,7 @@ function AIAnalysisModal({
     abortControllerRef.current = controller;
 
     setIsLoading(true);
-    setError(null);
+
     setMessages((prev) => {
       // Remove the error assistant message, keep everything else including user msg
       const withoutError = prev.filter((m) => !m.isError);
@@ -313,7 +312,7 @@ function AIAnalysisModal({
     } catch (err) {
       if (err.name === "AbortError") return;
       console.error("AI Follow-up retry error:", err);
-      setError(true);
+
       setMessages((prev) => [
         ...prev.slice(0, -1),
         { role: "assistant", text: t("ai.errorMessage"), isError: true },

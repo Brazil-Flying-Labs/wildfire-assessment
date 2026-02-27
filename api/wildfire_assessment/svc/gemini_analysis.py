@@ -75,6 +75,7 @@ def _gemini_generate_analysis_stream(
     language: str | None = None,
     model: str = "gemini-2.0-flash-lite",
 ) -> tuple[Generator[str, None, None], dict]:
+    LOG.info("Starting analysis with Gemini (model=%s)", model)
     client = _get_gemini_client()
     config = _get_gemini_config(language)
     prompt = build_analysis_prompt(
@@ -116,6 +117,7 @@ def _gemini_generate_followup_stream(
     language: str | None = None,
     model: str = "gemini-2.0-flash-lite",
 ) -> tuple[Generator[str, None, None], dict]:
+    LOG.info("Follow-up message with Gemini (model=%s)", model)
     conv_data = cache.get(f"ai_chat_{previous_response_id}")
     if not conv_data:
         raise ValueError("Conversation not found or expired")
