@@ -128,7 +128,8 @@ resource "grafana_rule_group" "rds_alerts" {
   rule {
     name           = "High ACU Utilization"
     condition      = "C"
-    for            = "0s"
+    for            = "5m"
+    exec_err_state = "OK"
     no_data_state  = "OK"
 
     annotations = {
@@ -137,7 +138,7 @@ resource "grafana_rule_group" "rds_alerts" {
 
     labels = {
       severity   = "warning"
-      alert_type = "resource"
+      alert_type = "error"  # Route to contact point without resolve messages
     }
 
     data {
