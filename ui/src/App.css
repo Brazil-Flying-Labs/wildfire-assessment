@@ -2277,12 +2277,10 @@
 .widget-wrapper.is-dragging {
   opacity: 0.5;
   z-index: 10;
-  user-select: none;
-  -webkit-user-select: none;
 }
 
-/* Jiggle mode (edit mode) - prevent text selection during drag */
-.widget-wrapper.is-jiggling {
+/* Touch-draggable widgets - prevent text selection on long-press */
+.widget-wrapper.touch-draggable {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;

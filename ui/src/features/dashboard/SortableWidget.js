@@ -51,6 +51,7 @@ function SortableWidget({
   const cls = [colClassName, "widget-wrapper"];
   if (isDragging) cls.push("is-dragging");
   if (jiggle && !isDragging) cls.push("is-jiggling");
+  if (!isDesktop) cls.push("touch-draggable");
 
   return (
     <div
