@@ -1789,18 +1789,6 @@ class DashboardServiceTests(TestCase):
         stats = dashboard_service.get_dashboard_stats(self.user)
         self.assertEqual(stats["severity_trend"], [])
 
-    def test_severity_trend_skips_run_without_created_at(self):
-        """Runs with created_at=None should be skipped in severity trend."""
-        mock_run = MagicMock()
-        mock_run.severity_data = {"Unburned": {"area_ha": 50.0}}
-        mock_run.created_at = None
-
-        mock_qs = MagicMock()
-        mock_qs.filter.return_value.order_by.return_value = [mock_run]
-
-        result = dashboard_service._severity_trend(mock_qs)
-        self.assertEqual(result, [])
-
     def test_severity_trend_skips_non_dict_data(self):
         AnalysisRun.objects.create(
             user=self.user,

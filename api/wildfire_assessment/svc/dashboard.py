@@ -28,148 +28,6 @@ SEVERITY_WEIGHTS = {
 }
 
 
-def _sum_severity_totals(analyses_qs, severity_key):
-    """Sum a severity_data value across all runs in the queryset."""
-    total = Decimal(0)
-    found = False
-    for run in analyses_qs.filter(severity_data__isnull=False):
-        data = run.severity_data
-        if isinstance(data, dict):
-            val = data.get(severity_key, {}).get("area_ha")
-            if val is not None:
-                total += Decimal(str(val))
-                found = True
-    return total if found else None
-
-
-def _aggregate_severity_breakdown(analyses_qs):
-    """Sum area_ha per severity class across all runs."""
-    totals = {k: Decimal(0) for k in SEVERITY_KEYS}
-    found = False
-    for run in analyses_qs.filter(severity_data__isnull=False):
-        data = run.severity_data
-        if not isinstance(data, dict):
-            continue
-        for key in SEVERITY_KEYS:
-            val = data.get(key, {}).get("area_ha")
-            if val is not None:
-                totals[key] += Decimal(str(val))
-                found = True
-    if not found:
-        return []
-    return [{"label": k, "area_ha": totals[k]} for k in SEVERITY_KEYS]
-
-
-def _area_comparison(analyses_qs):
-    """Total burned ha per area of interest, sorted descending."""
-    area_burned = defaultdict(lambda: {"area_name": "", "total_burned_ha": Decimal(0)})
-    for run in analyses_qs.filter(severity_data__isnull=False).select_related(
-        "area_of_interest"
-    ):
-        data = run.severity_data
-        if not isinstance(data, dict):
-            continue
-        burned = data.get("Total Burned Area", {}).get("area_ha")
-        if burned is not None:
-            aoi_id = run.area_of_interest_id
-            area_burned[aoi_id]["area_name"] = run.area_of_interest.name
-            area_burned[aoi_id]["total_burned_ha"] += Decimal(str(burned))
-    return sorted(
-        area_burned.values(),
-        key=lambda x: x["total_burned_ha"],
-        reverse=True,
-    )
-
-
-def _average_burn_severity(analyses_qs):
-    """Weighted average severity across all runs."""
-    weighted_sum = Decimal(0)
-    total_area = Decimal(0)
-    for run in analyses_qs.filter(severity_data__isnull=False):
-        data = run.severity_data
-        if not isinstance(data, dict):
-            continue
-        for key, weight in SEVERITY_WEIGHTS.items():
-            val = data.get(key, {}).get("area_ha")
-            if val is not None:
-                area = Decimal(str(val))
-                weighted_sum += Decimal(str(weight)) * area
-                total_area += area
-    if total_area == 0:
-        return None
-    return (weighted_sum / total_area).quantize(Decimal("0.01"))
-
-
-def _most_analyzed_area(analyses_qs):
-    """Area of interest with the most runs."""
-    result = (
-        analyses_qs.values("area_of_interest__name")
-        .annotate(run_count=Count("id"))
-        .order_by("-run_count")
-        .first()
-    )
-    if not result:
-        return None
-    return {
-        "area_name": result["area_of_interest__name"],
-        "run_count": result["run_count"],
-    }
-
-
-def _largest_fire(analyses_qs):
-    """Single run with the highest Total Burned Area."""
-    max_burned = None
-    max_area_name = None
-    for run in analyses_qs.filter(severity_data__isnull=False).select_related(
-        "area_of_interest"
-    ):
-        data = run.severity_data
-        if not isinstance(data, dict):
-            continue
-        burned = data.get("Total Burned Area", {}).get("area_ha")
-        if burned is not None:
-            burned_dec = Decimal(str(burned))
-            if max_burned is None or burned_dec > max_burned:
-                max_burned = burned_dec
-                max_area_name = run.area_of_interest.name
-    if max_burned is None:
-        return None
-    return {"area_name": max_area_name, "burned_ha": max_burned}
-
-
-def _severity_trend(analyses_qs):
-    """Per-run weighted severity, limited to the last 180 days.
-
-    Returns individual data points with ISO timestamps so the frontend
-    can group by the user's local date.
-    """
-    cutoff = timezone.now() - timedelta(days=180)
-    result = []
-    for run in analyses_qs.filter(
-        severity_data__isnull=False, created_at__gte=cutoff
-    ).order_by("created_at"):
-        data = run.severity_data
-        if not isinstance(data, dict) or not run.created_at:
-            continue
-        weighted_sum = Decimal(0)
-        total_area = Decimal(0)
-        for key, weight in SEVERITY_WEIGHTS.items():
-            val = data.get(key, {}).get("area_ha")
-            if val is not None:
-                area = Decimal(str(val))
-                weighted_sum += Decimal(str(weight)) * area
-                total_area += area
-        if total_area > 0:
-            avg = float(
-                (weighted_sum / total_area).quantize(Decimal("0.01"))
-            )
-            result.append({
-                "created_at": run.created_at.isoformat(),
-                "avg_severity": avg,
-            })
-    return result
-
-
 def _extract_geometry(geojson_data):
     """Extract geometry from a GeoJSON object (Feature, FeatureCollection, or bare geometry)."""
     geojson_type = geojson_data.get("type", "")
@@ -184,86 +42,224 @@ def _extract_geometry(geojson_data):
     return None
 
 
-def _areas_geo(analyses_qs):
-    """Aggregate geo data for all areas with analyses."""
-    area_data = {}
-    polygon_paths = {}
-    for run in analyses_qs.filter(severity_data__isnull=False).select_related(
-        "area_of_interest"
-    ):
-        aoi = run.area_of_interest
-        if aoi.centroid_lat is None or aoi.centroid_lng is None:
-            continue
-        if aoi.id not in area_data:
-            area_data[aoi.id] = {
-                "id": aoi.id,
-                "name": aoi.name,
-                "lat": float(aoi.centroid_lat),
-                "lng": float(aoi.centroid_lng),
-                "total_burned_ha": Decimal(0),
-                "last_analysis_date": None,
-                "run_count": 0,
-                "geometry": None,
-            }
-            polygon_paths[aoi.id] = aoi.polygon_path
-        entry = area_data[aoi.id]
-        burned = run.severity_data.get("Total Burned Area", {}).get("area_ha")
-        if burned is not None:
-            entry["total_burned_ha"] += Decimal(str(burned))
-        entry["run_count"] += 1
-        run_date = str(run.created_at.date()) if run.created_at else None
-        if run_date and (
-            entry["last_analysis_date"] is None
-            or run_date > entry["last_analysis_date"]
-        ):
-            entry["last_analysis_date"] = run_date
+def get_dashboard_stats(user):
+    """Compute dashboard statistics for the authenticated user.
 
-    # Download polygon geometries from S3
+    Optimized to use a single pass over analysis runs for all severity-based
+    metrics, reducing database queries from 8+ to 1.
+    """
+    now = timezone.now()
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    trend_cutoff = now - timedelta(days=180)
+
+    # Base queryset for all user analyses
+    all_runs_qs = AnalysisRun.objects.filter(user=user)
+
+    # === DB AGGREGATIONS (efficient count queries) ===
+    total_analyses = all_runs_qs.count()
+    total_areas = all_runs_qs.values("area_of_interest").distinct().count()
+    analyses_this_month = all_runs_qs.filter(created_at__gte=month_start).count()
+
+    # Most analyzed area (DB aggregation)
+    most_analyzed_result = (
+        all_runs_qs.values("area_of_interest__name")
+        .annotate(run_count=Count("id"))
+        .order_by("-run_count")
+        .first()
+    )
+    most_analyzed_area = None
+    if most_analyzed_result:
+        most_analyzed_area = {
+            "area_name": most_analyzed_result["area_of_interest__name"],
+            "run_count": most_analyzed_result["run_count"],
+        }
+
+    # Recent analyses (for serialization)
+    recent_analyses = all_runs_qs.select_related(
+        "area_of_interest", "area_of_interest__country", "user"
+    )[:10]
+
+    # === SINGLE QUERY for all runs with severity data ===
+    runs_with_severity = list(
+        all_runs_qs.filter(severity_data__isnull=False)
+        .select_related("area_of_interest", "area_of_interest__country")
+    )
+
+    # === Initialize accumulators ===
+    # For _sum_severity_totals
+    total_area_ha = Decimal(0)
+    total_burned_ha = Decimal(0)
+    found_area = False
+    found_burned = False
+
+    # For _aggregate_severity_breakdown
+    severity_totals = {key: Decimal(0) for key in SEVERITY_KEYS}
+    found_severity = False
+
+    # For _average_burn_severity
+    weighted_sum = Decimal(0)
+    total_weighted_area = Decimal(0)
+
+    # For _area_comparison
+    area_burned = defaultdict(lambda: {"area_name": "", "total_burned_ha": Decimal(0)})
+
+    # For _largest_fire
+    max_burned = None
+    max_burned_area_name = None
+
+    # For _severity_trend
+    trend_data = []
+
+    # For _areas_geo
+    areas_geo = {}
+    polygon_paths = {}
+
+    # === SINGLE PASS over all runs ===
+    for run in runs_with_severity:
+        data = run.severity_data
+        if not isinstance(data, dict):
+            continue
+
+        aoi = run.area_of_interest
+        aoi_id = run.area_of_interest_id
+
+        # --- _sum_severity_totals: Total Area ---
+        total_area_val = data.get("Total Area", {}).get("area_ha")
+        if total_area_val is not None:
+            total_area_ha += Decimal(str(total_area_val))
+            found_area = True
+
+        # --- _sum_severity_totals: Total Burned Area ---
+        burned_val = data.get("Total Burned Area", {}).get("area_ha")
+        if burned_val is not None:
+            burned_dec = Decimal(str(burned_val))
+            total_burned_ha += burned_dec
+            found_burned = True
+
+            # --- _largest_fire ---
+            if max_burned is None or burned_dec > max_burned:
+                max_burned = burned_dec
+                max_burned_area_name = aoi.name
+
+            # --- _area_comparison ---
+            area_burned[aoi_id]["area_name"] = aoi.name
+            area_burned[aoi_id]["total_burned_ha"] += burned_dec
+
+        # --- _aggregate_severity_breakdown + _average_burn_severity ---
+        for key in SEVERITY_KEYS:
+            val = data.get(key, {}).get("area_ha")
+            if val is not None:
+                area = Decimal(str(val))
+                severity_totals[key] += area
+                found_severity = True
+                # For weighted average
+                weight = SEVERITY_WEIGHTS[key]
+                weighted_sum += Decimal(str(weight)) * area
+                total_weighted_area += area
+
+        # --- _severity_trend (last 180 days only) ---
+        if run.created_at and run.created_at >= trend_cutoff:
+            run_weighted_sum = Decimal(0)
+            run_total_area = Decimal(0)
+            for key, weight in SEVERITY_WEIGHTS.items():
+                val = data.get(key, {}).get("area_ha")
+                if val is not None:
+                    area = Decimal(str(val))
+                    run_weighted_sum += Decimal(str(weight)) * area
+                    run_total_area += area
+            if run_total_area > 0:
+                avg = float(
+                    (run_weighted_sum / run_total_area).quantize(Decimal("0.01"))
+                )
+                trend_data.append({
+                    "created_at": run.created_at.isoformat(),
+                    "avg_severity": avg,
+                })
+
+        # --- _areas_geo ---
+        if aoi.centroid_lat is not None and aoi.centroid_lng is not None:
+            if aoi_id not in areas_geo:
+                areas_geo[aoi_id] = {
+                    "id": aoi_id,
+                    "name": aoi.name,
+                    "lat": float(aoi.centroid_lat),
+                    "lng": float(aoi.centroid_lng),
+                    "total_burned_ha": Decimal(0),
+                    "last_analysis_date": None,
+                    "run_count": 0,
+                    "geometry": None,
+                }
+                polygon_paths[aoi_id] = aoi.polygon_path
+
+            entry = areas_geo[aoi_id]
+            if burned_val is not None:
+                entry["total_burned_ha"] += Decimal(str(burned_val))
+            entry["run_count"] += 1
+            run_date = str(run.created_at.date()) if run.created_at else None
+            if run_date and (
+                entry["last_analysis_date"] is None
+                or run_date > entry["last_analysis_date"]
+            ):
+                entry["last_analysis_date"] = run_date
+
+    # === POST-PROCESSING ===
+
+    # Sort trend data by date
+    trend_data.sort(key=lambda x: x["created_at"])
+
+    # Severity breakdown
+    severity_breakdown = []
+    if found_severity:
+        severity_breakdown = [
+            {"label": k, "area_ha": severity_totals[k]} for k in SEVERITY_KEYS
+        ]
+
+    # Area comparison (sorted descending)
+    area_comparison = sorted(
+        area_burned.values(),
+        key=lambda x: x["total_burned_ha"],
+        reverse=True,
+    )
+
+    # Average burn severity
+    average_burn_severity = None
+    if total_weighted_area > 0:
+        average_burn_severity = (weighted_sum / total_weighted_area).quantize(
+            Decimal("0.01")
+        )
+
+    # Largest fire
+    largest_fire = None
+    if max_burned is not None:
+        largest_fire = {"area_name": max_burned_area_name, "burned_ha": max_burned}
+
+    # Download polygon geometries from S3 (kept as-is for now)
     for area_id, path in polygon_paths.items():
         if not path:
             continue
         try:
             raw = download_polygon_from_s3(path)
             geojson_data = json.loads(raw)
-            area_data[area_id]["geometry"] = _extract_geometry(geojson_data)
+            areas_geo[area_id]["geometry"] = _extract_geometry(geojson_data)
         except Exception:
             logger.warning("Failed to download polygon for area %s", area_id)
 
-    for entry in area_data.values():
+    # Convert Decimal to float for JSON serialization
+    for entry in areas_geo.values():
         entry["total_burned_ha"] = float(entry["total_burned_ha"])
-    return list(area_data.values())
-
-
-def get_dashboard_stats(user):
-    """Compute dashboard statistics for the authenticated user."""
-    user_analyses = AnalysisRun.objects.filter(user=user)
-
-    now = timezone.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-    total_analyses = user_analyses.count()
-    total_areas = user_analyses.values("area_of_interest").distinct().count()
-
-    total_analyzed_ha = _sum_severity_totals(user_analyses, "Total Area")
-    total_burned_ha = _sum_severity_totals(user_analyses, "Total Burned Area")
-    analyses_this_month = user_analyses.filter(created_at__gte=month_start).count()
-
-    recent_analyses = user_analyses.select_related(
-        "area_of_interest", "area_of_interest__country", "user"
-    )[:10]
 
     return {
         "total_analyses": total_analyses,
         "total_areas": total_areas,
-        "total_analyzed_ha": total_analyzed_ha,
-        "total_burned_ha": total_burned_ha,
+        "total_analyzed_ha": total_area_ha if found_area else None,
+        "total_burned_ha": total_burned_ha if found_burned else None,
         "analyses_this_month": analyses_this_month,
         "recent_analyses": recent_analyses,
-        "severity_breakdown": _aggregate_severity_breakdown(user_analyses),
-        "area_comparison": _area_comparison(user_analyses),
-        "average_burn_severity": _average_burn_severity(user_analyses),
-        "most_analyzed_area": _most_analyzed_area(user_analyses),
-        "largest_fire": _largest_fire(user_analyses),
-        "areas_geo": _areas_geo(user_analyses),
-        "severity_trend": _severity_trend(user_analyses),
+        "severity_breakdown": severity_breakdown,
+        "area_comparison": area_comparison,
+        "average_burn_severity": average_burn_severity,
+        "most_analyzed_area": most_analyzed_area,
+        "largest_fire": largest_fire,
+        "areas_geo": list(areas_geo.values()),
+        "severity_trend": trend_data,
     }
