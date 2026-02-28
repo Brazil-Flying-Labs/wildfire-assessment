@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   PointerSensor,
   useSensor,
@@ -56,6 +57,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [deletingAnalysis, setDeletingAnalysis] = useState(false);
   const [isDraggingAny, setIsDraggingAny] = useState(false);
+  const [activeId, setActiveId] = useState(null);
   const [mapGeneration, setMapGeneration] = useState(0);
   const hasLoadedRef = useRef(false);
 
@@ -351,9 +353,18 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        onDragStart={() => setIsDraggingAny(true)}
-        onDragEnd={onDragEnd}
-        onDragCancel={() => setIsDraggingAny(false)}
+        onDragStart={(event) => {
+          setIsDraggingAny(true);
+          setActiveId(event.active.id);
+        }}
+        onDragEnd={(event) => {
+          onDragEnd(event);
+          setActiveId(null);
+        }}
+        onDragCancel={() => {
+          setIsDraggingAny(false);
+          setActiveId(null);
+        }}
       >
         <SortableContext items={visibleIds} strategy={rectSortingStrategy}>
           <div className="row g-3">
@@ -367,6 +378,13 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
             })()}
           </div>
         </SortableContext>
+        <DragOverlay>
+          {activeId ? (
+            <div className="widget-wrapper drag-overlay">
+              {renderWidget(activeId)}
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {hiddenWidgets.length > 0 && (
