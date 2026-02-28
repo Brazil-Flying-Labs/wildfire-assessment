@@ -40,6 +40,7 @@ function SortableWidget({
   isDesktop,
   jiggle,
   registerRef,
+  draggedRect,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
@@ -48,6 +49,12 @@ function SortableWidget({
     transform: CSS.Transform.toString(transform),
     transition,
   };
+
+  // Lock dimensions when this widget is being dragged (placeholder)
+  if (isDragging && draggedRect) {
+    style.width = draggedRect.width;
+    style.height = draggedRect.height;
+  }
 
   const cls = [colClassName, "widget-wrapper"];
   if (isDragging) cls.push("is-dragging");

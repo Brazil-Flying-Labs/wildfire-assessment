@@ -382,7 +382,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
             {(() => {
               const colClasses = buildColClasses(visibleIds);
               return visibleIds.map((id, idx) => (
-                <SortableWidget key={id} id={id} colClassName={colClasses[idx]} onRemove={handleRemove} t={t} isDesktop={isDesktop} jiggle={isDraggingAny} registerRef={(wid, node) => { widgetRefs.current[wid] = node; }}>
+                <SortableWidget key={id} id={id} colClassName={colClasses[idx]} onRemove={handleRemove} t={t} isDesktop={isDesktop} jiggle={isDraggingAny} registerRef={(wid, node) => { widgetRefs.current[wid] = node; }} draggedRect={activeId === id ? activeRect : null}>
                   {renderWidget(id)}
                 </SortableWidget>
               ));
