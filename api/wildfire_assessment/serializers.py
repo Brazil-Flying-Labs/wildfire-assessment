@@ -1,10 +1,12 @@
+import logging
 import uuid
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import serializers
-from shapely.geometry import shape
+from shapely.geometry import mapping, shape
+from shapely.ops import orient
 from shapely.validation import explain_validity
 from wildfire_assessment.models import (
     AnalysisRun,
@@ -19,6 +21,8 @@ from wildfire_assessment.svc.aws import (
     upload_polygon_to_s3,
 )
 from wildfire_assessment.translations import get_error_translation, get_user_language
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -135,6 +139,9 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
         if not isinstance(value, dict):
             raise serializers.ValidationError(self._t("error.geojson_not_object"))
 
+        # Strip deprecated CRS member (RFC 7946 Section 4)
+        value.pop("crs", None)
+
         geojson_type = value.get("type")
         if not geojson_type:
             raise serializers.ValidationError(self._t("error.geojson_no_type"))
@@ -142,6 +149,7 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
         # Extract geometry based on GeoJSON type
         geometry = None
         if geojson_type == "Feature":
+            value.pop("crs", None)
             geometry = value.get("geometry")
             if not geometry:
                 raise serializers.ValidationError(self._t("error.feature_no_geometry"))
@@ -157,6 +165,7 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
                     raise serializers.ValidationError(
                         self._t("error.feature_not_object", index=i)
                     )
+                feature.pop("crs", None)
                 feat_geom = feature.get("geometry")
                 if feat_geom:
                     self._validate_geometry(feat_geom, f"Feature[{i}]")
@@ -207,6 +216,14 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
         if coords:
             self._validate_coordinates(coords, context)
 
+        # RFC 7946: ring closure and minimum positions
+        if geom_type in ["Polygon", "MultiPolygon"]:
+            self._validate_ring_closure(coords, context, geom_type)
+
+        # RFC 7946: no nested GeometryCollections
+        if geom_type == "GeometryCollection":
+            self._validate_no_nested_geometry_collections(geometry, context)
+
         # Use shapely to validate geometry structure
         try:
             geom = shape(geometry)
@@ -229,6 +246,10 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
             raise serializers.ValidationError(
                 self._t("error.geometry_empty", context=context)
             )
+
+        # RFC 7946: fix winding order (exterior CCW, holes CW)
+        if geom_type in ["Polygon", "MultiPolygon"]:
+            self._fix_winding_order(geometry)
 
     def _validate_coordinates(self, coords, context, depth=0):
         """Recursively validate coordinate ranges."""
@@ -260,6 +281,72 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
                 # Nested array - recurse
                 for item in coords:
                     self._validate_coordinates(item, context, depth + 1)
+
+    def _validate_ring_closure(self, coords, context, geom_type):
+        """Validate RFC 7946 linear ring rules: closure and minimum positions."""
+        try:
+            if geom_type == "Polygon":
+                polygon_list = [coords]
+            else:  # MultiPolygon
+                polygon_list = coords
+
+            for polygon_coords in polygon_list:
+                for ring in polygon_coords:
+                    if not isinstance(ring, list) or len(ring) == 0:
+                        continue
+                    if len(ring) < 4:
+                        raise serializers.ValidationError(
+                            self._t(
+                                "error.ring_too_few_positions", context=context
+                            )
+                        )
+                    if ring[0] != ring[-1]:
+                        raise serializers.ValidationError(
+                            self._t("error.ring_not_closed", context=context)
+                        )
+        except serializers.ValidationError:
+            raise
+        except Exception as e:
+            raise serializers.ValidationError(
+                self._t(
+                    "error.geometry_invalid_structure",
+                    context=context,
+                    detail=str(e),
+                )
+            )
+
+    def _validate_no_nested_geometry_collections(self, geometry, context):
+        """Validate RFC 7946: GeometryCollections cannot contain GeometryCollections."""
+        try:
+            for sub in geometry.get("geometries", []):
+                if isinstance(sub, dict) and sub.get("type") == "GeometryCollection":
+                    raise serializers.ValidationError(
+                        self._t(
+                            "error.nested_geometry_collection", context=context
+                        )
+                    )
+        except serializers.ValidationError:
+            raise
+        except Exception as e:
+            raise serializers.ValidationError(
+                self._t(
+                    "error.geometry_invalid_structure",
+                    context=context,
+                    detail=str(e),
+                )
+            )
+
+    def _fix_winding_order(self, geometry):
+        """Apply RFC 7946 right-hand rule: exterior CCW, holes CW."""
+        try:
+            geom = shape(geometry)
+            oriented = orient(geom, sign=1.0)
+            geometry["coordinates"] = mapping(oriented)["coordinates"]
+        except Exception:
+            logger.warning(
+                "Failed to fix winding order for geometry, skipping",
+                exc_info=True,
+            )
 
     def create(self, validated_data):
         geojson_data = validated_data.pop("geojson")

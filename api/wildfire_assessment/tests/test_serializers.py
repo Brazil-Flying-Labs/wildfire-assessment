@@ -683,6 +683,438 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertIn("geojson", serializer.errors)
         self.assertIn("empty", str(serializer.errors["geojson"]).lower())
 
+    # --- RFC 7946 Relaxed: ring closure ---
+
+    def test_validate_geojson_ring_not_closed(self):
+        """Unclosed ring is rejected with translated error."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1]]],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        self.assertIn("not closed", str(serializer.errors["geojson"]).lower())
+
+    def test_validate_geojson_multipolygon_ring_not_closed(self):
+        """Unclosed ring in MultiPolygon is rejected."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "MultiPolygon",
+                    "coordinates": [
+                        [[[0, 0], [1, 0], [1, 1], [0, 1]]],
+                    ],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        self.assertIn("not closed", str(serializer.errors["geojson"]).lower())
+
+    # --- RFC 7946 Relaxed: minimum ring positions ---
+
+    def test_validate_geojson_ring_too_few_positions(self):
+        """Ring with fewer than 4 positions is rejected."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 0], [0, 0]]],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        self.assertIn("at least 4", str(serializer.errors["geojson"]).lower())
+
+    def test_validate_geojson_ring_with_exactly_4_positions_valid(self):
+        """Triangle with 4 positions (3 vertices + closure) passes."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 0], [0.5, 1], [0, 0]]],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    # --- RFC 7946 Relaxed: no nested GeometryCollections ---
+
+    def test_validate_geojson_nested_geometry_collection_rejected(self):
+        """GeometryCollection within a GeometryCollection is rejected."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "GeometryCollection",
+                        "geometries": [
+                            {
+                                "type": "GeometryCollection",
+                                "geometries": [],
+                            }
+                        ],
+                    },
+                    "properties": {},
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        self.assertIn(
+            "geometrycollection", str(serializer.errors["geojson"]).lower()
+        )
+
+    def test_validate_geojson_geometry_collection_with_polygons_valid(self):
+        """GeometryCollection containing Polygons passes."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "GeometryCollection",
+                        "geometries": [
+                            {
+                                "type": "Polygon",
+                                "coordinates": [
+                                    [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                                ],
+                            }
+                        ],
+                    },
+                    "properties": {},
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    # --- RFC 7946 Relaxed: CRS stripping ---
+
+    def test_validate_geojson_strips_deprecated_crs(self):
+        """Polygon with deprecated 'crs' field passes, crs removed."""
+        request = self.factory.post("/")
+        request.user = self.user
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+            "crs": {
+                "type": "name",
+                "properties": {"name": "EPSG:4326"},
+            },
+        }
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": geojson,
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertNotIn("crs", serializer.validated_data["geojson"])
+
+    def test_validate_geojson_feature_collection_strips_crs(self):
+        """FeatureCollection with 'crs' on top-level and features passes, crs removed."""
+        request = self.factory.post("/")
+        request.user = self.user
+        geojson = {
+            "type": "FeatureCollection",
+            "crs": {"type": "name", "properties": {"name": "EPSG:4326"}},
+            "features": [
+                {
+                    "type": "Feature",
+                    "crs": {"type": "name", "properties": {"name": "EPSG:4326"}},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                        ],
+                    },
+                    "properties": {},
+                }
+            ],
+        }
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": geojson,
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        validated = serializer.validated_data["geojson"]
+        self.assertNotIn("crs", validated)
+        self.assertNotIn("crs", validated["features"][0])
+
+    # --- RFC 7946 Relaxed: winding order ---
+
+    def test_validate_geojson_fixes_clockwise_exterior_ring(self):
+        """Clockwise exterior ring is auto-corrected to counterclockwise."""
+        request = self.factory.post("/")
+        request.user = self.user
+        # Clockwise exterior: (0,0) → (0,1) → (1,1) → (1,0) → (0,0)
+        cw_ring = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {"type": "Polygon", "coordinates": [cw_ring]},
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        result_ring = serializer.validated_data["geojson"]["coordinates"][0]
+        # Verify it's no longer the original CW order
+        self.assertNotEqual(
+            [list(c) for c in result_ring],
+            cw_ring,
+        )
+
+    def test_validate_geojson_ccw_exterior_unchanged(self):
+        """Already counterclockwise exterior ring is unchanged."""
+        request = self.factory.post("/")
+        request.user = self.user
+        # CCW exterior: (0,0) → (1,0) → (1,1) → (0,1) → (0,0)
+        ccw_ring = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {"type": "Polygon", "coordinates": [ccw_ring]},
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        result_ring = serializer.validated_data["geojson"]["coordinates"][0]
+        self.assertEqual(
+            [list(c) for c in result_ring],
+            ccw_ring,
+        )
+
+    def test_validate_geojson_fixes_winding_multipolygon(self):
+        """Clockwise MultiPolygon exterior is auto-corrected."""
+        request = self.factory.post("/")
+        request.user = self.user
+        cw_ring = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "MultiPolygon",
+                    "coordinates": [[cw_ring]],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        result_ring = serializer.validated_data["geojson"]["coordinates"][0][0]
+        self.assertNotEqual(
+            [list(c) for c in result_ring],
+            cw_ring,
+        )
+
+    def test_validate_geojson_fixes_hole_winding(self):
+        """Hole with wrong winding (CCW instead of CW) is corrected."""
+        request = self.factory.post("/")
+        request.user = self.user
+        # CCW exterior (correct)
+        exterior = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]
+        # CCW hole (incorrect — should be CW)
+        hole_ccw = [[2, 2], [8, 2], [8, 8], [2, 8], [2, 2]]
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [exterior, hole_ccw],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        result_hole = serializer.validated_data["geojson"]["coordinates"][1]
+        # After fix, hole should be CW — different from the input CCW
+        self.assertNotEqual(
+            [list(c) for c in result_hole],
+            hole_ccw,
+        )
+
+    def test_validate_geojson_feature_collection_fixes_winding(self):
+        """FeatureCollection with CW polygon features gets per-feature fix."""
+        request = self.factory.post("/")
+        request.user = self.user
+        cw_ring = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "geometry": {
+                                "type": "Polygon",
+                                "coordinates": [cw_ring],
+                            },
+                            "properties": {},
+                        }
+                    ],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        result_ring = serializer.validated_data["geojson"]["features"][0][
+            "geometry"
+        ]["coordinates"][0]
+        self.assertNotEqual(
+            [list(c) for c in result_ring],
+            cw_ring,
+        )
+
+    # --- RFC 7946 Relaxed: defensive error handling ---
+
+    def test_validate_geojson_malformed_ring_structure(self):
+        """Malformed ring structure produces translated error, never 500."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": ["not-a-ring"],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_ring_closure_non_iterable_coords(self):
+        """Non-iterable coordinates in ring closure check → translated error."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": 42,
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_validate_nested_gc_non_iterable_geometries(self):
+        """Non-iterable geometries list → translated error, not 500."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "GeometryCollection",
+                        "geometries": 42,
+                    },
+                    "properties": {},
+                },
+            },
+            context={"request": request},
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    @patch("wildfire_assessment.serializers.orient", side_effect=Exception("boom"))
+    def test_fix_winding_order_failure_silently_skipped(self, _mock_orient):
+        """If orient() fails, geometry is kept as-is (no 500)."""
+        request = self.factory.post("/")
+        request.user = self.user
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                    ],
+                },
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_validate_geojson_feature_strips_crs(self):
+        """Feature with 'crs' field passes, crs removed."""
+        request = self.factory.post("/")
+        request.user = self.user
+        geojson = {
+            "type": "Feature",
+            "crs": {"type": "name", "properties": {"name": "EPSG:4326"}},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+            },
+            "properties": {},
+        }
+        serializer = AreaOfInterestCreateSerializer(
+            data={
+                "name": "Test Area",
+                "country": self.country.id,
+                "geojson": geojson,
+            },
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertNotIn("crs", serializer.validated_data["geojson"])
+
 
 class AreaOfInterestUpdateSerializerTests(TestCase):
     def setUp(self):
@@ -1112,6 +1544,31 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
             context={},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_update_fixes_winding_order(self):
+        """UpdateSerializer also auto-corrects winding order."""
+        area = AreaOfInterest.objects.create(
+            name="Wind Area",
+            polygon_path="wind.geojson",
+            country=self.country,
+        )
+        request = self.factory.patch("/")
+        request.user = self.user
+        cw_ring = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
+        serializer = AreaOfInterestUpdateSerializer(
+            area,
+            data={
+                "geojson": {"type": "Polygon", "coordinates": [cw_ring]},
+            },
+            partial=True,
+            context={"request": request},
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        result_ring = serializer.validated_data["geojson"]["coordinates"][0]
+        self.assertNotEqual(
+            [list(c) for c in result_ring],
+            cw_ring,
+        )
 
 
 class NotificationSerializerTests(TestCase):
