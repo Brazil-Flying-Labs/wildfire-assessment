@@ -227,7 +227,7 @@
   "areas.selectCountry": "Sélectionnez un pays",
   "areas.noCountries": "Vous n'avez accès à aucun pays. Contactez un administrateur.",
   "areas.geojsonFile": "Fichier GeoJSON",
-  "areas.geojsonHint": "Téléchargez un fichier GeoJSON valide (Feature, FeatureCollection ou géométrie Polygon)",
+  "areas.geojsonHint": "Téléchargez un fichier GeoJSON valide conforme à la RFC 7946 (Feature, FeatureCollection ou géométrie Polygon/MultiPolygon)",
   "areas.create": "Créer la Zone",
   "areas.creating": "Création en cours...",
   "areas.reset": "Réinitialiser",

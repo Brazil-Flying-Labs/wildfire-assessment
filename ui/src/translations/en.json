@@ -227,7 +227,7 @@
   "areas.selectCountry": "Select a country",
   "areas.noCountries": "You don't have access to any countries. Contact an administrator.",
   "areas.geojsonFile": "GeoJSON File",
-  "areas.geojsonHint": "Upload a valid GeoJSON file (Feature, FeatureCollection, or Polygon geometry)",
+  "areas.geojsonHint": "Upload a valid GeoJSON file compliant with RFC 7946 (Feature, FeatureCollection, or Polygon/MultiPolygon geometry)",
   "areas.create": "Create Area",
   "areas.creating": "Creating...",
   "areas.reset": "Reset",
