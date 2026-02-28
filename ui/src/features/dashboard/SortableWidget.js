@@ -39,6 +39,7 @@ function SortableWidget({
   t,
   isDesktop,
   jiggle,
+  registerRef,
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
@@ -53,9 +54,15 @@ function SortableWidget({
   if (jiggle && !isDragging) cls.push("is-jiggling");
   if (!isDesktop) cls.push("touch-draggable");
 
+  // Combined ref handler
+  const combinedRef = (node) => {
+    setNodeRef(node);
+    if (registerRef) registerRef(id, node);
+  };
+
   return (
     <div
-      ref={setNodeRef}
+      ref={combinedRef}
       style={style}
       className={cls.join(" ")}
       {...(!isDesktop ? { ...attributes, ...listeners } : {})}

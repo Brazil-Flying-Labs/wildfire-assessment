@@ -58,7 +58,8 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const [deletingAnalysis, setDeletingAnalysis] = useState(false);
   const [isDraggingAny, setIsDraggingAny] = useState(false);
   const [activeId, setActiveId] = useState(null);
-  const [activeWidth, setActiveWidth] = useState(null);
+  const [activeRect, setActiveRect] = useState(null);
+  const widgetRefs = useRef({});
   const [mapGeneration, setMapGeneration] = useState(0);
   const hasLoadedRef = useRef(false);
 
@@ -356,22 +357,24 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         collisionDetection={closestCenter}
         onDragStart={(event) => {
           setIsDraggingAny(true);
-          setActiveId(event.active.id);
-          // Capture the original width of the dragged element
-          const el = event.active.node?.current;
+          const id = event.active.id;
+          setActiveId(id);
+          // Capture dimensions from the ref
+          const el = widgetRefs.current[id];
           if (el) {
-            setActiveWidth(el.getBoundingClientRect().width);
+            const rect = el.getBoundingClientRect();
+            setActiveRect({ width: rect.width, height: rect.height });
           }
         }}
         onDragEnd={(event) => {
           onDragEnd(event);
           setActiveId(null);
-          setActiveWidth(null);
+          setActiveRect(null);
         }}
         onDragCancel={() => {
           setIsDraggingAny(false);
           setActiveId(null);
-          setActiveWidth(null);
+          setActiveRect(null);
         }}
       >
         <SortableContext items={visibleIds} strategy={rectSortingStrategy}>
@@ -379,7 +382,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
             {(() => {
               const colClasses = buildColClasses(visibleIds);
               return visibleIds.map((id, idx) => (
-                <SortableWidget key={id} id={id} colClassName={colClasses[idx]} onRemove={handleRemove} t={t} isDesktop={isDesktop} jiggle={isDraggingAny}>
+                <SortableWidget key={id} id={id} colClassName={colClasses[idx]} onRemove={handleRemove} t={t} isDesktop={isDesktop} jiggle={isDraggingAny} registerRef={(wid, node) => { widgetRefs.current[wid] = node; }}>
                   {renderWidget(id)}
                 </SortableWidget>
               ));
@@ -390,7 +393,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
           {activeId ? (
             <div
               className="widget-wrapper drag-overlay"
-              style={activeWidth ? { width: activeWidth } : undefined}
+              style={activeRect ? { width: activeRect.width, height: activeRect.height } : undefined}
             >
               {renderWidget(activeId)}
             </div>
