@@ -737,7 +737,7 @@ resource "grafana_rule_group" "redis_alerts" {
     no_data_state = "OK"
 
     annotations = {
-      summary = "Redis memory usage is above 800 MB (80% of 1 GB container limit)."
+      summary = "Redis memory usage is above 85% (870 MB of 1 GB limit) — risk of evictions and OOM."
     }
 
     labels = {
@@ -754,7 +754,7 @@ resource "grafana_rule_group" "redis_alerts" {
       datasource_uid = var.grafana_prometheus_uid
       model = jsonencode({
         refId         = "A"
-        expr          = "redis_memory_used_bytes"
+        expr          = "redis_memory_used_bytes{job=\"wildfire-redis\"}"
         intervalMs    = 1000
         maxDataPoints = 43200
       })
@@ -788,7 +788,7 @@ resource "grafana_rule_group" "redis_alerts" {
         type       = "threshold"
         expression = "B"
         conditions = [{
-          evaluator = { params = [838860800], type = "gt" }
+          evaluator = { params = [912261120], type = "gt" }
           operator  = { type = "and" }
           query     = { params = ["C"] }
           reducer   = { params = [], type = "last" }
@@ -823,7 +823,7 @@ resource "grafana_rule_group" "redis_alerts" {
       datasource_uid = var.grafana_prometheus_uid
       model = jsonencode({
         refId         = "A"
-        expr          = "redis_up"
+        expr          = "redis_up{job=\"wildfire-redis\"}"
         intervalMs    = 1000
         maxDataPoints = 43200
       })
@@ -858,6 +858,210 @@ resource "grafana_rule_group" "redis_alerts" {
         expression = "B"
         conditions = [{
           evaluator = { params = [1], type = "lt" }
+          operator  = { type = "and" }
+          query     = { params = ["C"] }
+          reducer   = { params = [], type = "last" }
+          type      = "query"
+        }]
+      })
+    }
+  }
+
+  rule {
+    name          = "Redis Keys Evicted"
+    condition     = "C"
+    for           = "5m"
+    no_data_state = "OK"
+
+    annotations = {
+      summary = "Redis is evicting keys due to memory pressure — data loss is occurring."
+    }
+
+    labels = {
+      severity   = "warning"
+      alert_type = "resource"
+    }
+
+    data {
+      ref_id = "A"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = var.grafana_prometheus_uid
+      model = jsonencode({
+        refId         = "A"
+        expr          = "increase(redis_evicted_keys_total{job=\"wildfire-redis\"}[5m])"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+      })
+    }
+
+    data {
+      ref_id = "B"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "B"
+        type       = "reduce"
+        expression = "A"
+        reducer    = "last"
+        settings   = { mode = "replaceNN", replaceWithValue = 0 }
+      })
+    }
+
+    data {
+      ref_id = "C"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "C"
+        type       = "threshold"
+        expression = "B"
+        conditions = [{
+          evaluator = { params = [0], type = "gt" }
+          operator  = { type = "and" }
+          query     = { params = ["C"] }
+          reducer   = { params = [], type = "last" }
+          type      = "query"
+        }]
+      })
+    }
+  }
+
+  rule {
+    name          = "Low Redis Cache Hit Rate"
+    condition     = "C"
+    for           = "10m"
+    no_data_state = "OK"
+
+    annotations = {
+      summary = "Redis cache hit rate is below 80% — possible inefficient caching or cold cache."
+    }
+
+    labels = {
+      severity   = "warning"
+      alert_type = "resource"
+    }
+
+    data {
+      ref_id = "A"
+      relative_time_range {
+        from = 900
+        to   = 0
+      }
+      datasource_uid = var.grafana_prometheus_uid
+      model = jsonencode({
+        refId         = "A"
+        expr          = "rate(redis_keyspace_hits_total{job=\"wildfire-redis\"}[5m]) / (rate(redis_keyspace_hits_total{job=\"wildfire-redis\"}[5m]) + rate(redis_keyspace_misses_total{job=\"wildfire-redis\"}[5m]))"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+      })
+    }
+
+    data {
+      ref_id = "B"
+      relative_time_range {
+        from = 900
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "B"
+        type       = "reduce"
+        expression = "A"
+        reducer    = "last"
+        settings   = { mode = "dropNN" }
+      })
+    }
+
+    data {
+      ref_id = "C"
+      relative_time_range {
+        from = 900
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "C"
+        type       = "threshold"
+        expression = "B"
+        conditions = [{
+          evaluator = { params = [0.8], type = "lt" }
+          operator  = { type = "and" }
+          query     = { params = ["C"] }
+          reducer   = { params = [], type = "last" }
+          type      = "query"
+        }]
+      })
+    }
+  }
+
+  rule {
+    name          = "Redis Blocked Clients"
+    condition     = "C"
+    for           = "2m"
+    no_data_state = "OK"
+
+    annotations = {
+      summary = "Redis has {{ $values.B.Value }} blocked clients — possible slow consumer or BLPOP timeout issue."
+    }
+
+    labels = {
+      severity   = "warning"
+      alert_type = "resource"
+    }
+
+    data {
+      ref_id = "A"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = var.grafana_prometheus_uid
+      model = jsonencode({
+        refId         = "A"
+        expr          = "redis_blocked_clients{job=\"wildfire-redis\"}"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+      })
+    }
+
+    data {
+      ref_id = "B"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "B"
+        type       = "reduce"
+        expression = "A"
+        reducer    = "last"
+        settings   = { mode = "replaceNN", replaceWithValue = 0 }
+      })
+    }
+
+    data {
+      ref_id = "C"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "C"
+        type       = "threshold"
+        expression = "B"
+        conditions = [{
+          evaluator = { params = [0], type = "gt" }
           operator  = { type = "and" }
           query     = { params = ["C"] }
           reducer   = { params = [], type = "last" }
