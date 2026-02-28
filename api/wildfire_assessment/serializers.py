@@ -128,13 +128,13 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
 
     def validate_geojson(self, value):
         """
-        Validate GeoJSON structure and geometry for Google Earth Engine compatibility.
+        Validate GeoJSON structure and geometry per RFC 7946 + GEE compatibility.
 
         Validates:
-        - Valid GeoJSON structure (type, geometry)
-        - Valid geometry using shapely
-        - Coordinate ranges (lon: -180 to 180, lat: -90 to 90)
-        - Polygon validity (closed rings, no self-intersection)
+        - RFC 7946 structure (type, geometry, properties, id, bbox)
+        - Coordinate positions (numeric, 2D only, lon/lat ranges)
+        - Polygon rings (closure, min positions, winding order)
+        - Shapely structural validity
         """
         if not isinstance(value, dict):
             raise serializers.ValidationError(self._t("error.geojson_not_object"))
@@ -146,6 +146,9 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
         if not geojson_type:
             raise serializers.ValidationError(self._t("error.geojson_no_type"))
 
+        # Validate bbox if present (RFC 7946 Section 5)
+        self._validate_bbox(value)
+
         # Extract geometry based on GeoJSON type
         geometry = None
         if geojson_type == "Feature":
@@ -153,22 +156,49 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
             geometry = value.get("geometry")
             if not geometry:
                 raise serializers.ValidationError(self._t("error.feature_no_geometry"))
+            # RFC 7946 Section 3.2: Feature must have "properties"
+            if "properties" not in value:
+                raise serializers.ValidationError(
+                    self._t("error.feature_no_properties", context="Feature")
+                )
+            # RFC 7946 Section 3.2: Feature "id" must be string or number
+            self._validate_feature_id(value, "Feature")
         elif geojson_type == "FeatureCollection":
             features = value.get("features", [])
             if not features:
                 raise serializers.ValidationError(
                     self._t("error.featurecollection_empty")
                 )
-            # Validate each feature's geometry
+            # Validate each feature
             for i, feature in enumerate(features):
                 if not isinstance(feature, dict):
                     raise serializers.ValidationError(
                         self._t("error.feature_not_object", index=i)
                     )
+                # RFC 7946 Section 3.3: each element must be a Feature
+                if feature.get("type") != "Feature":
+                    raise serializers.ValidationError(
+                        self._t("error.fc_feature_missing_type", index=i)
+                    )
                 feature.pop("crs", None)
+                # RFC 7946 Section 3.2: Feature must have "properties"
+                if "properties" not in feature:
+                    raise serializers.ValidationError(
+                        self._t(
+                            "error.feature_no_properties", context=f"Feature[{i}]"
+                        )
+                    )
+                # RFC 7946 Section 3.2: Feature "id" must be string or number
+                self._validate_feature_id(feature, f"Feature[{i}]")
+                # RFC 7946 Section 5: validate bbox on each feature
+                self._validate_bbox(feature)
+                # RFC 7946 Section 3.2: Feature must have non-null geometry
                 feat_geom = feature.get("geometry")
-                if feat_geom:
-                    self._validate_geometry(feat_geom, f"Feature[{i}]")
+                if not feat_geom:
+                    raise serializers.ValidationError(
+                        self._t("error.fc_feature_no_geometry", index=i)
+                    )
+                self._validate_geometry(feat_geom, f"Feature[{i}]")
             return value
         elif geojson_type in ["Polygon", "MultiPolygon"]:
             geometry = value
@@ -206,13 +236,16 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
                 )
             )
 
+        # RFC 7946 Section 5: validate bbox on geometry objects
+        self._validate_bbox(geometry)
+
         coords = geometry.get("coordinates")
         if geom_type not in ["GeometryCollection"] and not coords:
             raise serializers.ValidationError(
                 self._t("error.geometry_no_coordinates", context=context)
             )
 
-        # Validate coordinate ranges
+        # Validate coordinate positions (structure, ranges, 3D rejection)
         if coords:
             self._validate_coordinates(coords, context)
 
@@ -252,35 +285,65 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
             self._fix_winding_order(geometry)
 
     def _validate_coordinates(self, coords, context, depth=0):
-        """Recursively validate coordinate ranges."""
-        if depth > 10:  # Prevent infinite recursion
+        """Recursively validate coordinate positions per RFC 7946 Section 3.1.1.
+
+        Detects positions (flat arrays of all numbers) and validates:
+        - At least 2 elements (lon, lat)
+        - No more than 2 elements (GEE rejects 3D coordinates)
+        - Longitude in [-180, 180], latitude in [-90, 90]
+        Non-position lists are treated as containers and recursed into.
+        """
+        if depth > 10:
             return
 
         if isinstance(coords, (int, float)):
             return
 
-        if isinstance(coords, list):
-            if len(coords) >= 2 and all(
-                isinstance(c, (int, float)) for c in coords[:2]
-            ):
-                # This is a coordinate pair [lon, lat] or [lon, lat, alt]
-                lon, lat = coords[0], coords[1]
-                if not (-180 <= lon <= 180):
-                    raise serializers.ValidationError(
-                        self._t(
-                            "error.longitude_out_of_range", context=context, value=lon
-                        )
+        if not isinstance(coords, list):
+            raise serializers.ValidationError(
+                self._t("error.position_not_all_numbers", context=context)
+            )
+
+        if len(coords) == 0:
+            return
+
+        all_numeric = all(isinstance(c, (int, float)) for c in coords)
+
+        if all_numeric:
+            # This is a position
+            if len(coords) < 2:
+                raise serializers.ValidationError(
+                    self._t("error.position_too_few_elements", context=context)
+                )
+            if len(coords) > 2:
+                raise serializers.ValidationError(
+                    self._t("error.coordinates_3d", context=context)
+                )
+            lon, lat = coords[0], coords[1]
+            if not (-180 <= lon <= 180):
+                raise serializers.ValidationError(
+                    self._t(
+                        "error.longitude_out_of_range", context=context, value=lon
                     )
-                if not (-90 <= lat <= 90):
-                    raise serializers.ValidationError(
-                        self._t(
-                            "error.latitude_out_of_range", context=context, value=lat
-                        )
+                )
+            if not (-90 <= lat <= 90):
+                raise serializers.ValidationError(
+                    self._t(
+                        "error.latitude_out_of_range", context=context, value=lat
                     )
-            else:
-                # Nested array - recurse
-                for item in coords:
-                    self._validate_coordinates(item, context, depth + 1)
+                )
+        else:
+            # Container — check for mixed types like [1, "b"]
+            has_number = any(isinstance(c, (int, float)) for c in coords)
+            has_invalid = any(
+                not isinstance(c, (int, float, list)) for c in coords
+            )
+            if has_number and has_invalid:
+                raise serializers.ValidationError(
+                    self._t("error.position_not_all_numbers", context=context)
+                )
+            for item in coords:
+                self._validate_coordinates(item, context, depth + 1)
 
     def _validate_ring_closure(self, coords, context, geom_type):
         """Validate RFC 7946 linear ring rules: closure and minimum positions."""
@@ -346,6 +409,55 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
             logger.warning(
                 "Failed to fix winding order for geometry, skipping",
                 exc_info=True,
+            )
+
+    def _validate_bbox(self, obj):
+        """Validate bbox member if present (RFC 7946 Section 5).
+
+        For 2D geometries, bbox must be [west, south, east, north] (4 numbers).
+        Latitude values must be in [-90, 90].
+        """
+        try:
+            bbox = obj.get("bbox")
+            if bbox is None:
+                return
+            if not isinstance(bbox, list) or len(bbox) != 4:
+                raise serializers.ValidationError(
+                    self._t("error.bbox_invalid_length")
+                )
+            if not all(
+                isinstance(v, (int, float)) and not isinstance(v, bool)
+                for v in bbox
+            ):
+                raise serializers.ValidationError(
+                    self._t("error.bbox_invalid_length")
+                )
+            south, north = bbox[1], bbox[3]
+            if not (-90 <= south <= 90) or not (-90 <= north <= 90):
+                raise serializers.ValidationError(
+                    self._t("error.bbox_latitude_out_of_range")
+                )
+        except serializers.ValidationError:
+            raise
+        except Exception as e:
+            raise serializers.ValidationError(
+                self._t(
+                    "error.geometry_invalid_structure",
+                    context="bbox",
+                    detail=str(e),
+                )
+            )
+
+    def _validate_feature_id(self, feature, context):
+        """Validate Feature 'id' type if present (RFC 7946 Section 3.2)."""
+        if "id" not in feature:
+            return
+        feat_id = feature["id"]
+        if feat_id is None:
+            return
+        if isinstance(feat_id, bool) or not isinstance(feat_id, (str, int, float)):
+            raise serializers.ValidationError(
+                self._t("error.feature_invalid_id", context=context)
             )
 
     def create(self, validated_data):
