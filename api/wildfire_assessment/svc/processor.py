@@ -19,6 +19,7 @@ from wildfire_assessment.svc.aws import (
     download_polygon_from_s3,
     get_aws_secret_manager_secret,
 )
+from wildfire_assessment.svc.dashboard import invalidate_dashboard_cache
 from wildfire_assessment.svc.notification import send_push_notification
 from wildfire_assessment.translations import get_email_translation
 from wildfire_assessment.utils import send_gmail_email
@@ -278,6 +279,9 @@ def process_scientific_deliverable(
                 subject=subject,
                 body=body,
             )
+
+            if user_id:
+                invalidate_dashboard_cache(user_id)
 
         return result_wait
     except Exception as exc:

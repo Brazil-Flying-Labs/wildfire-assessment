@@ -4,7 +4,8 @@ from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Count
+from django.core.cache import cache
+from django.db.models import Count, Q
 from django.utils import timezone
 from wildfire_assessment.models import AnalysisRun
 
@@ -54,10 +55,15 @@ def get_dashboard_stats(user):
     # Base queryset for all user analyses
     all_runs_qs = AnalysisRun.objects.filter(user=user)
 
-    # === DB AGGREGATIONS (efficient count queries) ===
-    total_analyses = all_runs_qs.count()
-    total_areas = all_runs_qs.values("area_of_interest").distinct().count()
-    analyses_this_month = all_runs_qs.filter(created_at__gte=month_start).count()
+    # === DB AGGREGATIONS (single query for all counts) ===
+    agg = all_runs_qs.aggregate(
+        total_analyses=Count("id"),
+        total_areas=Count("area_of_interest", distinct=True),
+        analyses_this_month=Count("id", filter=Q(created_at__gte=month_start)),
+    )
+    total_analyses = agg["total_analyses"]
+    total_areas = agg["total_areas"]
+    analyses_this_month = agg["analyses_this_month"]
 
     # Most analyzed area (DB aggregation)
     most_analyzed_result = (
@@ -252,3 +258,8 @@ def get_dashboard_stats(user):
         "areas_geo": list(areas_geo.values()),
         "severity_trend": trend_data,
     }
+
+
+def invalidate_dashboard_cache(user_id):
+    """Clear the cached dashboard response for a user."""
+    cache.delete(f"dashboard_{user_id}")

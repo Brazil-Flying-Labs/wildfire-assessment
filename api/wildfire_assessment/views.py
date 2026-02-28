@@ -2,6 +2,7 @@ import logging
 import uuid
 
 from celery.result import AsyncResult
+from django.core.cache import cache
 from django.http import JsonResponse, StreamingHttpResponse
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
@@ -38,7 +39,10 @@ from wildfire_assessment.svc.area_of_interest import (
     save_deliverable_task_id,
     user_can_access_area,
 )
-from wildfire_assessment.svc.dashboard import get_dashboard_stats
+from wildfire_assessment.svc.dashboard import (
+    get_dashboard_stats,
+    invalidate_dashboard_cache,
+)
 from wildfire_assessment.svc.notification import (
     get_notifications_queryset,
     get_unread_count,
@@ -153,7 +157,9 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             return denied
         instance = self.get_object()
         delete_polygon_file(instance.polygon_path)
-        return super().destroy(request, *args, **kwargs)
+        response = super().destroy(request, *args, **kwargs)
+        invalidate_dashboard_cache(request.user.id)
+        return response
 
     @extend_schema(
         methods=["POST"],
@@ -207,6 +213,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             post_fire_date=post_fire_date,
             assessment_result=assessment_result,
         )
+        invalidate_dashboard_cache(request.user.id)
 
         return Response(
             {
@@ -458,10 +465,16 @@ class DashboardView(APIView):
         responses={200: DashboardStatsSerializer},
     )
     def get(self, request):
+        cache_key = f"dashboard_{request.user.id}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
         stats = get_dashboard_stats(request.user)
         stats["recent_analyses"] = AnalysisRunSerializer(
             stats["recent_analyses"], many=True
         ).data
+        cache.set(cache_key, stats, timeout=60)
         return Response(stats)
 
 

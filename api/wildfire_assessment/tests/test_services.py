@@ -795,6 +795,131 @@ class AwsUtilsTests(TestCase):
         self.assertEqual(result, "COMPLETED")
 
 
+class ProcessorCacheInvalidationTests(TestCase):
+    """Tests for dashboard cache invalidation in processor."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="cacheproc", email="cacheproc@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="CacheProc Country", code="CP")
+        self.area = AreaOfInterest.objects.create(
+            name="CacheProc Area",
+            polygon_path="cacheproc.geojson",
+            country=self.country,
+        )
+        self.analysis_run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+
+    def tearDown(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_successful_deliverable_invalidates_dashboard_cache(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+        mock_unlink,
+    ):
+        """Successful deliverable completion clears the user's dashboard cache."""
+        from django.core.cache import cache
+
+        cache.set(f"dashboard_{self.user.id}", {"cached": True}, timeout=60)
+        self.assertIsNotNone(cache.get(f"dashboard_{self.user.id}"))
+
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr.tif"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        processor.process_scientific_deliverable(
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            polygon_path="cacheproc.geojson",
+            deliverable_name=Deliverable.DNBR.name,
+            email="cacheproc@example.com",
+            reserve_name="CacheProc Reserve",
+            analysis_run_id=self.analysis_run.id,
+            user_id=self.user.id,
+        )
+
+        self.assertIsNone(cache.get(f"dashboard_{self.user.id}"))
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_successful_deliverable_without_user_id_does_not_invalidate(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+        mock_unlink,
+    ):
+        """Without user_id, dashboard cache is not invalidated."""
+        from django.core.cache import cache
+
+        cache.set(f"dashboard_{self.user.id}", {"cached": True}, timeout=60)
+
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "DNBR": {"gee_task_id": "task-1", "url": "http://files/dnbr.tif"}
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        processor.process_scientific_deliverable(
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            polygon_path="cacheproc.geojson",
+            deliverable_name=Deliverable.DNBR.name,
+            email="cacheproc@example.com",
+            reserve_name="CacheProc Reserve",
+        )
+
+        # Cache should still exist since no user_id was provided
+        self.assertIsNotNone(cache.get(f"dashboard_{self.user.id}"))
+
+
 class ProcessorErrorPersistenceTests(TestCase):
     """Tests for error persistence when scientific deliverable tasks fail."""
 
@@ -1947,6 +2072,33 @@ class DashboardServiceTests(TestCase):
         self.assertEqual(len(geo), 1)
         # Geometry is lazy-loaded via /area_of_interest/{id}/geojson/
         self.assertIsNone(geo[0]["geometry"])
+
+
+class DashboardCacheInvalidationTests(TestCase):
+    """Tests for invalidate_dashboard_cache helper."""
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def tearDown(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_invalidate_dashboard_cache_clears_entry(self):
+        from django.core.cache import cache
+
+        cache.set("dashboard_42", {"total_analyses": 5}, timeout=60)
+        self.assertIsNotNone(cache.get("dashboard_42"))
+
+        dashboard_service.invalidate_dashboard_cache(42)
+        self.assertIsNone(cache.get("dashboard_42"))
+
+    def test_invalidate_dashboard_cache_noop_when_missing(self):
+        """Calling invalidate on a non-existent key does not raise."""
+        dashboard_service.invalidate_dashboard_cache(999)
 
 
 class ExtractGeometryTests(TestCase):

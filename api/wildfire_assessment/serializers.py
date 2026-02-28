@@ -20,6 +20,7 @@ from wildfire_assessment.svc.aws import (
     get_presigned_image_url,
     upload_polygon_to_s3,
 )
+from wildfire_assessment.svc.dashboard import invalidate_dashboard_cache
 from wildfire_assessment.translations import get_error_translation, get_user_language
 
 logger = logging.getLogger(__name__)
@@ -473,7 +474,11 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
         if centroid:
             validated_data["centroid_lat"], validated_data["centroid_lng"] = centroid
 
-        return super().create(validated_data)
+        instance = super().create(validated_data)
+        request = self.context.get("request")
+        if request and request.user:
+            invalidate_dashboard_cache(request.user.id)
+        return instance
 
 
 class AreaOfInterestUpdateSerializer(AreaSerializerMixin, serializers.ModelSerializer):
@@ -511,7 +516,11 @@ class AreaOfInterestUpdateSerializer(AreaSerializerMixin, serializers.ModelSeria
                     centroid
                 )
 
-        return super().update(instance, validated_data)
+        instance = super().update(instance, validated_data)
+        request = self.context.get("request")
+        if request and request.user:
+            invalidate_dashboard_cache(request.user.id)
+        return instance
 
 
 class UserMeSerializer(serializers.ModelSerializer):

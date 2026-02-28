@@ -210,6 +210,7 @@ DATABASES = {
         "PASSWORD": DB_PASSWORD,
         "HOST": DB_HOST,
         "PORT": "5432",
+        "CONN_MAX_AGE": 600,
     }
 }
 

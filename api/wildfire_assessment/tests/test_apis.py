@@ -5,6 +5,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -825,6 +826,195 @@ class DashboardViewTests(APITestCase):
         self.assertIn("average_burn_severity", data)
         self.assertIn("most_analyzed_area", data)
         self.assertIn("largest_fire", data)
+
+
+class DashboardCacheTests(APITestCase):
+    """Tests for dashboard Redis caching and invalidation."""
+
+    def setUp(self):
+        cache.clear()
+        self.country = Country.objects.create(name="Cache Country", code="CC")
+        self.area = AreaOfInterest.objects.create(
+            name="Cache Area",
+            polygon_path="cache_polygon.json",
+            country=self.country,
+        )
+        self.user = User.objects.create_user(
+            username="cacheuser", email="cache@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            severity_data={
+                "Total Area": {"area_ha": 500.0},
+                "Total Burned Area": {"area_ha": 50.0},
+            },
+        )
+        self.url = reverse("dashboard")
+
+    def tearDown(self):
+        cache.clear()
+
+    def test_dashboard_cache_hit(self):
+        """Second request returns cached data without re-computing."""
+        self.client.force_authenticate(user=self.user)
+
+        # First request populates cache
+        response1 = self.client.get(self.url)
+        self.assertEqual(response1.status_code, status.HTTP_200_OK)
+        data1 = response1.json()
+
+        # Verify cache is populated
+        cache_key = f"dashboard_{self.user.id}"
+        self.assertIsNotNone(cache.get(cache_key))
+
+        # Modify DB behind the cache (add a new run)
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+            severity_data={
+                "Total Area": {"area_ha": 1000.0},
+                "Total Burned Area": {"area_ha": 100.0},
+            },
+        )
+
+        # Second request returns stale cached data (total_analyses still 1)
+        response2 = self.client.get(self.url)
+        data2 = response2.json()
+        self.assertEqual(data2["total_analyses"], data1["total_analyses"])
+
+    def test_dashboard_cache_invalidated_on_area_create(self):
+        """Creating a new area clears the dashboard cache."""
+        self.client.force_authenticate(user=self.user)
+
+        # Populate cache
+        self.client.get(self.url)
+        cache_key = f"dashboard_{self.user.id}"
+        self.assertIsNotNone(cache.get(cache_key))
+
+        # Create a new area (triggers cache invalidation in serializer)
+        geojson = {
+            "type": "Feature",
+            "properties": {},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [-47.0, -15.0],
+                        [-47.0, -14.0],
+                        [-46.0, -14.0],
+                        [-46.0, -15.0],
+                        [-47.0, -15.0],
+                    ]
+                ],
+            },
+        }
+        with patch("wildfire_assessment.serializers.upload_polygon_to_s3"):
+            create_url = reverse("areaofinterest-list")
+            self.client.post(
+                create_url,
+                {
+                    "name": "New Area",
+                    "country": self.country.id,
+                    "geojson": geojson,
+                },
+                format="json",
+            )
+
+        # Cache should be cleared
+        self.assertIsNone(cache.get(cache_key))
+
+    def test_dashboard_cache_invalidated_on_area_delete(self):
+        """Deleting an area clears the dashboard cache."""
+        self.client.force_authenticate(user=self.user)
+
+        # Populate cache
+        self.client.get(self.url)
+        cache_key = f"dashboard_{self.user.id}"
+        self.assertIsNotNone(cache.get(cache_key))
+
+        # Delete the area (triggers cache invalidation in view)
+        with patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3"):
+            delete_url = reverse("areaofinterest-detail", args=[self.area.id])
+            self.client.delete(delete_url)
+
+        # Cache should be cleared
+        self.assertIsNone(cache.get(cache_key))
+
+    def test_dashboard_cache_invalidated_on_analyze(self):
+        """Running an analysis clears the dashboard cache."""
+        self.client.force_authenticate(user=self.user)
+
+        # Populate cache
+        self.client.get(self.url)
+        cache_key = f"dashboard_{self.user.id}"
+        self.assertIsNotNone(cache.get(cache_key))
+
+        # Run analysis (triggers cache invalidation in view)
+        with patch(
+            "wildfire_assessment.views.process_fire_assessment"
+        ) as mock_process, patch(
+            "wildfire_assessment.views.save_analysis_run"
+        ) as mock_save:
+            mock_process.return_value = {"severity_map": "{}"}
+            mock_save.return_value = AnalysisRun(id=999)
+            analyze_url = reverse("areaofinterest-analyze", args=[self.area.id])
+            self.client.post(
+                f"{analyze_url}?pre_fire_date=2024-01-01&post_fire_date=2024-01-15"
+            )
+
+        # Cache should be cleared
+        self.assertIsNone(cache.get(cache_key))
+
+    def test_dashboard_cache_invalidated_on_area_update(self):
+        """Updating an area clears the dashboard cache."""
+        self.client.force_authenticate(user=self.user)
+
+        # Populate cache
+        self.client.get(self.url)
+        cache_key = f"dashboard_{self.user.id}"
+        self.assertIsNotNone(cache.get(cache_key))
+
+        # Update area name (triggers cache invalidation in serializer)
+        update_url = reverse("areaofinterest-detail", args=[self.area.id])
+        self.client.patch(
+            update_url,
+            {"name": "Updated Name"},
+            format="json",
+        )
+
+        # Cache should be cleared
+        self.assertIsNone(cache.get(cache_key))
+
+    def test_dashboard_cache_per_user(self):
+        """Each user has their own cache entry."""
+        other_user = User.objects.create_user(
+            username="other", email="other@example.com", password="password"
+        )
+
+        # Populate cache for first user
+        self.client.force_authenticate(user=self.user)
+        self.client.get(self.url)
+
+        # Populate cache for second user
+        self.client.force_authenticate(user=other_user)
+        self.client.get(self.url)
+
+        # Both cache entries exist
+        self.assertIsNotNone(cache.get(f"dashboard_{self.user.id}"))
+        self.assertIsNotNone(cache.get(f"dashboard_{other_user.id}"))
+
+        # Invalidating one doesn't affect the other
+        from wildfire_assessment.svc.dashboard import invalidate_dashboard_cache
+
+        invalidate_dashboard_cache(self.user.id)
+        self.assertIsNone(cache.get(f"dashboard_{self.user.id}"))
+        self.assertIsNotNone(cache.get(f"dashboard_{other_user.id}"))
 
 
 class AnalysisRunTaskStatusTests(APITestCase):
