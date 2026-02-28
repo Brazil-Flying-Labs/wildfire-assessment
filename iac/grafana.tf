@@ -15,7 +15,17 @@ locals {
     datasource = var.grafana_loki_uid
     queries = [{
       refId     = "A"
-      expr      = "{service_name=\"wildfire-ui\", kind=\"exception\"}"
+      expr      = "{app_name=\"wildfire-ui\", kind=\"exception\"}"
+      queryType = "range"
+    }]
+    range = { from = "now-15m", to = "now" }
+  }))}"
+
+  explore_mobile_errors = "${var.grafana_url}explore?orgId=1&left=${urlencode(jsonencode({
+    datasource = var.grafana_loki_uid
+    queries = [{
+      refId     = "A"
+      expr      = "{app_name=\"wildfire-mobile\", kind=\"exception\"}"
       queryType = "range"
     }]
     range = { from = "now-15m", to = "now" }
@@ -35,26 +45,26 @@ resource "grafana_folder" "wildfire_dashboards" {
 # --- Dashboards ---
 
 resource "grafana_dashboard" "ecs" {
-  folder    = grafana_folder.wildfire_dashboards.id
-  overwrite = true
+  folder      = grafana_folder.wildfire_dashboards.id
+  overwrite   = true
   config_json = file("${path.module}/grafana/ecs-dashboard.json")
 }
 
 resource "grafana_dashboard" "rds" {
-  folder    = grafana_folder.wildfire_dashboards.id
-  overwrite = true
+  folder      = grafana_folder.wildfire_dashboards.id
+  overwrite   = true
   config_json = file("${path.module}/grafana/rds-dashboard.json")
 }
 
 resource "grafana_dashboard" "django" {
-  folder    = grafana_folder.wildfire_dashboards.id
-  overwrite = true
+  folder      = grafana_folder.wildfire_dashboards.id
+  overwrite   = true
   config_json = file("${path.module}/grafana/django-dashboard.json")
 }
 
 resource "grafana_dashboard" "ui" {
-  folder    = grafana_folder.wildfire_dashboards.id
-  overwrite = true
+  folder      = grafana_folder.wildfire_dashboards.id
+  overwrite   = true
   config_json = file("${path.module}/grafana/ui-dashboard.json")
 }
 
@@ -138,7 +148,7 @@ resource "grafana_rule_group" "rds_alerts" {
 
     labels = {
       severity   = "warning"
-      alert_type = "error"  # Route to contact point without resolve messages
+      alert_type = "error" # Route to contact point without resolve messages
     }
 
     data {
@@ -195,10 +205,10 @@ resource "grafana_rule_group" "rds_alerts" {
   }
 
   rule {
-    name           = "High RDS CPU Utilization"
-    condition      = "C"
-    for            = "5m"
-    no_data_state  = "OK"
+    name          = "High RDS CPU Utilization"
+    condition     = "C"
+    for           = "5m"
+    no_data_state = "OK"
 
     annotations = {
       summary = "Aurora CPU utilization is above 95%."
@@ -271,10 +281,10 @@ resource "grafana_rule_group" "ecs_alerts" {
   interval_seconds = 300
 
   rule {
-    name           = "High ECS CPU Usage"
-    condition      = "C"
-    for            = "5m"
-    no_data_state  = "OK"
+    name          = "High ECS CPU Usage"
+    condition     = "C"
+    for           = "5m"
+    no_data_state = "OK"
 
     annotations = {
       summary = "ECS service {{ $labels.dimension_ServiceName }} CPU usage is above 80%."
@@ -339,10 +349,10 @@ resource "grafana_rule_group" "ecs_alerts" {
   }
 
   rule {
-    name           = "High ECS Memory Usage"
-    condition      = "C"
-    for            = "5m"
-    no_data_state  = "OK"
+    name          = "High ECS Memory Usage"
+    condition     = "C"
+    for           = "5m"
+    no_data_state = "OK"
 
     annotations = {
       summary = "ECS service {{ $labels.dimension_ServiceName }} memory usage is above 80% — risk of OOM."
@@ -415,10 +425,10 @@ resource "grafana_rule_group" "backend_alerts" {
   interval_seconds = 300
 
   rule {
-    name           = "Backend Error Logs"
-    condition      = "C"
-    for            = "0s"
-    no_data_state  = "OK"
+    name          = "Backend Error Logs"
+    condition     = "C"
+    for           = "0s"
+    no_data_state = "OK"
 
     annotations = {
       summary     = "{{ $values.B.Value }} error logs detected in backend services in the last 5 minutes."
@@ -484,10 +494,10 @@ resource "grafana_rule_group" "backend_alerts" {
   }
 
   rule {
-    name           = "API 5xx Responses"
-    condition      = "C"
-    for            = "0s"
-    no_data_state  = "OK"
+    name          = "API 5xx Responses"
+    condition     = "C"
+    for           = "0s"
+    no_data_state = "OK"
 
     annotations = {
       summary     = "API returned {{ $values.B.Value }} HTTP 5xx errors/sec in the last 5 minutes."
@@ -553,21 +563,21 @@ resource "grafana_rule_group" "backend_alerts" {
   }
 }
 
-# --- UI Alerts ---
+# --- Web UI Alerts ---
 
 resource "grafana_rule_group" "ui_alerts" {
-  name             = "UI Alerts"
+  name             = "Web UI Alerts"
   folder_uid       = grafana_folder.wildfire_alerts.uid
   interval_seconds = 300
 
   rule {
-    name           = "Frontend JS Errors"
-    condition      = "C"
-    for            = "0s"
-    no_data_state  = "OK"
+    name          = "Web UI JS Errors"
+    condition     = "C"
+    for           = "0s"
+    no_data_state = "OK"
 
     annotations = {
-      summary     = "{{ $values.B.Value }} JavaScript errors detected in the Wildfire UI in the last 5 minutes."
+      summary     = "{{ $values.B.Value }} JavaScript errors detected in the Wildfire Web UI in the last 5 minutes."
       description = "View errors in Grafana Explore:\n${local.explore_ui_errors}"
     }
 
@@ -585,7 +595,84 @@ resource "grafana_rule_group" "ui_alerts" {
       datasource_uid = var.grafana_loki_uid
       model = jsonencode({
         refId         = "A"
-        expr          = "sum(count_over_time({service_name=\"wildfire-ui\", kind=\"exception\", deployment_environment!=\"local\"} [5m]))"
+        expr          = "sum(count_over_time({app_name=\"wildfire-ui\", kind=\"exception\", app_environment!=\"local\"} [5m]))"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+      })
+    }
+
+    data {
+      ref_id = "B"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "B"
+        type       = "reduce"
+        expression = "A"
+        reducer    = "last"
+        settings   = { mode = "replaceNN", replaceWithValue = 0 }
+      })
+    }
+
+    data {
+      ref_id = "C"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "C"
+        type       = "threshold"
+        expression = "B"
+        conditions = [{
+          evaluator = { params = [0], type = "gt" }
+          operator  = { type = "and" }
+          query     = { params = ["C"] }
+          reducer   = { params = [], type = "last" }
+          type      = "query"
+        }]
+      })
+    }
+  }
+}
+
+# --- Mobile App Alerts ---
+
+resource "grafana_rule_group" "mobile_alerts" {
+  name             = "Mobile App Alerts"
+  folder_uid       = grafana_folder.wildfire_alerts.uid
+  interval_seconds = 300
+
+  rule {
+    name          = "Mobile App JS Errors"
+    condition     = "C"
+    for           = "0s"
+    no_data_state = "OK"
+
+    annotations = {
+      summary     = "{{ $values.B.Value }} JavaScript errors detected in the Wildfire Mobile App in the last 5 minutes."
+      description = "View errors in Grafana Explore:\n${local.explore_mobile_errors}"
+    }
+
+    labels = {
+      severity   = "warning"
+      alert_type = "error"
+    }
+
+    data {
+      ref_id = "A"
+      relative_time_range {
+        from = 300
+        to   = 0
+      }
+      datasource_uid = var.grafana_loki_uid
+      model = jsonencode({
+        refId         = "A"
+        expr          = "sum(count_over_time({app_name=\"wildfire-mobile\", kind=\"exception\", app_environment!=\"local\"} [5m]))"
         intervalMs    = 1000
         maxDataPoints = 43200
       })
