@@ -263,6 +263,7 @@ locals {
     }
 
     prometheus.scrape "redis" {
+      job_name        = "wildfire-redis"
       targets         = prometheus.exporter.redis.redis.targets
       forward_to      = [prometheus.remote_write.grafana.receiver]
       scrape_interval = "60s"
