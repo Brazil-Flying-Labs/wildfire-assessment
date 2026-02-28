@@ -3,7 +3,7 @@ import {
   initializeFaro,
 } from "@grafana/faro-web-sdk";
 import { TracingInstrumentation } from "@grafana/faro-web-tracing";
-import { UI_VERSION } from "../constants/config";
+import { UI_VERSION, APP_ENVIRONMENT } from "../constants/config";
 
 const collectorUrl = process.env.REACT_APP_FARO_COLLECTOR_URL || "";
 const appName = process.env.REACT_APP_FARO_APP_NAME || "wildfire-ui";
@@ -19,7 +19,7 @@ if (hasValidFaroConfig) {
       app: {
         name: appName,
         version: UI_VERSION,
-        environment: process.env.REACT_APP_FARO_ENVIRONMENT || "local",
+        environment: APP_ENVIRONMENT,
       },
       instrumentations: [
         ...getWebInstrumentations({

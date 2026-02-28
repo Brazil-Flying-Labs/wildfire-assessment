@@ -17,7 +17,7 @@ import useNavigation from "./features/navigation/useNavigation";
 import useNotifications from "./hooks/useNotifications";
 import useProfile from "./hooks/useProfile";
 import { useLanguage } from "./context/LanguageContext";
-import { UI_VERSION } from "./constants/config";
+import { UI_VERSION, APP_ENVIRONMENT } from "./constants/config";
 
 function App() {
   const { t, language, setLanguage } = useLanguage();
@@ -186,9 +186,11 @@ function App() {
   // Identify user in PostHog for analytics
   useEffect(() => {
     if (!posthog || !authReady || !user) return;
+    posthog.register({ environment: APP_ENVIRONMENT });
     posthog.identify(user.sub, {
       email: user.email,
       name: user.name || user.nickname,
+      environment: APP_ENVIRONMENT,
     });
   }, [authReady, user]);
 
