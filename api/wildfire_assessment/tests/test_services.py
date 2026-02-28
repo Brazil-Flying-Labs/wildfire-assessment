@@ -3,7 +3,6 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from celery.exceptions import SoftTimeLimitExceeded
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -828,45 +827,6 @@ class ProcessorErrorPersistenceTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
-    @patch("wildfire_assessment.svc.processor.time.time")
-    @patch("wildfire_assessment.svc.processor.ee")
-    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
-    def test_gee_timeout_persists_error(
-        self,
-        mock_secret,
-        mock_download,
-        mock_assessment,
-        mock_ee,
-        mock_time,
-        _mock_sleep,
-        mock_unlink,
-    ):
-        """GEE timeout persists error and clears task_id on AnalysisRun."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
-        mock_download.return_value = '{"type": "Polygon"}'
-        assessment_instance = MagicMock()
-        assessment_instance.run.return_value = {
-            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
-        }
-        mock_assessment.return_value = assessment_instance
-        # Simulate time passing beyond 45-minute timeout
-        mock_time.side_effect = [0, 2701]
-        mock_ee.data.getTaskStatus.return_value = [{"state": "RUNNING"}]
-
-        with self.assertRaises(TimeoutError):
-            processor.process_scientific_deliverable(
-                **{**self.base_kwargs, "analysis_run_id": self.analysis_run.id}
-            )
-
-        self.analysis_run.refresh_from_db()
-        self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
-        self.assertIn("timed out", self.analysis_run.scientific_dnbr_error)
-        self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
-
-    @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
@@ -900,6 +860,84 @@ class ProcessorErrorPersistenceTests(TestCase):
         self.analysis_run.refresh_from_db()
         self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
         self.assertIn("GEE computation error", self.analysis_run.scientific_dnbr_error)
+        self.assertIn("GEE task FAILED", self.analysis_run.scientific_dnbr_error)
+        self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_gee_cancelled_state_persists_error(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_unlink,
+    ):
+        """GEE CANCELLED state persists error and clears task_id."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [
+            {"state": "CANCELLED", "error_message": "Task was cancelled"}
+        ]
+
+        with self.assertRaises(RuntimeError) as ctx:
+            processor.process_scientific_deliverable(
+                **{**self.base_kwargs, "analysis_run_id": self.analysis_run.id}
+            )
+
+        self.assertIn("GEE task CANCELLED", str(ctx.exception))
+        self.analysis_run.refresh_from_db()
+        self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
+        self.assertIn("CANCELLED", self.analysis_run.scientific_dnbr_error)
+        self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_unexpected_gee_state_persists_error(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_unlink,
+    ):
+        """Unexpected GEE state persists error and clears task_id."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [
+            {"state": "SOME_UNKNOWN_STATE"}
+        ]
+
+        with self.assertRaises(RuntimeError) as ctx:
+            processor.process_scientific_deliverable(
+                **{**self.base_kwargs, "analysis_run_id": self.analysis_run.id}
+            )
+
+        self.assertIn("GEE task SOME_UNKNOWN_STATE", str(ctx.exception))
+        self.assertIn("Unknown error", str(ctx.exception))
+        self.analysis_run.refresh_from_db()
+        self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
+        self.assertIn("SOME_UNKNOWN_STATE", self.analysis_run.scientific_dnbr_error)
         self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
@@ -930,35 +968,6 @@ class ProcessorErrorPersistenceTests(TestCase):
         self.assertIn(
             "PostFireAssessment crash", self.analysis_run.scientific_dnbr_error
         )
-        self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
-
-    @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
-    def test_soft_time_limit_persists_error(
-        self,
-        mock_secret,
-        mock_download,
-        mock_assessment,
-        mock_unlink,
-    ):
-        """SoftTimeLimitExceeded persists error and clears task_id."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
-        mock_download.return_value = '{"type": "Polygon"}'
-        assessment_instance = MagicMock()
-        assessment_instance.run.side_effect = SoftTimeLimitExceeded(
-            "SoftTimeLimitExceeded"
-        )
-        mock_assessment.return_value = assessment_instance
-
-        with self.assertRaises(SoftTimeLimitExceeded):
-            processor.process_scientific_deliverable(
-                **{**self.base_kwargs, "analysis_run_id": self.analysis_run.id}
-            )
-
-        self.analysis_run.refresh_from_db()
-        self.assertIsNotNone(self.analysis_run.scientific_dnbr_error)
         self.assertIsNone(self.analysis_run.scientific_dnbr_task_id)
 
     @patch("wildfire_assessment.svc.processor.os.unlink")

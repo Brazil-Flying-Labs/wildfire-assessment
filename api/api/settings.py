@@ -286,8 +286,6 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_TASK_SOFT_TIME_LIMIT = 3000  # 50 min soft limit (GEE timeout is 45 min)
-CELERY_TASK_TIME_LIMIT = 3300  # 55 min hard kill
 CELERY_IMPORTS = (
     "wildfire_assessment.svc.processor",
     "wildfire_assessment.svc.notification",

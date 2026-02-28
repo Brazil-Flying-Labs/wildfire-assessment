@@ -7,7 +7,6 @@ from datetime import timedelta
 
 import ee
 from celery import shared_task
-from celery.exceptions import SoftTimeLimitExceeded
 from celery.result import AsyncResult
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -109,7 +108,7 @@ DELIVERABLE_ERROR_FIELD_MAP = {
     "RBR": "scientific_rbr_error",
 }
 
-GEE_TASK_TIMEOUT_SECONDS = 2700  # 45 minutes
+GEE_PENDING_STATES = {"READY", "RUNNING"}
 
 
 @shared_task
@@ -147,15 +146,7 @@ def process_scientific_deliverable(
     POLL_INTERVAL_SECONDS = 15
 
     def wait_for_task(gee_task_id: str):
-        start_time = time.time()
         while True:
-            elapsed = time.time() - start_time
-            if elapsed > GEE_TASK_TIMEOUT_SECONDS:
-                raise TimeoutError(
-                    f"GEE task {gee_task_id} timed out after "
-                    f"{GEE_TASK_TIMEOUT_SECONDS}s"
-                )
-
             statuses = ee.data.getTaskStatus(gee_task_id)
 
             if not statuses:
@@ -164,14 +155,20 @@ def process_scientific_deliverable(
             status = statuses[0]
             state = status["state"]
 
-            print(f"[GEE] task={gee_task_id} state={state}")
+            logger.info("[GEE] task=%s state=%s", gee_task_id, state)
 
             if state == "COMPLETED":
                 return state
 
-            if state in ("FAILED", "CANCELLED"):
-                error = status.get("error_message", "Unknown error")
-                raise RuntimeError(f"Task failed: {error}")
+            if state not in GEE_PENDING_STATES:
+                error_msg = status.get("error_message", "Unknown error")
+                logger.exception(
+                    "GEE task %s ended with state '%s': %s",
+                    gee_task_id,
+                    state,
+                    error_msg,
+                )
+                raise RuntimeError(f"GEE task {state}: {error_msg}")
 
             time.sleep(POLL_INTERVAL_SECONDS)
 
@@ -283,7 +280,7 @@ def process_scientific_deliverable(
             )
 
         return result_wait
-    except (Exception, SoftTimeLimitExceeded) as exc:
+    except Exception as exc:
         # Persist the error on the AnalysisRun so the UI can show it
         if analysis_run_id:
             error_field = DELIVERABLE_ERROR_FIELD_MAP.get(deliverable_key)
