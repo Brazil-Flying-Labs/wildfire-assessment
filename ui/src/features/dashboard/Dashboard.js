@@ -58,6 +58,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const [deletingAnalysis, setDeletingAnalysis] = useState(false);
   const [isDraggingAny, setIsDraggingAny] = useState(false);
   const [activeId, setActiveId] = useState(null);
+  const [activeWidth, setActiveWidth] = useState(null);
   const [mapGeneration, setMapGeneration] = useState(0);
   const hasLoadedRef = useRef(false);
 
@@ -356,14 +357,21 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         onDragStart={(event) => {
           setIsDraggingAny(true);
           setActiveId(event.active.id);
+          // Capture the original width of the dragged element
+          const el = event.active.node?.current;
+          if (el) {
+            setActiveWidth(el.getBoundingClientRect().width);
+          }
         }}
         onDragEnd={(event) => {
           onDragEnd(event);
           setActiveId(null);
+          setActiveWidth(null);
         }}
         onDragCancel={() => {
           setIsDraggingAny(false);
           setActiveId(null);
+          setActiveWidth(null);
         }}
       >
         <SortableContext items={visibleIds} strategy={rectSortingStrategy}>
@@ -380,7 +388,10 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         </SortableContext>
         <DragOverlay>
           {activeId ? (
-            <div className="widget-wrapper drag-overlay">
+            <div
+              className="widget-wrapper drag-overlay"
+              style={activeWidth ? { width: activeWidth } : undefined}
+            >
               {renderWidget(activeId)}
             </div>
           ) : null}
