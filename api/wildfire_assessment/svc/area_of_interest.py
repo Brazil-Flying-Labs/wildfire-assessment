@@ -7,7 +7,11 @@ from django.db import connection
 from django.db.models import Q
 from django.utils import timezone
 from wildfire_assessment.models import AnalysisRun, AreaOfInterest
-from wildfire_assessment.svc.aws import delete_polygon_from_s3, upload_image_to_s3
+from wildfire_assessment.svc.aws import (
+    delete_polygon_from_s3,
+    download_polygon_from_s3,
+    upload_image_to_s3,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -128,3 +132,19 @@ def get_analysis_runs_queryset(user):
     return AnalysisRun.objects.filter(
         area_of_interest__country_id__in=country_ids
     ).order_by("-created_at")
+
+
+def get_area_geojson(polygon_path):
+    """Download and return GeoJSON data for an area's polygon.
+
+    Returns the parsed GeoJSON object, or None if download fails.
+    """
+    if not polygon_path:
+        return None
+
+    try:
+        raw = download_polygon_from_s3(polygon_path)
+        return json.loads(raw)
+    except Exception:
+        LOG.warning("Failed to download polygon: %s", polygon_path)
+        return None

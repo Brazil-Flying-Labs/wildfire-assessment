@@ -1352,6 +1352,39 @@ class AreaOfInterestServiceTests(TestCase):
         result = aoi_service.delete_polygon_file("test.geojson")
         self.assertFalse(result)
 
+    # -- get_area_geojson -----------------------------------------------------
+
+    def test_get_area_geojson_empty_path(self):
+        """Test that empty polygon path returns None."""
+        result = aoi_service.get_area_geojson("")
+        self.assertIsNone(result)
+
+    def test_get_area_geojson_none_path(self):
+        """Test that None polygon path returns None."""
+        result = aoi_service.get_area_geojson(None)
+        self.assertIsNone(result)
+
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    def test_get_area_geojson_success(self, mock_download):
+        """Test successful geojson download and parsing."""
+        mock_download.return_value = '{"type": "Polygon", "coordinates": []}'
+        result = aoi_service.get_area_geojson("test.geojson")
+        self.assertEqual(result, {"type": "Polygon", "coordinates": []})
+
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    def test_get_area_geojson_s3_failure(self, mock_download):
+        """Test that S3 download failure returns None."""
+        mock_download.side_effect = Exception("S3 error")
+        result = aoi_service.get_area_geojson("test.geojson")
+        self.assertIsNone(result)
+
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    def test_get_area_geojson_invalid_json(self, mock_download):
+        """Test that invalid JSON returns None."""
+        mock_download.return_value = "not valid json"
+        result = aoi_service.get_area_geojson("test.geojson")
+        self.assertIsNone(result)
+
 
 class S3PolygonTests(TestCase):
     """Tests for S3 polygon upload/download/delete functions."""
@@ -1800,15 +1833,15 @@ class DashboardServiceTests(TestCase):
         stats = dashboard_service.get_dashboard_stats(self.user)
         self.assertEqual(stats["severity_trend"], [])
 
-    @patch("wildfire_assessment.svc.dashboard.download_polygon_from_s3")
-    def test_areas_geo_with_centroid(self, mock_download):
-        """Test _areas_geo returns geo data for areas with centroids."""
+    def test_areas_geo_with_centroid(self):
+        """Test _areas_geo returns geo data for areas with centroids.
+
+        Note: geometry is no longer included in dashboard response;
+        it's now lazy-loaded via the /area_of_interest/{id}/geojson/ endpoint.
+        """
         self.area.centroid_lat = -15.5
         self.area.centroid_lng = -47.8
         self.area.save()
-        mock_download.return_value = (
-            '{"type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,0]]]}'
-        )
         AnalysisRun.objects.create(
             user=self.user,
             area_of_interest=self.area,
@@ -1824,7 +1857,8 @@ class DashboardServiceTests(TestCase):
         self.assertEqual(geo[0]["lng"], -47.8)
         self.assertEqual(geo[0]["total_burned_ha"], 100.0)
         self.assertEqual(geo[0]["run_count"], 1)
-        self.assertIsNotNone(geo[0]["geometry"])
+        # Geometry is now lazy-loaded, not included in dashboard response
+        self.assertIsNone(geo[0]["geometry"])
 
     def test_areas_geo_skips_area_without_centroid(self):
         """Test that areas without centroids are excluded."""
@@ -1838,13 +1872,11 @@ class DashboardServiceTests(TestCase):
         stats = dashboard_service.get_dashboard_stats(self.user)
         self.assertEqual(stats["areas_geo"], [])
 
-    @patch("wildfire_assessment.svc.dashboard.download_polygon_from_s3")
-    def test_areas_geo_s3_download_failure(self, mock_download):
-        """Test that S3 download failure is handled gracefully."""
+    def test_areas_geo_geometry_is_none(self):
+        """Test that geometry is None in dashboard (lazy-loaded via separate endpoint)."""
         self.area.centroid_lat = -15.5
         self.area.centroid_lng = -47.8
         self.area.save()
-        mock_download.side_effect = Exception("S3 error")
         AnalysisRun.objects.create(
             user=self.user,
             area_of_interest=self.area,
@@ -1855,15 +1887,14 @@ class DashboardServiceTests(TestCase):
         stats = dashboard_service.get_dashboard_stats(self.user)
         geo = stats["areas_geo"]
         self.assertEqual(len(geo), 1)
+        # Geometry is lazy-loaded via /area_of_interest/{id}/geojson/
         self.assertIsNone(geo[0]["geometry"])
 
-    @patch("wildfire_assessment.svc.dashboard.download_polygon_from_s3")
-    def test_areas_geo_multiple_runs_same_area(self, mock_download):
+    def test_areas_geo_multiple_runs_same_area(self):
         """Test aggregation across multiple runs for the same area."""
         self.area.centroid_lat = -15.5
         self.area.centroid_lng = -47.8
         self.area.save()
-        mock_download.return_value = '{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,0]]]}}'
         AnalysisRun.objects.create(
             user=self.user,
             area_of_interest=self.area,
@@ -1883,12 +1914,11 @@ class DashboardServiceTests(TestCase):
         self.assertEqual(len(geo), 1)
         self.assertEqual(geo[0]["total_burned_ha"], 300.0)
         self.assertEqual(geo[0]["run_count"], 2)
-        # Geometry extracted from Feature
-        self.assertIsNotNone(geo[0]["geometry"])
+        # Geometry is lazy-loaded via /area_of_interest/{id}/geojson/
+        self.assertIsNone(geo[0]["geometry"])
 
-    @patch("wildfire_assessment.svc.dashboard.download_polygon_from_s3")
-    def test_areas_geo_empty_polygon_path(self, mock_download):
-        """Test that areas with empty polygon_path are skipped for S3 download."""
+    def test_areas_geo_empty_polygon_path(self):
+        """Test that areas with empty polygon_path have null geometry."""
         area2 = AreaOfInterest.objects.create(
             name="No Path",
             polygon_path="",
@@ -1906,7 +1936,7 @@ class DashboardServiceTests(TestCase):
         stats = dashboard_service.get_dashboard_stats(self.user)
         geo = stats["areas_geo"]
         self.assertEqual(len(geo), 1)
-        mock_download.assert_not_called()
+        # Geometry is lazy-loaded via /area_of_interest/{id}/geojson/
         self.assertIsNone(geo[0]["geometry"])
 
 

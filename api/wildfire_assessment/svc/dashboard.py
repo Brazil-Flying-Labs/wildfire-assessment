@@ -7,7 +7,6 @@ from decimal import Decimal
 from django.db.models import Count
 from django.utils import timezone
 from wildfire_assessment.models import AnalysisRun
-from wildfire_assessment.svc.aws import download_polygon_from_s3
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +111,6 @@ def get_dashboard_stats(user):
 
     # For _areas_geo
     areas_geo = {}
-    polygon_paths = {}
 
     # === SINGLE PASS over all runs ===
     for run in runs_with_severity:
@@ -189,7 +187,6 @@ def get_dashboard_stats(user):
                     "run_count": 0,
                     "geometry": None,
                 }
-                polygon_paths[aoi_id] = aoi.polygon_path
 
             entry = areas_geo[aoi_id]
             if burned_val is not None:
@@ -233,16 +230,8 @@ def get_dashboard_stats(user):
     if max_burned is not None:
         largest_fire = {"area_name": max_burned_area_name, "burned_ha": max_burned}
 
-    # Download polygon geometries from S3 (kept as-is for now)
-    for area_id, path in polygon_paths.items():
-        if not path:
-            continue
-        try:
-            raw = download_polygon_from_s3(path)
-            geojson_data = json.loads(raw)
-            areas_geo[area_id]["geometry"] = _extract_geometry(geojson_data)
-        except Exception:
-            logger.warning("Failed to download polygon for area %s", area_id)
+    # NOTE: Geometry download removed - frontend lazy-loads via /area_of_interest/{id}/geojson/
+    # This significantly speeds up the dashboard endpoint.
 
     # Convert Decimal to float for JSON serialization
     for entry in areas_geo.values():

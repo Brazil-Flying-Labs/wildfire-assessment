@@ -32,6 +32,7 @@ from wildfire_assessment.svc.ai_common import (
 from wildfire_assessment.svc.area_of_interest import (
     delete_polygon_file,
     get_analysis_runs_queryset,
+    get_area_geojson,
     get_areas_queryset,
     save_analysis_run,
     save_deliverable_task_id,
@@ -310,6 +311,38 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
                 )
 
         return Response({"task_id": task.id})
+
+    @extend_schema(
+        methods=["GET"],
+        responses={
+            200: OpenApiResponse(
+                response={
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string"},
+                        "geometry": {"type": "object"},
+                    },
+                },
+                description="GeoJSON geometry for the area of interest",
+            ),
+            404: OpenApiResponse(description="Polygon not found"),
+        },
+    )
+    @action(detail=True, methods=["get"], url_path="geojson")
+    def geojson(self, request, pk=None):
+        """
+        Return the GeoJSON geometry for an AreaOfInterest.
+
+        This endpoint downloads the polygon from S3 and returns it as GeoJSON.
+        """
+        instance = self.get_object()
+        geojson_data = get_area_geojson(instance.polygon_path)
+        if geojson_data is None:
+            return Response(
+                {"error": "Polygon not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response(geojson_data)
 
 
 class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet):

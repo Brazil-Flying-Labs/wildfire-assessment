@@ -338,6 +338,53 @@ class WildfireAssessmentTests(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
             self.assertIn("permission", response.json()["error"])
 
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    def test_geojson_endpoint_success(self, mock_download):
+        """Test geojson endpoint returns GeoJSON data."""
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        mock_download.return_value = (
+            '{"type": "Polygon", "coordinates": [[[0,0],[1,0],[1,1],[0,0]]]}'
+        )
+        url = reverse("areaofinterest-geojson", args=[self.reserve.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["type"], "Polygon")
+        self.assertIn("coordinates", data)
+
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    def test_geojson_endpoint_download_failure(self, mock_download):
+        """Test geojson endpoint returns 404 on download failure."""
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        mock_download.side_effect = Exception("S3 error")
+        url = reverse("areaofinterest-geojson", args=[self.reserve.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_geojson_endpoint_requires_auth(self):
+        """Test geojson endpoint requires authentication."""
+        url = reverse("areaofinterest-geojson", args=[self.reserve.id])
+        response = self.client.get(url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_geojson_endpoint_empty_polygon_path(self):
+        """Test geojson endpoint returns 404 for empty polygon path."""
+        area_no_path = AreaOfInterest.objects.create(
+            name="No Path",
+            polygon_path="",
+            country=self.country,
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("areaofinterest-geojson", args=[area_no_path.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
 
 class UserMeViewTests(APITestCase):
     def setUp(self):

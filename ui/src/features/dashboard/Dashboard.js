@@ -241,7 +241,12 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       />
     ),
     fire_map: () => (
-      <FireMapWidget key={mapGeneration} areasGeo={stats?.areas_geo} />
+      <FireMapWidget
+        key={mapGeneration}
+        areasGeo={stats?.areas_geo}
+        authorizedFetch={authorizedFetch}
+        baseUrl={baseUrl}
+      />
     ),
     severity_trend: () => (
       <SeverityTrendWidget severityTrend={stats?.severity_trend} />

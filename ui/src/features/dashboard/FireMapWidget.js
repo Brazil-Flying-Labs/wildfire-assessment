@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON, CircleMarker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -6,7 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import InfoTooltip from "../../components/InfoTooltip";
 import { burnedColor } from "../../constants/severity";
 
-function FitBounds({ areasGeo }) {
+function FitBounds({ areasGeo, geometries }) {
   const map = useMap();
   useEffect(() => {
     if (!areasGeo || areasGeo.length === 0) return;
@@ -18,10 +18,11 @@ function FitBounds({ areasGeo }) {
       (a.total_burned_ha || 0) > (max.total_burned_ha || 0) ? a : max
     , areasGeo[0]);
 
-    // Fit map to that area's bounds
-    if (mostBurned.geometry) {
+    // Fit map to that area's bounds using lazy-loaded geometry
+    const geometry = geometries[mostBurned.id];
+    if (geometry) {
       try {
-        const layer = L.geoJSON(mostBurned.geometry);
+        const layer = L.geoJSON(geometry);
         const bounds = layer.getBounds();
         if (bounds.isValid()) {
           map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
@@ -30,11 +31,11 @@ function FitBounds({ areasGeo }) {
       } catch { /* fall through */ }
     }
     map.setView([mostBurned.lat, mostBurned.lng], 10);
-  }, [map, areasGeo]);
+  }, [map, areasGeo, geometries]);
   return null;
 }
 
-function AreaPolygon({ area, t }) {
+function AreaPolygon({ area, geometry, t }) {
   const color = burnedColor(area.total_burned_ha);
 
   const style = useCallback(() => ({
@@ -54,12 +55,31 @@ function AreaPolygon({ area, t }) {
     );
   }, [area, t]);
 
+  // Extract geometry from GeoJSON (Feature, FeatureCollection, or bare geometry)
+  const extractedGeometry = useMemo(() => {
+    if (!geometry) return null;
+    const type = geometry.type;
+    if (type === "FeatureCollection") {
+      const features = geometry.features || [];
+      return features[0]?.geometry || null;
+    }
+    if (type === "Feature") {
+      return geometry.geometry;
+    }
+    if (type === "Polygon" || type === "MultiPolygon") {
+      return geometry;
+    }
+    return null;
+  }, [geometry]);
+
   // Wrap geometry as a GeoJSON Feature for react-leaflet
   const featureData = useMemo(() => ({
     type: "Feature",
-    geometry: area.geometry,
+    geometry: extractedGeometry,
     properties: {},
-  }), [area.geometry]);
+  }), [extractedGeometry]);
+
+  if (!extractedGeometry) return null;
 
   return (
     <GeoJSON
@@ -71,8 +91,12 @@ function AreaPolygon({ area, t }) {
   );
 }
 
-export default function FireMapWidget({ areasGeo }) {
+export default function FireMapWidget({ areasGeo, authorizedFetch, baseUrl }) {
   const { t } = useLanguage();
+  // Lazy-loaded geometries: { [areaId]: GeoJSON }
+  const [geometries, setGeometries] = useState({});
+  const loadingRef = useRef(new Set());
+
   // Delay MapContainer render so the parent DOM node is fully attached
   // before Leaflet tries to initialise panes (avoids "appendChild of
   // undefined" after DnD remount).
@@ -81,6 +105,32 @@ export default function FireMapWidget({ areasGeo }) {
     const id = setTimeout(() => setMapReady(true), 0);
     return () => { clearTimeout(id); setMapReady(false); };
   }, []);
+
+  // Lazy-load geometries for all areas
+  useEffect(() => {
+    if (!areasGeo || !authorizedFetch || !baseUrl) return;
+
+    const loadGeometries = async () => {
+      for (const area of areasGeo) {
+        if (geometries[area.id] || loadingRef.current.has(area.id)) continue;
+        loadingRef.current.add(area.id);
+
+        try {
+          const response = await authorizedFetch(
+            `${baseUrl}/area_of_interest/${area.id}/geojson/`
+          );
+          if (response.ok) {
+            const geojson = await response.json();
+            setGeometries(prev => ({ ...prev, [area.id]: geojson }));
+          }
+        } catch {
+          // Silently ignore failures - will show CircleMarker fallback
+        }
+      }
+    };
+
+    loadGeometries();
+  }, [areasGeo, authorizedFetch, baseUrl, geometries]);
 
   const defaultCenter = useMemo(() => {
     if (!areasGeo || areasGeo.length === 0) return [-14.235, -51.925];
@@ -116,14 +166,14 @@ export default function FireMapWidget({ areasGeo }) {
           style={{ height: "100%", width: "100%", borderRadius: "0 0 0.375rem 0.375rem" }}
           scrollWheelZoom={true}
         >
-          <FitBounds areasGeo={areasGeo} />
+          <FitBounds areasGeo={areasGeo} geometries={geometries} />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           {areasGeo.map((area) =>
-            area.geometry ? (
-              <AreaPolygon key={area.id} area={area} t={t} />
+            geometries[area.id] ? (
+              <AreaPolygon key={area.id} area={area} geometry={geometries[area.id]} t={t} />
             ) : (
               <CircleMarker
                 key={area.id}
