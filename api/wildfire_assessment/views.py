@@ -474,7 +474,7 @@ class DashboardView(APIView):
         stats["recent_analyses"] = AnalysisRunSerializer(
             stats["recent_analyses"], many=True
         ).data
-        cache.set(cache_key, stats, timeout=60)
+        cache.set(cache_key, stats, timeout=60 * 60 * 24 * 7)  # 7 days
         return Response(stats)
 
 
