@@ -258,6 +258,16 @@ locals {
       scrape_interval = "5m"
     }
 
+    prometheus.exporter.redis "redis" {
+      redis_addr = "${local.redis_hostname}:6379"
+    }
+
+    prometheus.scrape "redis" {
+      targets         = prometheus.exporter.redis.redis.targets
+      forward_to      = [prometheus.remote_write.grafana.receiver]
+      scrape_interval = "60s"
+    }
+
     prometheus.remote_write "grafana" {
       endpoint {
         url = sys.env("GRAFANA_CLOUD_PROMETHEUS_PUSH_URL")

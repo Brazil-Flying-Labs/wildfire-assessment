@@ -68,6 +68,12 @@ resource "grafana_dashboard" "ui" {
   config_json = file("${path.module}/grafana/ui-dashboard.json")
 }
 
+resource "grafana_dashboard" "redis" {
+  folder      = grafana_folder.wildfire_dashboards.id
+  overwrite   = true
+  config_json = file("${path.module}/grafana/redis-dashboard.json")
+}
+
 locals {
   alert_email_addresses = [
     "diogo.hudson@brazilflyinglabs.org.br",
@@ -707,6 +713,151 @@ resource "grafana_rule_group" "mobile_alerts" {
         expression = "B"
         conditions = [{
           evaluator = { params = [0], type = "gt" }
+          operator  = { type = "and" }
+          query     = { params = ["C"] }
+          reducer   = { params = [], type = "last" }
+          type      = "query"
+        }]
+      })
+    }
+  }
+}
+
+# --- Redis Alerts ---
+
+resource "grafana_rule_group" "redis_alerts" {
+  name             = "Redis Alerts"
+  folder_uid       = grafana_folder.wildfire_alerts.uid
+  interval_seconds = 300
+
+  rule {
+    name          = "High Redis Memory"
+    condition     = "C"
+    for           = "5m"
+    no_data_state = "OK"
+
+    annotations = {
+      summary = "Redis memory usage is above 800 MB (80% of 1 GB container limit)."
+    }
+
+    labels = {
+      severity   = "warning"
+      alert_type = "resource"
+    }
+
+    data {
+      ref_id = "A"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = var.grafana_prometheus_uid
+      model = jsonencode({
+        refId         = "A"
+        expr          = "redis_memory_used_bytes"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+      })
+    }
+
+    data {
+      ref_id = "B"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "B"
+        type       = "reduce"
+        expression = "A"
+        reducer    = "last"
+        settings   = { mode = "dropNN" }
+      })
+    }
+
+    data {
+      ref_id = "C"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "C"
+        type       = "threshold"
+        expression = "B"
+        conditions = [{
+          evaluator = { params = [838860800], type = "gt" }
+          operator  = { type = "and" }
+          query     = { params = ["C"] }
+          reducer   = { params = [], type = "last" }
+          type      = "query"
+        }]
+      })
+    }
+  }
+
+  rule {
+    name           = "Redis Down"
+    condition      = "C"
+    for            = "2m"
+    exec_err_state = "Alerting"
+    no_data_state  = "Alerting"
+
+    annotations = {
+      summary = "Redis instance is unreachable — Celery broker and Django cache are unavailable."
+    }
+
+    labels = {
+      severity   = "critical"
+      alert_type = "error"
+    }
+
+    data {
+      ref_id = "A"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = var.grafana_prometheus_uid
+      model = jsonencode({
+        refId         = "A"
+        expr          = "redis_up"
+        intervalMs    = 1000
+        maxDataPoints = 43200
+      })
+    }
+
+    data {
+      ref_id = "B"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "B"
+        type       = "reduce"
+        expression = "A"
+        reducer    = "last"
+        settings   = { mode = "replaceNN", replaceWithValue = 0 }
+      })
+    }
+
+    data {
+      ref_id = "C"
+      relative_time_range {
+        from = 600
+        to   = 0
+      }
+      datasource_uid = "__expr__"
+      model = jsonencode({
+        refId      = "C"
+        type       = "threshold"
+        expression = "B"
+        conditions = [{
+          evaluator = { params = [1], type = "lt" }
           operator  = { type = "and" }
           query     = { params = ["C"] }
           reducer   = { params = [], type = "last" }

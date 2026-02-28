@@ -13,6 +13,34 @@ otelcol.receiver.otlp "default" {
   }
 }
 
+// --- Redis metrics ---
+
+prometheus.exporter.redis "redis" {
+  redis_addr = "redis:6379"
+}
+
+prometheus.scrape "redis" {
+  targets         = prometheus.exporter.redis.redis.targets
+  forward_to      = [prometheus.relabel.redis_service.receiver]
+  scrape_interval = "60s"
+}
+
+prometheus.relabel "redis_service" {
+  forward_to = [otelcol.receiver.prometheus.redis.receiver]
+  rule {
+    target_label = "service_name"
+    replacement  = "wildfire-redis"
+  }
+}
+
+otelcol.receiver.prometheus "redis" {
+  output {
+    metrics = [otelcol.exporter.otlphttp.grafana.input]
+  }
+}
+
+// --- Grafana Cloud auth ---
+
 otelcol.auth.basic "grafana" {
   username = sys.env("GRAFANA_CLOUD_INSTANCE_ID")
   password = sys.env("GRAFANA_CLOUD_API_KEY")
