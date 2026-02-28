@@ -251,7 +251,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
     severity_trend: () => (
       <SeverityTrendWidget severityTrend={stats?.severity_trend} />
     ),
-  }), [stats, t, onAnalysisClick, deleteConfirmId, deletingAnalysis, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu, mapGeneration]);
+  }), [stats, t, onAnalysisClick, deleteConfirmId, deletingAnalysis, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu, mapGeneration, authorizedFetch, baseUrl]);
 
   if (loading) {
     const colClasses = buildColClasses(visibleIds);
