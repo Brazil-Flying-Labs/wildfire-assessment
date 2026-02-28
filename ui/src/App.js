@@ -55,6 +55,11 @@ function App() {
     if (state && state.landing === false) {
       return false;
     }
+    // If URL is a known app route, skip landing page (handles hard refresh)
+    const knownRoutes = ["/dashboard", "/analysis", "/areas", "/profile", "/analysis-detail"];
+    if (knownRoutes.includes(window.location.pathname)) {
+      return false;
+    }
     return true;
   });
   const [dashboardRefreshKey, setDashboardRefreshKey] = useState(0);
