@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: wildfire-api:dev
     user: root
     ports:
       - "8081:8000"
@@ -40,7 +41,7 @@ services:
     ports:
       - "3000:3000"
     command: >
-      npm start
+      sh -c "npm install && npm start"
     volumes:
       - ./ui:/ui
     env_file:
@@ -71,9 +72,7 @@ services:
       start_period: 30s
   celery:
     container_name: wildfire-celery
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: wildfire-api:dev
     user: root
     command: >
       sh -c "opentelemetry-instrument celery -A wildfire_assessment worker --loglevel=info"
@@ -101,9 +100,7 @@ services:
         condition: service_started
   celery-beat:
     container_name: wildfire-celery-beat
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: wildfire-api:dev
     user: root
     env_file:
       - .env

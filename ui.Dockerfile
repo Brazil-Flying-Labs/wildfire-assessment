@@ -1,15 +1,11 @@
-FROM node:18-alpine AS build
+FROM node:18-alpine
 
 # set working directory
 WORKDIR /ui
 
-# install app dependencies
-COPY ui/package.json ./
-COPY ui/package-lock.json ./
+RUN apk update && apk add --no-cache curl && rm -rf /var/cache/apk/*
 
-
-RUN apk update && apk add --no-cache curl
-RUN npm install
-
-# build app
-CMD ["npm", "start"]
+# Dependencies are installed at startup since ./ui is volume-mounted,
+# overwriting anything COPYed at build time. This keeps the image small
+# and build fast while ensuring node_modules always matches package-lock.json.
+CMD ["sh", "-c", "npm install && npm start"]
