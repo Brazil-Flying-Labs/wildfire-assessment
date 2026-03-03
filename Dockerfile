@@ -1,27 +1,50 @@
+# ── Stage 1: build ────────────────────────────────────────────────
+FROM python:3.13-slim-bookworm AS builder
+
+ENV PYTHONUNBUFFERED=1
+
+# Install build-time dependencies (headers, compilers, dev libs)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        gdal-bin libgdal-dev \
+        libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV GDAL_VERSION=3.6.0
+
+COPY ./requirements.txt /requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r /requirements.txt && \
+    # Remove dev-only packages (~45 MB)
+    rm -rf /install/lib/python3.13/site-packages/debugpy* \
+           /install/lib/python3.13/site-packages/coverage* && \
+    # Strip tests, type stubs, and bytecode cache (~80 MB)
+    find /install -type d -name "tests" -exec rm -rf {} + 2>/dev/null; \
+    find /install -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null; \
+    find /install -name "*.pyc" -delete 2>/dev/null; \
+    true
+
+# ── Stage 2: runtime ─────────────────────────────────────────────
 FROM python:3.13-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies in a single layer and clean up apt cache
+# Runtime-only system libs (no -dev, no build-essential, no headers)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        build-essential unzip curl \
-        gdal-bin libgdal-dev libpq-dev postgresql-client && \
+        gdal-bin libgdal32 \
+        libpq5 \
+        curl && \
     rm -rf /var/lib/apt/lists/*
-ENV GDAL_VERSION=3.6.0
 
-COPY ./requirements.txt /requirements.txt
+# Copy installed Python packages from builder
+COPY --from=builder /install /usr/local
 
-RUN pip install --upgrade pip && pip install -r /requirements.txt
-
-RUN mkdir -p api
-RUN mkdir -p polygons
-RUN mkdir -p svc
+RUN mkdir -p api polygons svc
 
 COPY api api
-
 COPY entrypoint.sh /entrypoint.sh
-
 RUN chmod +x /entrypoint.sh
 
 WORKDIR /api
