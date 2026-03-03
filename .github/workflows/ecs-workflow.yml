@@ -39,7 +39,7 @@ jobs:
         with:
           context: .
           load: true
-          tags: wildfire-assessment-api:latest
+          tags: wildfire-api:dev
           cache-from: type=gha,scope=test-api
           cache-to: type=gha,mode=max,scope=test-api
 

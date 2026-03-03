@@ -1,6 +1,6 @@
 FROM python:3.13-slim-bookworm
 
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1
 
 # Install system dependencies in a single layer and clean up apt cache
 RUN apt-get update && \
