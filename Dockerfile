@@ -16,9 +16,6 @@ ENV GDAL_VERSION=3.6.0
 COPY ./requirements.txt /requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --prefix=/install -r /requirements.txt && \
-    # Remove dev-only packages (~45 MB)
-    rm -rf /install/lib/python3.13/site-packages/debugpy* \
-           /install/lib/python3.13/site-packages/coverage* && \
     # Strip tests, type stubs, and bytecode cache (~80 MB)
     find /install -type d -name "tests" -exec rm -rf {} + 2>/dev/null; \
     find /install -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null; \
