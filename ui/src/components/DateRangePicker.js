@@ -122,6 +122,7 @@ function DateRangePicker({ startDate, endDate, onRangeChange, label, startLabel,
             mode="single"
             selected={activeDate}
             onSelect={handleDayClick}
+            disabled={{ after: new Date() }}
             modifiers={rangeSelected ? { range_middle: { from: rangeSelected.from, to: rangeSelected.to } } : {}}
             modifiersClassNames={{ range_middle: "drp-in-range" }}
             numberOfMonths={1}
