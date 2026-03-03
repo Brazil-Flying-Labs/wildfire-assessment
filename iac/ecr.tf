@@ -16,9 +16,22 @@ resource "aws_ecr_lifecycle_policy" "wildfire_assessment" {
   "rules": [
     {
       "rulePriority": 1,
-      "description": "Keep only last 3 images",
+      "description": "Remove untagged images after 1 day",
       "selection": {
-        "tagStatus": "any",
+        "tagStatus": "untagged",
+        "countType": "sinceImagePushed",
+        "countUnit": "days",
+        "countNumber": 1
+      },
+      "action": {
+        "type": "expire"
+      }
+    },
+    {
+      "rulePriority": 2,
+      "description": "Keep only last 3 tagged images",
+      "selection": {
+        "tagStatus": "tagged",
         "countType": "imageCountMoreThan",
         "countNumber": 3
       },
