@@ -31,7 +31,7 @@ resource "aws_ecr_lifecycle_policy" "wildfire_assessment" {
       "rulePriority": 2,
       "description": "Keep only last 3 tagged images",
       "selection": {
-        "tagStatus": "tagged",
+        "tagStatus": "any",
         "countType": "imageCountMoreThan",
         "countNumber": 3
       },
