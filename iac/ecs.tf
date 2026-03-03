@@ -442,6 +442,14 @@ resource "aws_ecs_task_definition" "api" {
         }
       }
 
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:10000/ || exit 1"]
+        interval    = 10
+        timeout     = 5
+        retries     = 3
+        startPeriod = 60
+      }
+
       linuxParameters = {
         initProcessEnabled = true
       }
@@ -467,7 +475,12 @@ resource "aws_ecs_service" "api" {
   task_definition = aws_ecs_task_definition.api.arn
   desired_count   = 1
 
-  health_check_grace_period_seconds = 300
+  health_check_grace_period_seconds = 60
+
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
 
   network_configuration {
     subnets          = [for subnet in aws_subnet.private : subnet.id]
