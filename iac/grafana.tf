@@ -502,7 +502,7 @@ resource "grafana_rule_group" "backend_alerts" {
   rule {
     name          = "API 5xx Responses"
     condition     = "C"
-    for           = "0s"
+    for           = "5m"
     no_data_state = "OK"
 
     annotations = {
@@ -558,7 +558,7 @@ resource "grafana_rule_group" "backend_alerts" {
         type       = "threshold"
         expression = "B"
         conditions = [{
-          evaluator = { params = [0], type = "gt" }
+          evaluator = { params = [0.1], type = "gt" }
           operator  = { type = "and" }
           query     = { params = ["C"] }
           reducer   = { params = [], type = "last" }
