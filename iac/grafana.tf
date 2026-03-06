@@ -801,9 +801,9 @@ resource "grafana_rule_group" "redis_alerts" {
   rule {
     name           = "Redis Down"
     condition      = "C"
-    for            = "2m"
-    exec_err_state = "Alerting"
-    no_data_state  = "Alerting"
+    for            = "5m"
+    exec_err_state = "OK"
+    no_data_state  = "OK"
 
     annotations = {
       summary = "Redis instance is unreachable — Celery broker and Django cache are unavailable."
