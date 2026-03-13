@@ -291,5 +291,57 @@
   "profile.cookieNotConsenting": "Vous ne consentez pas actuellement aux cookies optionnels.",
   "profile.revokeCookieConsent": "Révoquer le Consentement",
   "profile.manageCookiePreferences": "Gérer les Préférences de Cookies",
-  "profile.cookieSettingsHint": "Ouvre la bannière de consentement des cookies pour mettre à jour vos préférences."
+  "profile.cookieSettingsHint": "Ouvre la bannière de consentement des cookies pour mettre à jour vos préférences.",
+
+  "privacy.title": "Politique de Confidentialité",
+  "privacy.effectiveDate": "Date d'entrée en vigueur : 13 mars 2026",
+  "privacy.intro": "Brazil Flying Labs (« nous », « notre ») exploite la plateforme Wildfire Insight Intelligence (le « Service »). Cette Politique de Confidentialité explique quelles données nous collectons, comment nous les utilisons et vos droits concernant vos informations personnelles.",
+
+  "privacy.section1Title": "1. Informations que Nous Collectons",
+  "privacy.section1Subtitle1": "Informations du Compte",
+  "privacy.section1Text1": "Lorsque vous vous connectez via Auth0, nous recevons votre adresse e-mail, votre nom et un identifiant utilisateur unique. Ces informations sont utilisées pour authentifier votre compte et personnaliser votre expérience.",
+  "privacy.section1Subtitle2": "Analyse d'Utilisation",
+  "privacy.section1Text2": "Nous utilisons PostHog pour collecter des données d'utilisation anonymes, y compris les vues de page et les événements du cycle de vie de l'application. Nous identifions les utilisateurs par e-mail et nom pour améliorer la plateforme. Les enregistrements de session sont désactivés. Les cookies d'analyse sont optionnels et nécessitent votre consentement.",
+  "privacy.section1Subtitle3": "Surveillance des Erreurs",
+  "privacy.section1Text3": "Nous utilisons Grafana Faro pour collecter des rapports d'erreurs, y compris les traces de pile, les messages d'erreur, le type de navigateur, le système d'exploitation et les identifiants de session. Cela nous aide à identifier et corriger les problèmes rapidement.",
+  "privacy.section1Subtitle4": "Notifications Push (Application Mobile)",
+  "privacy.section1Text4": "Si vous utilisez notre application mobile et accordez la permission, nous collectons le jeton de notification push de votre appareil (via Expo Push Notifications) pour vous envoyer des alertes lorsque les analyses sont terminées ou que les livrables sont prêts. Le jeton est supprimé lorsque vous vous déconnectez.",
+  "privacy.section1Subtitle5": "Contenu Généré par l'Utilisateur",
+  "privacy.section1Text5": "Vous pouvez créer des zones d'intérêt avec des limites GeoJSON, exécuter des analyses d'incendie et interagir avec des fonctionnalités d'analyse alimentées par l'IA. Ce contenu est stocké sur nos serveurs pour fournir le Service.",
+  "privacy.section1Subtitle6": "Préférences du Profil",
+  "privacy.section1Text6": "Nous stockons votre langue préférée, votre thème (clair/sombre) et la disposition des widgets du tableau de bord pour personnaliser votre expérience.",
+
+  "privacy.section2Title": "2. Informations que Nous ne Collectons Pas",
+  "privacy.section2Text": "Nous ne collectons pas votre localisation GPS en temps réel, les identifiants d'appareil (UDID, IMEI), les enregistrements de session ou captures d'écran, les journaux de frappe ou les spécifications matérielles de l'appareil.",
+
+  "privacy.section3Title": "3. Comment Nous Utilisons Vos Informations",
+  "privacy.section3Text": "Nous utilisons les informations collectées pour fournir et maintenir le Service, authentifier votre identité, envoyer les notifications push que vous avez autorisées, analyser les modèles d'utilisation pour améliorer la plateforme, surveiller et corriger les erreurs et personnaliser votre expérience avec vos préférences enregistrées.",
+
+  "privacy.section4Title": "4. Services Tiers",
+  "privacy.section4Text": "Nous partageons des données avec les fournisseurs tiers suivants pour exploiter le Service :",
+  "privacy.section4Item1": "Auth0 — Authentification et gestion des identités",
+  "privacy.section4Item2": "PostHog (États-Unis) — Analyse d'utilisation (avec votre consentement aux cookies)",
+  "privacy.section4Item3": "Grafana Faro — Surveillance des erreurs et journalisation",
+  "privacy.section4Item4": "Expo — Livraison des notifications push (application mobile)",
+
+  "privacy.section5Title": "5. Cookies",
+  "privacy.section5Text": "Nous utilisons des cookies essentiels nécessaires au fonctionnement du Service (authentification, sécurité). Les cookies d'analyse optionnels (PostHog) ne sont activés qu'avec votre consentement explicite. Vous pouvez gérer vos préférences de cookies à tout moment dans les paramètres du Profil.",
+
+  "privacy.section6Title": "6. Stockage et Sécurité des Données",
+  "privacy.section6Text": "Sur l'application mobile, les jetons d'authentification sont stockés en toute sécurité à l'aide d'un stockage natif chiffré (Keychain sur iOS, Keystore sur Android). Sur le web, le stockage standard du navigateur est utilisé. Toutes les données transmises entre votre appareil et nos serveurs sont chiffrées via HTTPS.",
+
+  "privacy.section7Title": "7. Vos Droits",
+  "privacy.section7Text": "Vous avez le droit d'accéder aux données personnelles que nous détenons à votre sujet, de demander la correction de données inexactes, de demander la suppression de vos données, de retirer votre consentement aux cookies à tout moment et d'exporter vos données. Pour exercer l'un de ces droits, contactez-nous à :",
+
+  "privacy.section8Title": "8. Confidentialité des Enfants",
+  "privacy.section8Text": "Le Service n'est pas destiné aux enfants de moins de 13 ans. Nous ne collectons pas intentionnellement d'informations personnelles auprès d'enfants.",
+
+  "privacy.section9Title": "9. Modifications de cette Politique",
+  "privacy.section9Text": "Nous pouvons mettre à jour cette Politique de Confidentialité de temps à autre. Nous vous informerons de tout changement important en publiant la politique mise à jour au sein du Service. Votre utilisation continue du Service après les modifications constitue l'acceptation de la politique mise à jour.",
+
+  "privacy.section10Title": "10. Nous Contacter",
+  "privacy.section10Text": "Si vous avez des questions sur cette Politique de Confidentialité ou vos données personnelles, contactez-nous à :",
+  "privacy.contactEmail": "humanos@brazilflyinglabs.org.br",
+
+  "landing.privacyPolicy": "Politique de Confidentialité"
 }

@@ -251,6 +251,16 @@
   font-size: 14px;
 }
 
+.landing-footer-link {
+  color: #58a6ff;
+  text-decoration: underline;
+  font-size: 14px;
+}
+
+.landing-footer-link:hover {
+  color: #79c0ff;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .landing-hero {

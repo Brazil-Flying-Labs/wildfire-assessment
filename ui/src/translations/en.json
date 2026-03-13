@@ -291,5 +291,57 @@
   "profile.cookieNotConsenting": "You are currently not consenting to optional cookies.",
   "profile.revokeCookieConsent": "Revoke Consent",
   "profile.manageCookiePreferences": "Manage Cookie Preferences",
-  "profile.cookieSettingsHint": "Opens the cookie consent banner so you can update your preferences."
+  "profile.cookieSettingsHint": "Opens the cookie consent banner so you can update your preferences.",
+
+  "privacy.title": "Privacy Policy",
+  "privacy.effectiveDate": "Effective date: March 13, 2026",
+  "privacy.intro": "Brazil Flying Labs (\"we\", \"us\", \"our\") operates the Wildfire Insight Intelligence platform (the \"Service\"). This Privacy Policy explains what data we collect, how we use it, and your rights regarding your personal information.",
+
+  "privacy.section1Title": "1. Information We Collect",
+  "privacy.section1Subtitle1": "Account Information",
+  "privacy.section1Text1": "When you sign in via Auth0, we receive your email address, name, and a unique user identifier. This information is used to authenticate your account and personalize your experience.",
+  "privacy.section1Subtitle2": "Usage Analytics",
+  "privacy.section1Text2": "We use PostHog to collect anonymous usage data including page views and app lifecycle events. We identify users by email and name to improve the platform. Session replays are disabled. Analytics cookies are optional and require your consent.",
+  "privacy.section1Subtitle3": "Error Monitoring",
+  "privacy.section1Text3": "We use Grafana Faro to collect error reports including stack traces, error messages, browser type, operating system, and session identifiers. This helps us identify and fix issues quickly.",
+  "privacy.section1Subtitle4": "Push Notifications (Mobile App)",
+  "privacy.section1Text4": "If you use our mobile app and grant permission, we collect your device push notification token (via Expo Push Notifications) to send you alerts when analyses complete or deliverables are ready. The token is cleared when you log out.",
+  "privacy.section1Subtitle5": "User-Generated Content",
+  "privacy.section1Text5": "You may create areas of interest with GeoJSON boundaries, run fire analyses, and interact with AI-powered analysis features. This content is stored on our servers to provide the Service.",
+  "privacy.section1Subtitle6": "Profile Preferences",
+  "privacy.section1Text6": "We store your preferred language, theme (light/dark), and dashboard widget layout to personalize your experience.",
+
+  "privacy.section2Title": "2. Information We Do Not Collect",
+  "privacy.section2Text": "We do not collect your real-time GPS location, device identifiers (UDID, IMEI), session recordings or screen captures, keystroke logs, or device hardware specifications.",
+
+  "privacy.section3Title": "3. How We Use Your Information",
+  "privacy.section3Text": "We use the collected information to provide and maintain the Service, authenticate your identity, send push notifications you have opted into, analyze usage patterns to improve the platform, monitor and fix errors, and personalize your experience with saved preferences.",
+
+  "privacy.section4Title": "4. Third-Party Services",
+  "privacy.section4Text": "We share data with the following third-party providers to operate the Service:",
+  "privacy.section4Item1": "Auth0 — Authentication and identity management",
+  "privacy.section4Item2": "PostHog (US) — Usage analytics (with your cookie consent)",
+  "privacy.section4Item3": "Grafana Faro — Error monitoring and logging",
+  "privacy.section4Item4": "Expo — Push notification delivery (mobile app)",
+
+  "privacy.section5Title": "5. Cookies",
+  "privacy.section5Text": "We use essential cookies required for the Service to function (authentication, security). Optional analytics cookies (PostHog) are only activated with your explicit consent. You can manage your cookie preferences at any time from the Profile settings.",
+
+  "privacy.section6Title": "6. Data Storage and Security",
+  "privacy.section6Text": "On the mobile app, authentication tokens are stored securely using encrypted native storage (Keychain on iOS, Keystore on Android). On the web, standard browser storage is used. All data transmitted between your device and our servers is encrypted via HTTPS.",
+
+  "privacy.section7Title": "7. Your Rights",
+  "privacy.section7Text": "You have the right to access the personal data we hold about you, request correction of inaccurate data, request deletion of your data, withdraw cookie consent at any time, and export your data. To exercise any of these rights, contact us at:",
+
+  "privacy.section8Title": "8. Children's Privacy",
+  "privacy.section8Text": "The Service is not intended for children under 13 years of age. We do not knowingly collect personal information from children.",
+
+  "privacy.section9Title": "9. Changes to This Policy",
+  "privacy.section9Text": "We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the updated policy within the Service. Your continued use of the Service after changes constitutes acceptance of the updated policy.",
+
+  "privacy.section10Title": "10. Contact Us",
+  "privacy.section10Text": "If you have questions about this Privacy Policy or your personal data, contact us at:",
+  "privacy.contactEmail": "humanos@brazilflyinglabs.org.br",
+
+  "landing.privacyPolicy": "Privacy Policy"
 }

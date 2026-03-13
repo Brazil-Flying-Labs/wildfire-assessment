@@ -217,7 +217,8 @@ function LandingPage({ onLogin, isAuthenticated }) {
       {/* ── Footer ── */}
       <footer className="landing-footer py-4 text-center">
         <div className="container">
-          {contactEmail}
+          <a href="/privacy" className="landing-footer-link">{t("landing.privacyPolicy")}</a>
+          <div className="mt-2">{contactEmail}</div>
         </div>
       </footer>
     </div>

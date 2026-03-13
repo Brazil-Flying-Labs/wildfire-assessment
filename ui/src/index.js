@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom/client';
 import { Auth0Provider } from '@auth0/auth0-react';
 import './index.css';
 import App from './App';
+import PrivacyPolicy from './features/privacy/PrivacyPolicy';
 import reportWebVitals from './reportWebVitals';
 import { authConfig, hasValidAuthConfig } from './config/authConfig';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -28,6 +29,11 @@ function MissingAuthConfiguration() {
 }
 
 function AppWithProviders() {
+  // Public privacy page — render outside Auth0Provider to avoid auth redirects
+  if (window.location.pathname === "/privacy") {
+    return <PrivacyPolicy onBack={() => window.history.back()} />;
+  }
+
   if (!hasValidAuthConfig) {
     return <MissingAuthConfiguration />;
   }
