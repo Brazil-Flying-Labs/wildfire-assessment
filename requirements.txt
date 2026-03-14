@@ -5,6 +5,7 @@ django-redis==5.4.0
 coverage==7.6.1
 pyOpenSSL==25.1.0
 Django==5.2.5
+django-unfold==0.48.0
 django-cors-headers==4.7.0
 django-extensions==4.1
 djangorestframework==3.16.1

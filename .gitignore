@@ -48,6 +48,9 @@ venv/
 # Ignore .env files
 .env
 
+# MCP config (contains API keys)
+.mcp.json
+
 db/
 exports/
 api/static

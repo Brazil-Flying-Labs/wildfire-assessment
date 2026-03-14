@@ -89,7 +89,7 @@ STATIC_URL = "static/"
 
 
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
-STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+STATICFILES_STORAGE = "whitenoise.storage.StaticFilesStorage"
 
 STATICFILES_DIRS = [
     BASE_DIR / "api" / "static",
@@ -121,6 +121,9 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "unfold",
+    "unfold.contrib.filters",
+    "unfold.contrib.forms",
     "social_django",
     "rest_framework",
     "django_extensions",
@@ -305,6 +308,79 @@ CELERY_BEAT_SCHEDULE = {
 
 # Terms of Service — bump this date to force all users to re-accept.
 TERMS_LAST_UPDATED = "2026-02-25"
+
+# django-unfold admin theme
+UNFOLD = {
+    "SITE_TITLE": "Wildfire Assessment",
+    "SITE_HEADER": "Wildfire Assessment Admin",
+    "SITE_SYMBOL": "local_fire_department",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": "Authentication",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Users",
+                        "icon": "people",
+                        "link": "/admin/auth/user/",
+                    },
+                ],
+            },
+            {
+                "title": "Wildfire Assessment",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Countries",
+                        "icon": "public",
+                        "link": "/admin/wildfire_assessment/country/",
+                    },
+                    {
+                        "title": "Areas of Interest",
+                        "icon": "map",
+                        "link": "/admin/wildfire_assessment/areaofinterest/",
+                    },
+                    {
+                        "title": "Analysis Runs",
+                        "icon": "satellite_alt",
+                        "link": "/admin/wildfire_assessment/analysisrun/",
+                    },
+                    {
+                        "title": "Notifications",
+                        "icon": "notifications",
+                        "link": "/admin/wildfire_assessment/notification/",
+                    },
+                    {
+                        "title": "AI Provider",
+                        "icon": "smart_toy",
+                        "link": "/admin/wildfire_assessment/aiprovider/",
+                    },
+                ],
+            },
+            {
+                "title": "Reports",
+                "separator": True,
+                "items": [
+                    {
+                        "title": "Analytics Dashboard",
+                        "icon": "analytics",
+                        "link": "/admin/analytics/",
+                    },
+                    {
+                        "title": "User Activity",
+                        "icon": "person_search",
+                        "link": "/admin/user-activity/",
+                    },
+                ],
+            },
+        ],
+    },
+}
 
 
 if ENV in ["local", "dev"]:
