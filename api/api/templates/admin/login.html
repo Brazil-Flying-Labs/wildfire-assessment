@@ -1,0 +1,25 @@
+{% extends "admin/login.html" %}
+{% load i18n %}
+
+{% block login_after %}
+<div class="mt-6 text-center">
+    <div class="relative my-4">
+        <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-base-200 dark:border-base-700"></div>
+        </div>
+        <div class="relative flex justify-center text-sm">
+            <span class="bg-base-50 px-4 text-base-500 dark:bg-base-900 dark:text-base-400">{% trans 'or' %}</span>
+        </div>
+    </div>
+    
+    <a href="{% url 'social:begin' 'auth0' %}?next=/admin/" 
+       class="bg-white border border-base-200 flex flex-row font-medium group items-center justify-center py-2 rounded text-sm text-base-700 w-full transition-all hover:bg-base-50 dark:bg-base-800 dark:border-base-700 dark:text-base-200 dark:hover:bg-base-700">
+        <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21.98 7.448L19.62 0H4.347L2.02 7.448c-1.352 4.312.03 9.206 3.815 12.015L12.007 24l6.157-4.552c3.755-2.81 5.182-7.688 3.815-12.015l-6.16 4.58 2.343 7.45-6.157-4.597-6.158 4.58 2.358-7.433-6.188-4.55 7.63-.045L12.008 0l2.356 7.404 7.615.044z"/>
+        </svg>
+        {% trans 'Login with Auth0' %}
+    </a>
+    
+    <p class="mt-6 text-xs text-base-400 dark:text-base-500">V 1.0.1</p>
+</div>
+{% endblock %}
