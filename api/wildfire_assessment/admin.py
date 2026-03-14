@@ -4,11 +4,14 @@ from datetime import date, timedelta
 from django import forms
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.core.cache import cache
 from django.http import HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.utils.html import format_html
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
+from unfold.admin import StackedInline as UnfoldStackedInline
+from unfold.admin import TabularInline as UnfoldTabularInline
 from wildfire_assessment.models import (
     AIProvider,
     AnalysisRun,
@@ -126,7 +129,7 @@ class AreaOfInterestAdminForm(forms.ModelForm):
         return instance
 
 
-class AreaOfInterestAdmin(admin.ModelAdmin):
+class AreaOfInterestAdmin(UnfoldModelAdmin):
     form = AreaOfInterestAdminForm
     list_display = ("name", "polygon_path", "country")
     search_fields = ("name", "polygon_path")
@@ -135,7 +138,7 @@ class AreaOfInterestAdmin(admin.ModelAdmin):
 admin.site.register(AreaOfInterest, AreaOfInterestAdmin)
 
 
-class CountryAdmin(admin.ModelAdmin):
+class CountryAdmin(UnfoldModelAdmin):
     list_display = ("name", "code")
     search_fields = ("name", "code")
 
@@ -143,7 +146,7 @@ class CountryAdmin(admin.ModelAdmin):
 admin.site.register(Country, CountryAdmin)
 
 
-class UserCountryInline(admin.TabularInline):
+class UserCountryInline(UnfoldTabularInline):
     model = UserCountry
     extra = 0
     autocomplete_fields = ["country"]
@@ -154,15 +157,15 @@ class UserCountryInline(admin.TabularInline):
 User = get_user_model()
 
 
-class UserProfileInline(admin.StackedInline):
+class UserProfileInline(UnfoldStackedInline):
     model = UserProfile
     can_delete = False
     verbose_name = "Language preference"
     verbose_name_plural = "Language preference"
 
 
-class UserAdmin(BaseUserAdmin):
-    base_inlines = getattr(BaseUserAdmin, "inlines", None) or []
+class UserAdmin(DjangoUserAdmin, UnfoldModelAdmin):
+    base_inlines = getattr(DjangoUserAdmin, "inlines", None) or []
     inlines = [*base_inlines, UserCountryInline, UserProfileInline]
 
 
@@ -174,7 +177,7 @@ except admin.sites.NotRegistered:
 admin.site.register(User, UserAdmin)
 
 
-class AnalysisRunAdmin(admin.ModelAdmin):
+class AnalysisRunAdmin(UnfoldModelAdmin):
     list_display = (
         "area_of_interest",
         "user",
@@ -269,7 +272,7 @@ class AnalysisRunAdmin(admin.ModelAdmin):
 admin.site.register(AnalysisRun, AnalysisRunAdmin)
 
 
-class NotificationAdmin(admin.ModelAdmin):
+class NotificationAdmin(UnfoldModelAdmin):
     list_display = (
         "user",
         "notification_type",
@@ -293,7 +296,7 @@ class NotificationAdmin(admin.ModelAdmin):
 admin.site.register(Notification, NotificationAdmin)
 
 
-class AIProviderAdmin(admin.ModelAdmin):
+class AIProviderAdmin(UnfoldModelAdmin):
     """Singleton admin — always edits the single configuration row."""
 
     fields = ("provider", "model_name")
