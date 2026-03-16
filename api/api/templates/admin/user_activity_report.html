@@ -3,91 +3,42 @@
 
 {% block title %}User Activity Report{% endblock %}
 
-{% block content_title %}<h1>User Activity Report</h1>{% endblock %}
+{% block breadcrumbs %}
+<div class="px-4 lg:px-8">
+    <div class="container mb-6 mx-auto -my-3 lg:mb-12">
+        <ul class="flex flex-wrap">
+            <li class="flex items-center">
+                <a href="{% url 'admin:index' %}" class="text-font-subtle-light dark:text-font-subtle-dark hover:text-primary-600 dark:hover:text-primary-500 text-sm">{% trans "Home" %}</a>
+                <span class="material-symbols-outlined mx-1 text-base-400 dark:text-base-500 !text-lg">chevron_right</span>
+            </li>
+            <li class="flex items-center">
+                <span class="text-font-subtle-light dark:text-font-subtle-dark text-sm">User Activity Report</span>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
 
 {% block content %}
 <style>
-    .report-filters {
-        display: flex;
-        gap: 16px;
-        align-items: flex-end;
-        margin-bottom: 24px;
-        flex-wrap: wrap;
-    }
-    .report-filters label {
-        display: block;
-        font-size: 0.85em;
-        font-weight: bold;
-        margin-bottom: 4px;
-        color: var(--body-quiet-color, #666);
-    }
-    .report-filters input[type="date"] {
-        padding: 6px 10px;
-        border: 1px solid var(--hairline-color, #ddd);
-        border-radius: 4px;
-        background: var(--body-bg, #fff);
-        color: var(--body-fg, #333);
-    }
-    .report-filters .btn {
-        padding: 6px 20px;
-        background: var(--header-bg, #417690);
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85em;
-    }
-    .report-filters .btn:hover {
-        opacity: 0.9;
-    }
-    .report-summary {
-        margin-bottom: 16px;
-        font-size: 0.95em;
-        color: var(--body-quiet-color, #666);
-    }
-    .report-summary strong {
-        color: var(--header-bg, #417690);
-        font-size: 1.1em;
-    }
-    #result_list th, #result_list td {
-        padding: 8px 12px;
-    }
-    #result_list td.number {
-        text-align: right;
-        font-weight: bold;
-    }
-    .btn-print {
-        padding: 6px 20px;
-        background: #333;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.85em;
-        margin-left: auto;
-    }
-    .btn-print:hover {
-        opacity: 0.9;
-    }
     @media print {
-        /* Hide admin nav, header, sidebar, breadcrumbs, filters, print button */
         #header, #branding, #user-tools, #nav-global,
         nav, .breadcrumbs, .report-filters, .btn-print,
-        #nav-sidebar, #changelist-filter, .messagelist {
+        #nav-sidebar, #changelist-filter, .messagelist,
+        [data-controller="sidebar"], .print-hide {
             display: none !important;
         }
-        /* Remove admin layout margins */
-        #container, #content, .main, #content-main {
+        #page, #main, #container, #content, .main, #content-main {
             margin: 0 !important;
             padding: 0 !important;
             max-width: 100% !important;
+            min-height: auto !important;
         }
-        body {
+        body, html {
             background: #fff !important;
             color: #000 !important;
             font-size: 12pt;
         }
-        /* Print header */
         .print-header {
             display: block !important;
             text-align: center;
@@ -103,37 +54,36 @@
             margin: 0;
             color: #333;
         }
-        /* Summary */
-        .report-summary {
+        .report-summary-print {
             color: #000 !important;
             font-size: 10pt;
         }
-        .report-summary strong {
-            color: #000 !important;
-        }
-        /* Table black/white */
-        #result_list {
+        .print-table {
             width: 100%;
             border-collapse: collapse;
         }
-        #result_list th {
+        .print-table th {
             background: #000 !important;
             color: #fff !important;
             border: 1px solid #000;
             font-size: 10pt;
+            padding: 6px 10px;
+            text-align: left;
         }
-        #result_list td {
+        .print-table td {
             border: 1px solid #333;
             color: #000 !important;
             background: #fff !important;
             font-size: 10pt;
+            padding: 6px 10px;
         }
-        #result_list tr.row2 td {
+        .print-table tr:nth-child(even) td {
             background: #f0f0f0 !important;
         }
-        .module {
+        .border, .shadow-sm, .rounded-lg {
             border: none !important;
             box-shadow: none !important;
+            border-radius: 0 !important;
         }
     }
     .print-header {
@@ -141,53 +91,97 @@
     }
 </style>
 
+<div class="mb-6 lg:mb-8 print-hide">
+    <h1 class="font-bold text-xl text-font-important-light dark:text-font-important-dark">
+        <span class="material-symbols-outlined mr-2 align-middle !text-2xl">person_search</span>
+        User Activity Report
+    </h1>
+</div>
+
 <div class="print-header">
     <h1>User Activity Report</h1>
     <p>{{ start_date }} to {{ end_date }}</p>
 </div>
 
-<form method="get" class="report-filters">
+{# Filters #}
+<form method="get" class="flex flex-wrap gap-4 items-end mb-6 print-hide report-filters">
     <div>
-        <label for="start_date">Start Date</label>
-        <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+        <label for="start_date" class="block text-xs font-medium text-font-subtle-light dark:text-font-subtle-dark mb-1">Start Date</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date }}"
+               class="border border-base-200 bg-white rounded-md px-3 py-2 text-sm text-font-default-light
+                      focus:outline-none focus:ring-2 focus:ring-primary-600/20 focus:border-primary-600
+                      dark:border-base-700 dark:bg-base-900 dark:text-font-default-dark
+                      dark:focus:ring-primary-500/20 dark:focus:border-primary-500">
     </div>
     <div>
-        <label for="end_date">End Date</label>
-        <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+        <label for="end_date" class="block text-xs font-medium text-font-subtle-light dark:text-font-subtle-dark mb-1">End Date</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date }}"
+               class="border border-base-200 bg-white rounded-md px-3 py-2 text-sm text-font-default-light
+                      focus:outline-none focus:ring-2 focus:ring-primary-600/20 focus:border-primary-600
+                      dark:border-base-700 dark:bg-base-900 dark:text-font-default-dark
+                      dark:focus:ring-primary-500/20 dark:focus:border-primary-500">
     </div>
-    <button type="submit" class="btn">Filter</button>
-    <button type="button" class="btn-print" onclick="window.print()">Print Report</button>
+    <a href="#" onclick="this.closest('form').submit();return false;"
+       class="bg-primary-600 border border-primary-600 font-medium flex items-center justify-center self-end px-4 py-2 rounded-md text-sm text-white
+              transition-all hover:bg-primary-700
+              dark:bg-primary-500 dark:border-primary-500 dark:hover:bg-primary-600">
+        Filter
+    </a>
+    <a href="#" onclick="window.print();return false;"
+       class="border border-base-200 bg-white font-medium flex items-center justify-center self-end px-4 py-2 rounded-md text-sm text-font-default-light
+              transition-all hover:bg-base-50 ml-auto btn-print
+              dark:border-base-700 dark:bg-base-900 dark:text-font-default-dark dark:hover:bg-base-800">
+        Print Report
+    </a>
 </form>
 
-<div class="report-summary">
-    Showing <strong>{{ total_analyses }}</strong> analyses from <strong>{{ start_date }}</strong> to <strong>{{ end_date }}</strong>
-    by <strong>{{ user_counts|length }}</strong> user{{ user_counts|length|pluralize }}.
+{# Summary #}
+<div class="mb-6 report-summary-print">
+    <div class="flex flex-wrap gap-6 border border-base-200 bg-white rounded-lg shadow-sm px-5 py-4 dark:border-base-800 dark:bg-base-900">
+        <div>
+            <span class="text-sm text-font-subtle-light dark:text-font-subtle-dark">Total Analyses</span>
+            <div class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ total_analyses }}</div>
+        </div>
+        <div>
+            <span class="text-sm text-font-subtle-light dark:text-font-subtle-dark">Period</span>
+            <div class="text-sm font-medium text-font-important-light dark:text-font-important-dark mt-0.5">{{ start_date }} &mdash; {{ end_date }}</div>
+        </div>
+        <div>
+            <span class="text-sm text-font-subtle-light dark:text-font-subtle-dark">Users</span>
+            <div class="text-xl font-bold text-primary-600 dark:text-primary-400">{{ user_counts|length }}</div>
+        </div>
+    </div>
 </div>
 
-<div class="module">
-    <table id="result_list">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>First Name</th>
-                <th>Last Name</th>
-                <th>Email</th>
-                <th style="text-align: right;">Analyses</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in user_counts %}
-            <tr class="{% cycle 'row1' 'row2' %}">
-                <td>{{ forloop.counter }}</td>
-                <td>{{ row.user__first_name|default:"-" }}</td>
-                <td>{{ row.user__last_name|default:"-" }}</td>
-                <td>{{ row.user__email }}</td>
-                <td class="number">{{ row.analysis_count }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5">No analyses found in this date range.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{# Table #}
+<div class="border border-base-200 rounded-lg shadow-sm overflow-hidden dark:border-base-800">
+    <div class="overflow-x-auto">
+        <table class="w-full print-table">
+            <thead>
+                <tr class="border-b border-base-200 dark:border-base-800">
+                    <th class="bg-base-50 font-semibold px-3 py-2.5 text-left text-sm text-font-important-light dark:bg-base-900 dark:text-font-important-dark w-12">#</th>
+                    <th class="bg-base-50 font-semibold px-3 py-2.5 text-left text-sm text-font-important-light dark:bg-base-900 dark:text-font-important-dark">First Name</th>
+                    <th class="bg-base-50 font-semibold px-3 py-2.5 text-left text-sm text-font-important-light dark:bg-base-900 dark:text-font-important-dark">Last Name</th>
+                    <th class="bg-base-50 font-semibold px-3 py-2.5 text-left text-sm text-font-important-light dark:bg-base-900 dark:text-font-important-dark">Email</th>
+                    <th class="bg-base-50 font-semibold px-3 py-2.5 text-right text-sm text-font-important-light dark:bg-base-900 dark:text-font-important-dark">Analyses</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in user_counts %}
+                <tr class="border-b border-base-200 last:border-b-0 dark:border-base-800 {% cycle '' 'bg-base-50 dark:bg-white/[.02]' %}">
+                    <td class="px-3 py-2 text-sm text-font-subtle-light dark:text-font-subtle-dark">{{ forloop.counter }}</td>
+                    <td class="px-3 py-2 text-sm text-font-default-light dark:text-font-default-dark">{{ row.user__first_name|default:"-" }}</td>
+                    <td class="px-3 py-2 text-sm text-font-default-light dark:text-font-default-dark">{{ row.user__last_name|default:"-" }}</td>
+                    <td class="px-3 py-2 text-sm text-font-default-light dark:text-font-default-dark">{{ row.user__email }}</td>
+                    <td class="px-3 py-2 text-sm text-right font-bold text-primary-600 dark:text-primary-400">{{ row.analysis_count }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-3 py-8 text-sm text-center text-font-subtle-light dark:text-font-subtle-dark">No analyses found in this date range.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
