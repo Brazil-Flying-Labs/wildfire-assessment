@@ -7,6 +7,9 @@ import os
 # Force skip AWS secrets for tests
 os.environ["SKIP_AWS_SECRETS"] = "1"
 
+# Disable OpenTelemetry so test logs are not shipped to Grafana
+os.environ["OTEL_SDK_DISABLED"] = "true"
+
 # Import all settings from main settings
 from api.settings import *  # noqa
 
