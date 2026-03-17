@@ -4,6 +4,7 @@ import uuid
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from pyproj import Geod
 from rest_framework import serializers
 from shapely.geometry import mapping, shape
 from shapely.ops import orient
@@ -27,11 +28,39 @@ logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
+MAX_AREA_HA = 110_000
+
 
 def generate_s3_filename(name):
     """Generate a unique S3 filename from a human-readable name."""
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
     return f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
+
+
+def compute_area_ha(geojson_data):
+    """Compute the total geodesic area of all geometries in hectares."""
+    try:
+        geod = Geod(ellps="WGS84")
+        geojson_type = geojson_data.get("type")
+        total_area_m2 = 0
+
+        if geojson_type == "Feature":
+            geom = shape(geojson_data["geometry"])
+            area_m2, _ = geod.geometry_area_perimeter(geom)
+            total_area_m2 = abs(area_m2)
+        elif geojson_type == "FeatureCollection":
+            for feature in geojson_data.get("features", []):
+                geom = shape(feature["geometry"])
+                area_m2, _ = geod.geometry_area_perimeter(geom)
+                total_area_m2 += abs(area_m2)
+        else:
+            geom = shape(geojson_data)
+            area_m2, _ = geod.geometry_area_perimeter(geom)
+            total_area_m2 = abs(area_m2)
+
+        return round(total_area_m2 / 10_000, 3)
+    except Exception:
+        return None
 
 
 def compute_centroid(geojson_data):
@@ -200,6 +229,7 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
                         self._t("error.fc_feature_no_geometry", index=i)
                     )
                 self._validate_geometry(feat_geom, f"Feature[{i}]")
+            self._validate_area(value)
             return value
         elif geojson_type in ["Polygon", "MultiPolygon"]:
             geometry = value
@@ -215,6 +245,7 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
         if geometry:
             self._validate_geometry(geometry, "geometry")
 
+        self._validate_area(value)
         return value
 
     def _validate_geometry(self, geometry, context="geometry"):
@@ -461,6 +492,14 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
                 self._t("error.feature_invalid_id", context=context)
             )
 
+    def _validate_area(self, geojson_data):
+        """Validate that the total geodesic area does not exceed MAX_AREA_HA."""
+        area_ha = compute_area_ha(geojson_data)
+        if area_ha is not None and area_ha > MAX_AREA_HA:
+            raise serializers.ValidationError(
+                self._t("error.area_too_large", max_ha=f"{MAX_AREA_HA:,}")
+            )
+
     def create(self, validated_data):
         geojson_data = validated_data.pop("geojson")
         filename = generate_s3_filename(validated_data.get("name"))
@@ -468,7 +507,7 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
         upload_polygon_to_s3(filename, geojson_data)
 
         validated_data["polygon_path"] = filename
-        validated_data["area_ha"] = None
+        validated_data["area_ha"] = compute_area_ha(geojson_data)
 
         centroid = compute_centroid(geojson_data)
         if centroid:
@@ -509,6 +548,7 @@ class AreaOfInterestUpdateSerializer(AreaSerializerMixin, serializers.ModelSeria
 
             upload_polygon_to_s3(filename, geojson_data)
             validated_data["polygon_path"] = filename
+            validated_data["area_ha"] = compute_area_ha(geojson_data)
 
             centroid = compute_centroid(geojson_data)
             if centroid:

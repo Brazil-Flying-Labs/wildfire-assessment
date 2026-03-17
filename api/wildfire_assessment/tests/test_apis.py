@@ -223,7 +223,7 @@ class WildfireAssessmentTests(APITestCase):
                 "type": "Feature",
                 "geometry": {
                     "type": "Polygon",
-                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                 },
                 "properties": {},
             },
@@ -244,7 +244,7 @@ class WildfireAssessmentTests(APITestCase):
                 "type": "Feature",
                 "geometry": {
                     "type": "Polygon",
-                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                 },
                 "properties": {},
             },
@@ -906,9 +906,9 @@ class DashboardCacheTests(APITestCase):
                 "coordinates": [
                     [
                         [-47.0, -15.0],
-                        [-47.0, -14.0],
-                        [-46.0, -14.0],
-                        [-46.0, -15.0],
+                        [-47.0, -14.9],
+                        [-46.9, -14.9],
+                        [-46.9, -15.0],
                         [-47.0, -15.0],
                     ]
                 ],

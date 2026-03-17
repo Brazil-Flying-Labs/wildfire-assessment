@@ -14,6 +14,7 @@ from wildfire_assessment.models import (
     UserProfile,
 )
 from wildfire_assessment.serializers import (
+    MAX_AREA_HA,
     AnalysisRunSerializer,
     AreaOfInterestCreateSerializer,
     AreaOfInterestSerializer,
@@ -21,6 +22,7 @@ from wildfire_assessment.serializers import (
     NotificationSerializer,
     UserMeSerializer,
     check_duplicate_area_name,
+    compute_area_ha,
     compute_centroid,
     generate_s3_filename,
 )
@@ -182,7 +184,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         # Valid polygon geometry for tests
         self.valid_polygon = {
             "type": "Polygon",
-            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
         }
         self.valid_feature = {
             "type": "Feature",
@@ -322,7 +324,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "MultiPolygon",
-                    "coordinates": [[[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]],
+                    "coordinates": [[[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]]],
                 },
             },
             context={"request": request},
@@ -391,7 +393,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "coordinates": [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]],
+                    "coordinates": [[[0, 0], [0.1, 0.1], [0.1, 0], [0, 0.1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -417,6 +419,8 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         self.assertEqual(instance.name, "New Area")
         self.assertTrue(instance.polygon_path.startswith("New_Area_"))
         self.assertTrue(instance.polygon_path.endswith(".geojson"))
+        self.assertIsNotNone(instance.area_ha)
+        self.assertGreater(instance.area_ha, 0)
         mock_upload.assert_called_once()
 
     def test_validate_country_no_request(self):
@@ -695,7 +699,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1]]],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1]]],
                 },
             },
             context={"request": request},
@@ -715,7 +719,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "MultiPolygon",
                     "coordinates": [
-                        [[[0, 0], [1, 0], [1, 1], [0, 1]]],
+                        [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1]]],
                     ],
                 },
             },
@@ -737,7 +741,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "coordinates": [[[0, 0], [1, 0], [0, 0]]],
+                    "coordinates": [[[0, 0], [0.1, 0], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -756,7 +760,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "coordinates": [[[0, 0], [1, 0], [0.5, 1], [0, 0]]],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.05, 0.1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -811,7 +815,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                             {
                                 "type": "Polygon",
                                 "coordinates": [
-                                    [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                                    [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                                 ],
                             }
                         ],
@@ -831,7 +835,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         request.user = self.user
         geojson = {
             "type": "Polygon",
-            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
             "crs": {
                 "type": "name",
                 "properties": {"name": "EPSG:4326"},
@@ -862,7 +866,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": {},
@@ -889,7 +893,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         request = self.factory.post("/")
         request.user = self.user
         # Clockwise exterior: (0,0) → (0,1) → (1,1) → (1,0) → (0,0)
-        cw_ring = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
+        cw_ring = [[0, 0], [0, 0.1], [0.1, 0.1], [0.1, 0], [0, 0]]
         serializer = AreaOfInterestCreateSerializer(
             data={
                 "name": "Test Area",
@@ -911,7 +915,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         request = self.factory.post("/")
         request.user = self.user
         # CCW exterior: (0,0) → (1,0) → (1,1) → (0,1) → (0,0)
-        ccw_ring = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+        ccw_ring = [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
         serializer = AreaOfInterestCreateSerializer(
             data={
                 "name": "Test Area",
@@ -931,7 +935,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         """Clockwise MultiPolygon exterior is auto-corrected."""
         request = self.factory.post("/")
         request.user = self.user
-        cw_ring = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
+        cw_ring = [[0, 0], [0, 0.1], [0.1, 0.1], [0.1, 0], [0, 0]]
         serializer = AreaOfInterestCreateSerializer(
             data={
                 "name": "Test Area",
@@ -955,9 +959,9 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         request = self.factory.post("/")
         request.user = self.user
         # CCW exterior (correct)
-        exterior = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]
+        exterior = [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
         # CCW hole (incorrect — should be CW)
-        hole_ccw = [[2, 2], [8, 2], [8, 8], [2, 8], [2, 2]]
+        hole_ccw = [[0.02, 0.02], [0.08, 0.02], [0.08, 0.08], [0.02, 0.08], [0.02, 0.02]]
         serializer = AreaOfInterestCreateSerializer(
             data={
                 "name": "Test Area",
@@ -981,7 +985,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         """FeatureCollection with CW polygon features gets per-feature fix."""
         request = self.factory.post("/")
         request.user = self.user
-        cw_ring = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
+        cw_ring = [[0, 0], [0, 0.1], [0.1, 0.1], [0.1, 0], [0, 0]]
         serializer = AreaOfInterestCreateSerializer(
             data={
                 "name": "Test Area",
@@ -1083,7 +1087,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Polygon",
                     "coordinates": [
-                        [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                     ],
                 },
             },
@@ -1100,7 +1104,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             "crs": {"type": "name", "properties": {"name": "EPSG:4326"}},
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
             },
             "properties": {},
         }
@@ -1246,7 +1250,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         request.user = self.user
         geojson = {
             "type": "Polygon",
-            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
         }
         serializer = AreaOfInterestCreateSerializer(
             data={
@@ -1375,7 +1379,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": {},
@@ -1474,7 +1478,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                             "geometry": {
                                 "type": "Polygon",
                                 "coordinates": [
-                                    [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                                    [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                                 ],
                             },
                             "properties": {},
@@ -1501,7 +1505,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                         {
                             "type": "Polygon",
                             "coordinates": [
-                                [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                                [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                             ],
                         }
                     ],
@@ -1527,7 +1531,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                 },
@@ -1551,7 +1555,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": None,
@@ -1577,7 +1581,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                             "geometry": {
                                 "type": "Polygon",
                                 "coordinates": [
-                                    [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                                    [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                                 ],
                             },
                         }
@@ -1605,7 +1609,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                             "geometry": {
                                 "type": "Polygon",
                                 "coordinates": [
-                                    [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                                    [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                                 ],
                             },
                             "properties": None,
@@ -1675,7 +1679,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": {},
@@ -1699,7 +1703,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": {},
@@ -1723,7 +1727,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": {},
@@ -1748,7 +1752,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": {},
@@ -1773,7 +1777,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "geometry": {
                         "type": "Polygon",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": {},
@@ -1801,7 +1805,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                             "geometry": {
                                 "type": "Polygon",
                                 "coordinates": [
-                                    [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                                    [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                                 ],
                             },
                             "properties": {},
@@ -1826,9 +1830,15 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "bbox": [-10, -10, 10, 10],
+                    "bbox": [-0.05, -0.05, 0.05, 0.05],
                     "coordinates": [
-                        [[-10, -10], [10, -10], [10, 10], [-10, 10], [-10, -10]]
+                        [
+                            [-0.05, -0.05],
+                            [0.05, -0.05],
+                            [0.05, 0.05],
+                            [-0.05, 0.05],
+                            [-0.05, -0.05],
+                        ]
                     ],
                 },
             },
@@ -1848,7 +1858,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "type": "Polygon",
                     "bbox": "invalid",
                     "coordinates": [
-                        [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                     ],
                 },
             },
@@ -1869,7 +1879,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "type": "Polygon",
                     "bbox": [1, 2, 3],
                     "coordinates": [
-                        [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                     ],
                 },
             },
@@ -1890,7 +1900,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "type": "Polygon",
                     "bbox": [1, 2, "a", 4],
                     "coordinates": [
-                        [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                     ],
                 },
             },
@@ -1911,7 +1921,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "type": "Polygon",
                     "bbox": [1, 2, True, 4],
                     "coordinates": [
-                        [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                     ],
                 },
             },
@@ -1932,7 +1942,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                     "type": "Polygon",
                     "bbox": [-180, -100, 180, 90],
                     "coordinates": [
-                        [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                     ],
                 },
             },
@@ -1958,7 +1968,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                             "geometry": {
                                 "type": "Polygon",
                                 "coordinates": [
-                                    [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                                    [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                                 ],
                             },
                             "properties": {},
@@ -1985,7 +1995,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                         "type": "Polygon",
                         "bbox": "not-an-array",
                         "coordinates": [
-                            [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
                         ],
                     },
                     "properties": {},
@@ -2022,6 +2032,146 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             serializer._validate_bbox(BadObj())
 
 
+class AreaValidationTests(TestCase):
+    """Tests for polygon area size validation (max 110,000 ha)."""
+
+    def setUp(self):
+        self.country = Country.objects.create(name="Test Country", code="TC")
+        self.user = User.objects.create_user(
+            username="tester", email="tester@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.factory = APIRequestFactory()
+
+    def _make_serializer(self, geojson):
+        request = self.factory.post("/")
+        request.user = self.user
+        return AreaOfInterestCreateSerializer(
+            data={"name": "Test Area", "country": self.country.id, "geojson": geojson},
+            context={"request": request},
+        )
+
+    def test_small_polygon_passes(self):
+        """A 0.1° × 0.1° polygon (~12k ha) should pass."""
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_large_polygon_rejected(self):
+        """A 5° × 5° polygon (~3M ha) should be rejected."""
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [5, 0], [5, 5], [0, 5], [0, 0]]],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        self.assertIn(f"{MAX_AREA_HA:,}", str(serializer.errors["geojson"]))
+
+    def test_large_feature_rejected(self):
+        """A large Feature should be rejected."""
+        geojson = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[0, 0], [5, 0], [5, 5], [0, 5], [0, 0]]],
+            },
+            "properties": {},
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_large_feature_collection_rejected(self):
+        """A FeatureCollection whose total area exceeds the limit is rejected."""
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]]
+                        ],
+                    },
+                    "properties": {},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[10, 10], [13, 10], [13, 13], [10, 13], [10, 10]]
+                        ],
+                    },
+                    "properties": {},
+                },
+            ],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_large_multipolygon_rejected(self):
+        """A large MultiPolygon should be rejected."""
+        geojson = {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [[[0, 0], [5, 0], [5, 5], [0, 5], [0, 0]]],
+            ],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_area_error_translated_pt_br(self):
+        """Area error message should be translated to pt-BR."""
+        profile = self.user.profile
+        profile.default_language = "pt-BR"
+        profile.save()
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [5, 0], [5, 5], [0, 5], [0, 0]]],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        error_msg = str(serializer.errors["geojson"])
+        self.assertIn("excede o tamanho", error_msg)
+
+    def test_area_error_translated_fr(self):
+        """Area error message should be translated to French."""
+        profile = self.user.profile
+        profile.default_language = "fr"
+        profile.save()
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [5, 0], [5, 5], [0, 5], [0, 0]]],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        error_msg = str(serializer.errors["geojson"])
+        self.assertIn("dépasse la taille", error_msg)
+
+    def test_max_area_ha_constant(self):
+        """MAX_AREA_HA should be 110,000."""
+        self.assertEqual(MAX_AREA_HA, 110_000)
+
+    @patch("wildfire_assessment.serializers.Geod")
+    def test_area_computation_failure_does_not_block(self, mock_geod):
+        """If area computation fails, validation should still pass."""
+        mock_geod.side_effect = RuntimeError("pyproj error")
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
 class AreaOfInterestUpdateSerializerTests(TestCase):
     def setUp(self):
         self.country = Country.objects.create(name="Test Country", code="TC")
@@ -2032,7 +2182,7 @@ class AreaOfInterestUpdateSerializerTests(TestCase):
         self.factory = APIRequestFactory()
         self.valid_polygon = {
             "type": "Polygon",
-            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
         }
 
     @override_settings(BASE_DIR=tempfile.gettempdir())
@@ -2209,7 +2359,9 @@ class AreaOfInterestCreateCentroidTests(TestCase):
                     "type": "Feature",
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
+                        "coordinates": [
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
+                        ],
                     },
                     "properties": {},
                 }
@@ -2227,8 +2379,10 @@ class AreaOfInterestCreateCentroidTests(TestCase):
         instance = serializer.save()
         self.assertIsNotNone(instance.centroid_lat)
         self.assertIsNotNone(instance.centroid_lng)
-        self.assertAlmostEqual(float(instance.centroid_lat), 1.0, places=5)
-        self.assertAlmostEqual(float(instance.centroid_lng), 1.0, places=5)
+        self.assertAlmostEqual(float(instance.centroid_lat), 0.05, places=5)
+        self.assertAlmostEqual(float(instance.centroid_lng), 0.05, places=5)
+        self.assertIsNotNone(instance.area_ha)
+        self.assertGreater(instance.area_ha, 0)
 
     @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_create_centroid_from_raw_polygon(self, _mock_upload):
@@ -2236,7 +2390,7 @@ class AreaOfInterestCreateCentroidTests(TestCase):
         request.user = self.user
         geojson = {
             "type": "Polygon",
-            "coordinates": [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]],
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
         }
         serializer = AreaOfInterestCreateSerializer(
             data={
@@ -2249,7 +2403,7 @@ class AreaOfInterestCreateCentroidTests(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         instance = serializer.save()
         self.assertIsNotNone(instance.centroid_lat)
-        self.assertAlmostEqual(float(instance.centroid_lat), 2.0, places=5)
+        self.assertAlmostEqual(float(instance.centroid_lat), 0.05, places=5)
 
     @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
     def test_create_centroid_exception_silenced(self, _mock_upload):
@@ -2260,7 +2414,7 @@ class AreaOfInterestCreateCentroidTests(TestCase):
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
             },
             "properties": {},
         }
@@ -2294,7 +2448,7 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         self.factory = APIRequestFactory()
         self.valid_polygon = {
             "type": "Polygon",
-            "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
         }
 
     @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
@@ -2321,6 +2475,8 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
             updated = serializer.save()
         mock_delete.assert_not_called()
         self.assertTrue(updated.polygon_path.endswith(".geojson"))
+        self.assertIsNotNone(updated.area_ha)
+        self.assertGreater(updated.area_ha, 0)
 
     @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
     @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
@@ -2335,7 +2491,9 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]],
+                "coordinates": [
+                    [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
+                ],
             },
             "properties": {},
         }
@@ -2347,8 +2505,10 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
         updated = serializer.save()
-        self.assertAlmostEqual(float(updated.centroid_lat), 2.0, places=5)
-        self.assertAlmostEqual(float(updated.centroid_lng), 2.0, places=5)
+        self.assertAlmostEqual(float(updated.centroid_lat), 0.05, places=5)
+        self.assertAlmostEqual(float(updated.centroid_lng), 0.05, places=5)
+        self.assertIsNotNone(updated.area_ha)
+        self.assertGreater(updated.area_ha, 0)
 
     @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
     @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
@@ -2365,7 +2525,9 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
                     "type": "Feature",
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[[0, 0], [4, 0], [4, 4], [0, 4], [0, 0]]],
+                        "coordinates": [
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
+                        ],
                     },
                     "properties": {},
                 }
@@ -2379,7 +2541,7 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
         updated = serializer.save()
-        self.assertAlmostEqual(float(updated.centroid_lat), 2.0, places=5)
+        self.assertAlmostEqual(float(updated.centroid_lat), 0.05, places=5)
 
     @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
     @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
@@ -2397,7 +2559,7 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
         updated = serializer.save()
-        self.assertAlmostEqual(float(updated.centroid_lat), 1.0, places=5)
+        self.assertAlmostEqual(float(updated.centroid_lat), 0.05, places=5)
 
     @patch("wildfire_assessment.serializers.delete_polygon_from_s3")
     @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
@@ -2460,7 +2622,7 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
         )
         request = self.factory.patch("/")
         request.user = self.user
-        cw_ring = [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]]
+        cw_ring = [[0, 0], [0, 0.1], [0.1, 0.1], [0.1, 0], [0, 0]]
         serializer = AreaOfInterestUpdateSerializer(
             area,
             data={
@@ -2555,20 +2717,20 @@ class HelperFunctionTests(TestCase):
     def test_compute_centroid_polygon(self):
         geojson = {
             "type": "Polygon",
-            "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
         }
         result = compute_centroid(geojson)
         self.assertIsNotNone(result)
         lat, lng = result
-        self.assertAlmostEqual(lat, 0.5, places=5)
-        self.assertAlmostEqual(lng, 0.5, places=5)
+        self.assertAlmostEqual(lat, 0.05, places=5)
+        self.assertAlmostEqual(lng, 0.05, places=5)
 
     def test_compute_centroid_feature(self):
         geojson = {
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[0, 0], [2, 0], [2, 2], [0, 2], [0, 0]]],
+                "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
             },
             "properties": {},
         }
@@ -2583,7 +2745,7 @@ class HelperFunctionTests(TestCase):
                     "type": "Feature",
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                        "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                     },
                     "properties": {},
                 }
@@ -2613,3 +2775,82 @@ class HelperFunctionTests(TestCase):
             name="Same Name", polygon_path="same.geojson", country=country
         )
         self.assertFalse(check_duplicate_area_name("Same Name", country, instance=area))
+
+    def test_compute_area_ha_polygon(self):
+        """compute_area_ha returns area in hectares for a Polygon."""
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
+        }
+        result = compute_area_ha(geojson)
+        self.assertIsNotNone(result)
+        self.assertGreater(result, 0)
+        # ~0.1° × 0.1° at equator ≈ 12,300 ha
+        self.assertAlmostEqual(result, 12_300, delta=500)
+
+    def test_compute_area_ha_feature(self):
+        """compute_area_ha works with Feature type."""
+        geojson = {
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
+            },
+            "properties": {},
+        }
+        result = compute_area_ha(geojson)
+        self.assertIsNotNone(result)
+        self.assertGreater(result, 0)
+
+    def test_compute_area_ha_feature_collection(self):
+        """compute_area_ha sums areas of all features."""
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
+                        ],
+                    },
+                    "properties": {},
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [[1, 1], [1.1, 1], [1.1, 1.1], [1, 1.1], [1, 1]]
+                        ],
+                    },
+                    "properties": {},
+                },
+            ],
+        }
+        result = compute_area_ha(geojson)
+        self.assertIsNotNone(result)
+        # Should be roughly double the single polygon area
+        single = compute_area_ha(
+            {
+                "type": "Polygon",
+                "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
+            }
+        )
+        self.assertAlmostEqual(result, single * 2, delta=500)
+
+    def test_compute_area_ha_invalid_returns_none(self):
+        """compute_area_ha returns None on invalid input."""
+        result = compute_area_ha({"type": "Invalid"})
+        self.assertIsNone(result)
+
+    def test_compute_area_ha_rounds_to_3_decimals(self):
+        """compute_area_ha returns value rounded to 3 decimal places."""
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
+        }
+        result = compute_area_ha(geojson)
+        # Check that it has at most 3 decimal places
+        self.assertEqual(result, round(result, 3))
