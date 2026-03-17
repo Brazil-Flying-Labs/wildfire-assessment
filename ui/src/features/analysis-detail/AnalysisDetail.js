@@ -65,6 +65,25 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
     }
   }, [scrollToDeliverable, loading, analysis]);
 
+  // Validate GCS deliverable URLs (may have expired after 30-day TTL)
+  useEffect(() => {
+    if (!analysis || !baseUrl) return;
+    const hasAnyUrl = scientificDeliverables.some(({ urlKey }) => analysis[urlKey]);
+    if (!hasAnyUrl) return;
+
+    authorizedFetch(`${baseUrl}/analysis_run/${analysis.id}/validate_urls/`, {
+      method: "POST",
+    })
+      .then((response) => {
+        if (response.ok) return response.json();
+        return null;
+      })
+      .then((data) => {
+        if (data) setAnalysis(data);
+      })
+      .catch(() => {});
+  }, [analysis?.id, baseUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const imageEntries = useMemo(() => {
     if (!analysis) return [];
     const items = [

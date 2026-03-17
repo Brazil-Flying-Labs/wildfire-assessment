@@ -134,6 +134,37 @@ def get_analysis_runs_queryset(user):
     ).order_by("-created_at")
 
 
+def validate_deliverable_urls(analysis_run_id):
+    """Check GCS deliverable URLs and clear any that are no longer accessible."""
+    from wildfire_assessment.svc.processor import DELIVERABLE_FIELD_MAP
+
+    run = AnalysisRun.objects.get(id=analysis_run_id)
+
+    urls_to_check = {}
+    for field_name in DELIVERABLE_FIELD_MAP.values():
+        url = getattr(run, field_name)
+        if url:
+            urls_to_check[field_name] = url
+
+    if not urls_to_check:
+        return run
+
+    fields_to_clear = {}
+    for field_name, url in urls_to_check.items():
+        try:
+            resp = requests.head(url, timeout=10, allow_redirects=True)
+            if resp.status_code >= 400:
+                fields_to_clear[field_name] = None
+        except requests.RequestException:
+            fields_to_clear[field_name] = None
+
+    if fields_to_clear:
+        AnalysisRun.objects.filter(id=analysis_run_id).update(**fields_to_clear)
+        run.refresh_from_db()
+
+    return run
+
+
 def get_area_geojson(polygon_path):
     """Download and return GeoJSON data for an area's polygon.
 

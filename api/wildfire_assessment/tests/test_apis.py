@@ -1698,3 +1698,75 @@ class NotificationViewSetTests(APITestCase):
         response = self.client.post(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()["marked_read"], 0)
+
+
+class AnalysisRunValidateUrlsTests(APITestCase):
+    """Tests for the validate_urls action on AnalysisRunViewSet."""
+
+    def setUp(self):
+        self.country = Country.objects.create(name="ValUrl Country", code="VU")
+        self.area = AreaOfInterest.objects.create(
+            name="ValUrl Area",
+            polygon_path="polygon.json",
+            country=self.country,
+        )
+        self.user = User.objects.create_user(
+            username="valurluser",
+            email="valurl@example.com",
+            password="password",
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            scientific_dnbr_url="https://storage.googleapis.com/bucket/dnbr.tif",
+        )
+
+    def test_validate_urls_requires_authentication(self):
+        url = reverse("analysisrun-validate-urls", args=[self.analysis.id])
+        response = self.client.post(url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    @patch("wildfire_assessment.svc.area_of_interest.requests.head")
+    def test_validate_urls_clears_expired(self, mock_head):
+        mock_head.return_value = SimpleNamespace(status_code=404)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-validate-urls", args=[self.analysis.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNone(response.json()["scientific_dnbr_url"])
+
+    @patch("wildfire_assessment.svc.area_of_interest.requests.head")
+    def test_validate_urls_keeps_valid(self, mock_head):
+        mock_head.return_value = SimpleNamespace(status_code=200)
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-validate-urls", args=[self.analysis.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            response.json()["scientific_dnbr_url"],
+            "https://storage.googleapis.com/bucket/dnbr.tif",
+        )
+
+    def test_validate_urls_returns_404_for_unauthorized(self):
+        other_country = Country.objects.create(name="Other", code="OT")
+        other_area = AreaOfInterest.objects.create(
+            name="Other Area",
+            polygon_path="p.json",
+            country=other_country,
+        )
+        other_analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=other_area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-validate-urls", args=[other_analysis.id])
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

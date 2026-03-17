@@ -2277,3 +2277,86 @@ class SendPushNotificationTests(TestCase):
             title="Title",
             body="Body",
         )
+
+
+class ValidateDeliverableUrlsTests(TestCase):
+    """Tests for validate_deliverable_urls service function."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="valuser", password="pw")
+        self.country = Country.objects.create(name="Val Country", code="VC")
+        self.area = AreaOfInterest.objects.create(
+            name="Val Area", polygon_path="p.json", country=self.country
+        )
+        self.run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            scientific_dnbr_url="https://storage.googleapis.com/bucket/dnbr.tif",
+            scientific_rbr_url="https://storage.googleapis.com/bucket/rbr.tif",
+        )
+
+    @patch("wildfire_assessment.svc.area_of_interest.requests.head")
+    def test_clears_expired_url_on_404(self, mock_head):
+        """URLs returning 404 are cleared from the database."""
+        mock_head.side_effect = [
+            SimpleNamespace(status_code=404),
+            SimpleNamespace(status_code=200),
+        ]
+        result = aoi_service.validate_deliverable_urls(self.run.id)
+        self.assertIsNone(result.scientific_dnbr_url)
+        self.assertEqual(
+            result.scientific_rbr_url,
+            "https://storage.googleapis.com/bucket/rbr.tif",
+        )
+
+    @patch("wildfire_assessment.svc.area_of_interest.requests.head")
+    def test_clears_url_on_403(self, mock_head):
+        """Expired signed URLs returning 403 are cleared."""
+        mock_head.return_value = SimpleNamespace(status_code=403)
+        result = aoi_service.validate_deliverable_urls(self.run.id)
+        self.assertIsNone(result.scientific_dnbr_url)
+        self.assertIsNone(result.scientific_rbr_url)
+
+    @patch("wildfire_assessment.svc.area_of_interest.requests.head")
+    def test_clears_url_on_network_error(self, mock_head):
+        """URLs that cause a connection error are cleared."""
+        import requests
+
+        mock_head.side_effect = requests.ConnectionError("timeout")
+        result = aoi_service.validate_deliverable_urls(self.run.id)
+        self.assertIsNone(result.scientific_dnbr_url)
+        self.assertIsNone(result.scientific_rbr_url)
+
+    @patch("wildfire_assessment.svc.area_of_interest.requests.head")
+    def test_clears_url_on_timeout(self, mock_head):
+        """URLs that timeout are cleared."""
+        import requests
+
+        mock_head.side_effect = requests.Timeout("timed out")
+        result = aoi_service.validate_deliverable_urls(self.run.id)
+        self.assertIsNone(result.scientific_dnbr_url)
+        self.assertIsNone(result.scientific_rbr_url)
+
+    @patch("wildfire_assessment.svc.area_of_interest.requests.head")
+    def test_keeps_valid_urls(self, mock_head):
+        """URLs returning 200 are kept."""
+        mock_head.return_value = SimpleNamespace(status_code=200)
+        result = aoi_service.validate_deliverable_urls(self.run.id)
+        self.assertEqual(
+            result.scientific_dnbr_url,
+            "https://storage.googleapis.com/bucket/dnbr.tif",
+        )
+        self.assertEqual(
+            result.scientific_rbr_url,
+            "https://storage.googleapis.com/bucket/rbr.tif",
+        )
+
+    def test_no_urls_returns_immediately(self):
+        """When no deliverable URLs exist, return immediately without HTTP calls."""
+        self.run.scientific_dnbr_url = None
+        self.run.scientific_rbr_url = None
+        self.run.save()
+        result = aoi_service.validate_deliverable_urls(self.run.id)
+        self.assertEqual(result.id, self.run.id)

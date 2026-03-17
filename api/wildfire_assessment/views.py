@@ -38,6 +38,7 @@ from wildfire_assessment.svc.area_of_interest import (
     save_analysis_run,
     save_deliverable_task_id,
     user_can_access_area,
+    validate_deliverable_urls,
 )
 from wildfire_assessment.svc.dashboard import (
     get_dashboard_stats,
@@ -443,6 +444,19 @@ class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
                     response_data["error"] = db_error
 
         return Response(response_data)
+
+    @extend_schema(
+        methods=["POST"],
+        request=None,
+        responses={200: AnalysisRunSerializer},
+    )
+    @action(detail=True, methods=["post"], url_path="validate_urls")
+    def validate_urls(self, request, pk=None):
+        """Check GCS deliverable URLs and clear any that have expired."""
+        instance = self.get_object()
+        updated = validate_deliverable_urls(instance.id)
+        serializer = self.get_serializer(updated)
+        return Response(serializer.data)
 
 
 class UserMeView(generics.RetrieveUpdateAPIView):
