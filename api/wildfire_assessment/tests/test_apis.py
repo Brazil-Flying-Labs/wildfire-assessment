@@ -465,6 +465,20 @@ class UserMeViewTests(APITestCase):
         self.user.profile.refresh_from_db()
         self.assertIsNone(self.user.profile.expo_push_token)
 
+    def test_me_delete_requires_authentication(self):
+        response = self.client.delete(self.url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    @patch("wildfire_assessment.views.delete_user_account")
+    def test_me_delete_removes_user(self, mock_delete):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        mock_delete.assert_called_once_with(self.user)
+
 
 class AIAnalysisViewTests(APITestCase):
     """Tests for the AI analysis streaming endpoint."""

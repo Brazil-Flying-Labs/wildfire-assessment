@@ -104,6 +104,21 @@ def get_presigned_image_url(key: str, expiration: int = 3600) -> str:
     )
 
 
+def delete_image_from_s3(key: str) -> bool:
+    """Delete an image from S3 under the images/ prefix. Returns True on success."""
+    try:
+        session = get_boto3_session()
+        client = session.client("s3")
+        client.delete_object(
+            Bucket=settings.S3_BUCKET_NAME,
+            Key=f"images/{key}",
+        )
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to delete image from S3: {e}")
+        return False
+
+
 def delete_polygon_from_s3(filename: str) -> bool:
     """Delete a polygon GeoJSON file from S3. Returns True on success, False on failure."""
     filename = os.path.basename(filename)

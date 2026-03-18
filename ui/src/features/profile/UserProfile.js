@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import BackButton from "../../components/BackButton";
 import { useLanguage, SUPPORTED_LANGUAGES } from "../../context/LanguageContext";
 import useCookieConsent from "../../hooks/useCookieConsent";
+import DeleteAccountModal from "./DeleteAccountModal";
 
 const LANGUAGE_LABELS = {
   en: "English",
@@ -14,9 +15,10 @@ const THEME_LABELS = {
   dark: { en: "Dark", "pt-BR": "Escuro", fr: "Sombre" },
 };
 
-function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate, onThemeChange, onBack }) {
+function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate, onThemeChange, onBack, logout }) {
   const { t, language, setLanguage } = useLanguage();
   const { consent, resetConsent } = useCookieConsent();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loading, setLoading] = useState(!backendProfile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -116,6 +118,16 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
     },
     [authorizedFetch, baseUrl, formData, onProfileUpdate, t]
   );
+
+  const handleDeleteAccount = useCallback(async () => {
+    const response = await authorizedFetch(`${baseUrl}/me/`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      throw new Error("Delete failed");
+    }
+    logout({ logoutParams: { returnTo: window.location.origin } });
+  }, [authorizedFetch, baseUrl, logout]);
 
   if (loading) {
     return (
@@ -275,6 +287,29 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
           <div className="form-text mt-2">{t("profile.cookieSettingsHint")}</div>
         </div>
       </div>
+
+      <div className="card shadow-sm mt-4">
+        <div className="card-body">
+          <h5 className="card-title text-danger mb-3">
+            {t("profile.deleteAccount")}
+          </h5>
+          <p className="text-muted mb-3">{t("profile.deleteAccountWarning")}</p>
+          <button
+            type="button"
+            className="btn btn-outline-danger"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            {t("profile.deleteAccount")}
+          </button>
+        </div>
+      </div>
+
+      {showDeleteModal && (
+        <DeleteAccountModal
+          onConfirm={handleDeleteAccount}
+          onClose={() => setShowDeleteModal(false)}
+        />
+      )}
     </div>
   );
 }

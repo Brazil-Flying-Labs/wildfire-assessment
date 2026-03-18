@@ -343,5 +343,15 @@
   "privacy.section10Text": "Se você tiver dúvidas sobre esta Política de Privacidade ou seus dados pessoais, entre em contato conosco em:",
   "privacy.contactEmail": "humanos@brazilflyinglabs.org.br",
 
-  "landing.privacyPolicy": "Política de Privacidade"
+  "landing.privacyPolicy": "Política de Privacidade",
+
+  "profile.deleteAccount": "Excluir Conta",
+  "profile.deleteAccountTitle": "Excluir Sua Conta",
+  "profile.deleteAccountWarning": "Esta ação é permanente e não pode ser desfeita. Todo o seu histórico de análises, notificações e dados de perfil serão permanentemente excluídos.",
+  "profile.deleteAccountConfirmLabel": "Digite \"{word}\" para confirmar",
+  "profile.deleteAccountConfirmWord": "excluir",
+  "profile.deleteAccountButton": "Excluir Minha Conta Permanentemente",
+  "profile.deleteAccountDeleting": "Excluindo...",
+  "profile.deleteAccountError": "Falha ao excluir conta. Tente novamente.",
+  "profile.deleteAccountCancel": "Cancelar"
 }

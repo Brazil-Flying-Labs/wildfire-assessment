@@ -368,6 +368,7 @@ function App() {
                   onProfileUpdate={fetchBackendProfile}
                   onThemeChange={updateTheme}
                   onBack={goBack}
+                  logout={logout}
                 />
               ) : (
                 <AnalysisPage

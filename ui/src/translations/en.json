@@ -343,5 +343,15 @@
   "privacy.section10Text": "If you have questions about this Privacy Policy or your personal data, contact us at:",
   "privacy.contactEmail": "humanos@brazilflyinglabs.org.br",
 
-  "landing.privacyPolicy": "Privacy Policy"
+  "landing.privacyPolicy": "Privacy Policy",
+
+  "profile.deleteAccount": "Delete Account",
+  "profile.deleteAccountTitle": "Delete Your Account",
+  "profile.deleteAccountWarning": "This action is permanent and cannot be undone. All your analysis history, notifications, and profile data will be permanently deleted.",
+  "profile.deleteAccountConfirmLabel": "Type \"{word}\" to confirm",
+  "profile.deleteAccountConfirmWord": "delete",
+  "profile.deleteAccountButton": "Permanently Delete My Account",
+  "profile.deleteAccountDeleting": "Deleting...",
+  "profile.deleteAccountError": "Failed to delete account. Please try again.",
+  "profile.deleteAccountCancel": "Cancel"
 }

@@ -58,6 +58,7 @@ from wildfire_assessment.svc.processor import (
     process_fire_assessment,
     process_scientific_deliverable,
 )
+from wildfire_assessment.svc.user import delete_user_account
 from wildfire_assessment.translations import get_error_translation, get_user_language
 
 LOG = logging.getLogger(__name__)
@@ -460,14 +461,18 @@ class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
 
 
 class UserMeView(generics.RetrieveUpdateAPIView):
-    """Return or update the authenticated user's profile."""
+    """Return, update, or delete the authenticated user's profile."""
 
     serializer_class = UserMeSerializer
     permission_classes = [permissions.IsAuthenticated]
-    http_method_names = ["get", "patch"]
+    http_method_names = ["get", "patch", "delete"]
 
     def get_object(self):
         return self.request.user
+
+    def delete(self, request, *args, **kwargs):
+        delete_user_account(request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class DashboardView(APIView):

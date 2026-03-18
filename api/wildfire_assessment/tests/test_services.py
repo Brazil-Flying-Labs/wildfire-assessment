@@ -1621,6 +1621,116 @@ class S3ImageTests(TestCase):
         )
 
 
+class S3ImageDeleteTests(TestCase):
+    """Tests for delete_image_from_s3."""
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_delete_image_from_s3_success(self, mock_session):
+        client = MagicMock()
+        mock_session.return_value.client.return_value = client
+
+        result = aws.delete_image_from_s3("run123/pre_fire_rgb.jpg")
+
+        self.assertTrue(result)
+        client.delete_object.assert_called_once()
+        call_kwargs = client.delete_object.call_args.kwargs
+        self.assertEqual(call_kwargs["Key"], "images/run123/pre_fire_rgb.jpg")
+
+    @patch("wildfire_assessment.svc.aws.get_boto3_session")
+    def test_delete_image_from_s3_failure(self, mock_session):
+        client = MagicMock()
+        client.delete_object.side_effect = Exception("S3 error")
+        mock_session.return_value.client.return_value = client
+
+        result = aws.delete_image_from_s3("run123/pre_fire_rgb.jpg")
+
+        self.assertFalse(result)
+
+
+class UserServiceTests(TestCase):
+    """Tests for wildfire_assessment.svc.user."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="deleter", email="del@example.com", password="pw"
+        )
+        self.country = Country.objects.create(
+            name="UserSvcCountry", code="UC"
+        )
+        self.area = AreaOfInterest.objects.create(
+            name="UserSvcArea", polygon_path="a.geojson", country=self.country
+        )
+
+    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    def test_delete_user_account_removes_user(self, mock_del):
+        mock_del.return_value = True
+        from wildfire_assessment.svc.user import delete_user_account
+
+        delete_user_account(self.user)
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    def test_delete_user_account_cascades_profile(self, mock_del):
+        mock_del.return_value = True
+        UserProfile.objects.get_or_create(user=self.user)
+        from wildfire_assessment.svc.user import delete_user_account
+
+        delete_user_account(self.user)
+        self.assertFalse(UserProfile.objects.filter(user_id=self.user.pk).exists())
+
+    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    def test_delete_user_account_cascades_notifications(self, mock_del):
+        mock_del.return_value = True
+        Notification.objects.create(user=self.user, message="test")
+        from wildfire_assessment.svc.user import delete_user_account
+
+        delete_user_account(self.user)
+        self.assertFalse(Notification.objects.filter(user_id=self.user.pk).exists())
+
+    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    def test_delete_user_account_cleans_images(self, mock_del):
+        mock_del.return_value = True
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            rgb_pre_fire_image="img1.jpg",
+            dndvi_image="img2.jpg",
+        )
+        from wildfire_assessment.svc.user import delete_user_account
+
+        delete_user_account(self.user)
+        self.assertEqual(mock_del.call_count, 2)
+        mock_del.assert_any_call("img1.jpg")
+        mock_del.assert_any_call("img2.jpg")
+
+    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    def test_delete_user_account_no_runs(self, mock_del):
+        """Deletes cleanly when user has no analysis runs."""
+        from wildfire_assessment.svc.user import delete_user_account
+
+        delete_user_account(self.user)
+        mock_del.assert_not_called()
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    def test_delete_user_account_s3_failure_does_not_block(self, mock_del):
+        """S3 failure does not prevent user deletion."""
+        mock_del.return_value = False
+        AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            rgb_pre_fire_image="img1.jpg",
+        )
+        from wildfire_assessment.svc.user import delete_user_account
+
+        delete_user_account(self.user)
+        self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
+
+
 class AnalyticsServiceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
