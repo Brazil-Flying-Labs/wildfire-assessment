@@ -5,6 +5,7 @@ Translations follow the same language codes as the UI:
 - en: English
 - pt-BR: Português (Brasil)
 - fr: Français
+- es-ES: Español (España)
 """
 
 EMAIL_TRANSLATIONS = {
@@ -27,6 +28,13 @@ EMAIL_TRANSLATIONS = {
         "email.body": (
             "Le livrable scientifique '{reserve_name}' est prêt à être téléchargé"
             " via ce lien : {url}"
+        ),
+    },
+    "es-ES": {
+        "email.subject": "Wildfire Analyser - Producto Científico Listo",
+        "email.body": (
+            "El producto científico '{reserve_name}' está listo para descargar"
+            " en este enlace: {url}"
         ),
     },
 }
@@ -156,6 +164,47 @@ ERROR_TRANSLATIONS = {
         "error.ai_followup_empty": "L'IA a renvoyé une réponse vide",
         "error.ai_followup_failed": "Échec de la génération de la réponse : {detail}",
     },
+    "es-ES": {
+        "error.no_permission_create": "No tiene permiso para crear áreas de interés en este país.",
+        "error.no_permission_update": "No tiene permiso para actualizar esta área.",
+        "error.no_permission_move": "No tiene permiso para mover áreas a este país.",
+        "error.no_permission_delete": "No tiene permiso para eliminar esta área.",
+        "error.duplicate_name": "Ya existe un área de interés con este nombre en el país seleccionado.",
+        "error.geojson_not_object": "El GeoJSON debe ser un objeto.",
+        "error.geojson_no_type": "El GeoJSON debe tener un campo 'type'.",
+        "error.feature_no_geometry": "El Feature debe tener un campo 'geometry'.",
+        "error.featurecollection_empty": "El FeatureCollection debe tener al menos un feature.",
+        "error.feature_not_object": "El feature en el índice {index} debe ser un objeto.",
+        "error.unsupported_geometry": "Tipo de geometría no soportado: '{geom_type}'. Solo se aceptan geometrías Polygon o MultiPolygon.",
+        "error.unsupported_geojson_type": "Tipo de GeoJSON no soportado: '{geojson_type}'. Debe ser Feature, FeatureCollection o un tipo de geometría.",
+        "error.geometry_not_object": "{context}: La geometría debe ser un objeto.",
+        "error.geometry_no_type": "{context}: La geometría debe tener un campo 'type'.",
+        "error.geometry_unsupported": "{context}: Tipo de geometría no soportado '{geom_type}'. Solo se aceptan geometrías Polygon o MultiPolygon.",
+        "error.geometry_no_coordinates": "{context}: La geometría debe tener un campo 'coordinates'.",
+        "error.geometry_invalid_structure": "{context}: Estructura de geometría inválida - {detail}",
+        "error.geometry_invalid": "{context}: Geometría inválida - {detail}",
+        "error.geometry_empty": "{context}: La geometría no puede estar vacía.",
+        "error.longitude_out_of_range": "{context}: La longitud {value} está fuera del rango [-180, 180].",
+        "error.latitude_out_of_range": "{context}: La latitud {value} está fuera del rango [-90, 90].",
+        "error.ring_not_closed": "{context}: El anillo lineal no está cerrado. La primera y la última posición deben ser idénticas.",
+        "error.ring_too_few_positions": "{context}: El anillo lineal debe tener al menos 4 posiciones (3 vértices distintos más el punto de cierre).",
+        "error.nested_geometry_collection": "{context}: Las GeometryCollections no pueden contener otras GeometryCollections (RFC 7946).",
+        "error.coordinates_3d": "{context}: Las coordenadas 3D no son soportadas. Por favor, elimine los valores Z (altitud) de su archivo GeoJSON.",
+        "error.position_too_few_elements": "{context}: La posición debe tener al menos 2 elementos [longitud, latitud].",
+        "error.position_not_all_numbers": "{context}: Los elementos de la posición deben ser todos números.",
+        "error.fc_feature_missing_type": "El feature en el índice {index} debe tener type 'Feature'.",
+        "error.feature_no_properties": "{context}: El Feature debe tener un campo 'properties' (puede ser null o un objeto vacío).",
+        "error.fc_feature_no_geometry": "El feature en el índice {index} debe tener un campo 'geometry' no nulo.",
+        "error.feature_invalid_id": "{context}: El 'id' del Feature debe ser una cadena o un número.",
+        "error.bbox_invalid_length": "El bounding box debe ser un array de exactamente 4 números [oeste, sur, este, norte].",
+        "error.bbox_latitude_out_of_range": "Los valores de latitud del bounding box deben estar entre -90 y 90.",
+        "error.invalid_deliverable": "Tipo de producto inválido",
+        "error.area_too_large": "El área de interés excede el tamaño máximo permitido de {max_ha} hectáreas. Por favor, suba un polígono más pequeño.",
+        "error.ai_empty_response": "El análisis de IA devolvió una respuesta vacía",
+        "error.ai_failed": "Error al generar el análisis: {detail}",
+        "error.ai_followup_empty": "La IA devolvió una respuesta vacía",
+        "error.ai_followup_failed": "Error al generar la respuesta: {detail}",
+    },
 }
 
 
@@ -173,7 +222,7 @@ def get_error_translation(language: str, key: str, **kwargs) -> str:
     Get a translated error string.
 
     Args:
-        language: Language code (en, pt-BR, fr)
+        language: Language code (en, pt-BR, fr, es-ES)
         key: Translation key (e.g., 'error.duplicate_name')
         **kwargs: Format parameters for the message
 
@@ -192,7 +241,7 @@ def get_email_translation(language: str, key: str) -> str:
     Get a translated email string for the given language and key.
 
     Args:
-        language: Language code (en, pt-BR, fr)
+        language: Language code (en, pt-BR, fr, es-ES)
         key: Translation key (e.g., 'email.subject', 'email.body')
 
     Returns:

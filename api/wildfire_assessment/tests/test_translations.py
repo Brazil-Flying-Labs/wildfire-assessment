@@ -40,6 +40,15 @@ class EmailTranslationsTestCase(TestCase):
         self.assertIn("{reserve_name}", body)
         self.assertIn("{url}", body)
 
+    def test_get_email_translation_spanish(self):
+        """Test getting Spanish translations."""
+        subject = get_email_translation("es-ES", "email.subject")
+        self.assertEqual(subject, "Wildfire Analyser - Producto Científico Listo")
+
+        body = get_email_translation("es-ES", "email.body")
+        self.assertIn("{reserve_name}", body)
+        self.assertIn("{url}", body)
+
     def test_get_email_translation_fallback_to_english(self):
         """Test that unknown languages fall back to English."""
         subject = get_email_translation("de", "email.subject")
@@ -87,6 +96,10 @@ class ErrorTranslationsTestCase(TestCase):
     def test_get_error_translation_french(self):
         msg = get_error_translation("fr", "error.duplicate_name")
         self.assertIn("existe déjà", msg)
+
+    def test_get_error_translation_spanish(self):
+        msg = get_error_translation("es-ES", "error.duplicate_name")
+        self.assertIn("Ya existe", msg)
 
     def test_get_error_translation_fallback(self):
         msg = get_error_translation("de", "error.duplicate_name")

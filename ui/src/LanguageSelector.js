@@ -6,12 +6,14 @@ const FLAGS = {
   en: "\ud83c\uddfa\ud83c\uddf8",
   "pt-BR": "\ud83c\udde7\ud83c\uddf7",
   fr: "\ud83c\uddeb\ud83c\uddf7",
+  "es-ES": "\ud83c\uddea\ud83c\uddf8",
 };
 
 const LABELS = {
   en: "English",
   "pt-BR": "Portugu\u00eas",
   fr: "Fran\u00e7ais",
+  "es-ES": "Espa\u00f1ol",
 };
 
 function LanguageSelector() {

@@ -70,6 +70,7 @@ LANGUAGE_CHOICES = [
     ("en", "English"),
     ("pt-BR", "Português (Brasil)"),
     ("fr", "Français"),
+    ("es-ES", "Español (España)"),
 ]
 
 THEME_CHOICES = [
@@ -191,8 +192,12 @@ class AnalysisRun(models.Model):
         verbose_name = "Analysis Run"
         verbose_name_plural = "Analysis Runs"
         indexes = [
-            models.Index(fields=["user", "severity_data"], name="analysisrun_user_severity"),
-            models.Index(fields=["user", "created_at"], name="analysisrun_user_created"),
+            models.Index(
+                fields=["user", "severity_data"], name="analysisrun_user_severity"
+            ),
+            models.Index(
+                fields=["user", "created_at"], name="analysisrun_user_created"
+            ),
             models.Index(
                 fields=["user", "severity_data", "created_at"],
                 name="analysisrun_user_sev_created",

@@ -2,16 +2,18 @@ import { createContext, useCallback, useContext, useMemo, useState } from "react
 import en from "../translations/en.json";
 import ptBR from "../translations/pt-BR.json";
 import fr from "../translations/fr.json";
+import esES from "../translations/es-ES.json";
 
-const SUPPORTED_LANGUAGES = ["en", "pt-BR", "fr"];
+const SUPPORTED_LANGUAGES = ["en", "pt-BR", "fr", "es-ES"];
 const STORAGE_KEY = "preferred_language";
 
-const translationMap = { en, "pt-BR": ptBR, fr };
+const translationMap = { en, "pt-BR": ptBR, fr, "es-ES": esES };
 
 function detectBrowserLanguage() {
   const nav = navigator.language || "";
   if (nav.startsWith("pt")) return "pt-BR";
   if (nav.startsWith("fr")) return "fr";
+  if (nav.startsWith("es")) return "es-ES";
   return "en";
 }
 
