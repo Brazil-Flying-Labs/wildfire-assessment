@@ -90,7 +90,7 @@
   "app.deliverableProcessing": "Processing...",
   "app.deliverableOpen": "Open",
   "app.deliverableError": "Failed",
-  "app.footer": "UI version {version} · Wildfire Analyser 0.2.18",
+  "app.footer": "UI version {version} · Wildfire Analyser 1.0.0",
   "app.accountPending": "Your account has been created but is not yet authorized. Please contact an administrator to activate your account.",
   "app.noCountryAccess": "You don't have access to any countries yet. Please contact an administrator to get started.",
   "app.envNotConfigured": "Environment variable REACT_APP_WILDLIFE_API_URL is not configured.",
