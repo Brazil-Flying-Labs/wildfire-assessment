@@ -34,7 +34,12 @@ The API container mounts `./api:/api` so local edits are hot-reloaded. Tests run
 
 6. Never push code without EXPLICITLY asked by me. Always wait for my instructions before pushing code to the repository. This is important to ensure that all changes are coordinated and reviewed properly. If you have made changes and are ready to push, please notify me and wait for my confirmation before proceeding. This allows me to review the changes, run tests, and ensure that everything is in order before the code is merged into the main branch. Always communicate with me before pushing code to maintain a smooth workflow and avoid any potential issues.
 
-7. VERY IMPORTANT: Every new change/addition on the Web App must also be made on the Mobile App. Also the opposite, every change on the Mobile App must also be made on the Web App. We need to keep both platforms in sync to provide a consistent user experience. If you add a new feature or make a change on the Web App, you must also implement that change on the Mobile App. Similarly, if you make a change on the Mobile App, you must ensure that the same change is reflected on the Web App. This is crucial for maintaining feature parity and ensuring that users have a seamless experience across both platforms. Always check for any changes made on either platform and ensure they are implemented on the other as well.
+7. VERY IMPORTANT: Every new change/addition on the Web App must also be made on the Mobile App and the Electron App. Also the opposite, every change on the Mobile App/Electron App must also be made on the Web App. We need to keep all the three platforms in sync to provide a consistent user experience. If you add a new feature or make a change on the Web App, you must also implement that change on the Mobile App and the elctron app. Similarly, if you make a change on the Mobile App, you must ensure that the same change is reflected on the Web App and the electron app. If you make a change on the elctron app you must ensure the same change is reflected on the Web App/Mobile app. This is crucial for maintaining feature parity and ensuring that users have a seamless experience across both platforms. Always check for any changes made on either platform and ensure they are implemented on the other as well. 
+
+### Where are the repos?
+WEB - /Users/diogo/github-archive/repos/Brazil-Flying-Labs/wildfire-assessment
+MOBILE APP = /Users/diogo/github-archive/repos/Brazil-Flying-Labs/wildfire-assessment-app
+ELECTRON APP = /Users/diogo/github-archive/repos/Brazil-Flying-Labs/wildfire-assessment-electron
 
 ## Commands
 

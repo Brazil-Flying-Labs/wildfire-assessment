@@ -66,6 +66,7 @@ def process_fire_assessment(
                 Deliverable.RBR_VISUAL,
                 Deliverable.DNBR_AREA_STATISTICS,
             ],
+            roi_only=True
         )
 
         result = runner.run()
