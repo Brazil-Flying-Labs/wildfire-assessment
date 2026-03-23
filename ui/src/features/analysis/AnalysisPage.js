@@ -18,6 +18,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
   const [analysisResult, setAnalysisResult] = useState(null);
   const [analysisState, setAnalysisState] = useState({ loading: false, error: null });
   const [analysisStep, setAnalysisStep] = useState(0);
+  const [roiOnly, setRoiOnly] = useState(true);
   const analysisStepRef = useRef(null);
   const [hasResults, setHasResults] = useState(false);
   const [deliverableStatus, setDeliverableStatus] = useState({});
@@ -385,6 +386,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
       const queryParams = new URLSearchParams({
         pre_fire_date: preFireDate,
         post_fire_date: postFireDate,
+        roi_only: String(roiOnly),
       });
       const url = `${baseUrl}/area_of_interest/${selectedReserve}/analyze/?${queryParams.toString()}`;
 
@@ -519,6 +521,21 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
                   >
                     {analysisState.loading ? t("app.analyzing") : t("app.runAnalysis")}
                   </button>
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-top">
+                <div className="form-check">
+                  <input
+                    className="form-check-input"
+                    type="checkbox"
+                    id="roiOnly"
+                    checked={roiOnly}
+                    onChange={(e) => setRoiOnly(e.target.checked)}
+                  />
+                  <label className="form-check-label" htmlFor="roiOnly">
+                    {t("app.roiOnly")}
+                  </label>
+                  <div className="form-text">{t("app.roiOnlyHint")}</div>
                 </div>
               </div>
             </form>

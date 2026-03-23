@@ -90,6 +90,8 @@
   "app.deliverableProcessing": "Processando...",
   "app.deliverableOpen": "Abrir",
   "app.deliverableError": "Falhou",
+  "app.roiOnly": "Recortar resultados apenas para a Região de Interesse",
+  "app.roiOnlyHint": "Quando desmarcado, a análise cobre a extensão completa da imagem de satélite",
   "app.footer": "UI versão {version} · Wildfire Analyser 1.0.0",
   "app.accountPending": "Sua conta foi criada, mas ainda não está autorizada. Entre em contato com um administrador para ativar sua conta.",
   "app.noCountryAccess": "Você ainda não tem acesso a nenhum país. Entre em contato com um administrador para começar.",

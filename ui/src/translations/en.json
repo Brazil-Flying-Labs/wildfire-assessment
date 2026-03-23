@@ -90,6 +90,8 @@
   "app.deliverableProcessing": "Processing...",
   "app.deliverableOpen": "Open",
   "app.deliverableError": "Failed",
+  "app.roiOnly": "Clip results to Region of Interest only",
+  "app.roiOnlyHint": "When unchecked, analysis covers the full satellite image extent",
   "app.footer": "UI version {version} · Wildfire Analyser 1.0.0",
   "app.accountPending": "Your account has been created but is not yet authorized. Please contact an administrator to activate your account.",
   "app.noCountryAccess": "You don't have access to any countries yet. Please contact an administrator to get started.",
