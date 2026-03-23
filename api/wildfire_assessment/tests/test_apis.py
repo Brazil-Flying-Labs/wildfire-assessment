@@ -137,6 +137,25 @@ class WildfireAssessmentTests(APITestCase):
         self.assertEqual(kwargs["pre_fire_date"], "2023-01-01")
         self.assertEqual(kwargs["post_fire_date"], "2023-01-15")
         self.assertEqual(kwargs["polygon_path"], self.reserve.polygon_path)
+        self.assertTrue(kwargs["roi_only"])
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_passes_roi_only_false(self, mock_process, mock_scientific):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "roi_only": "false",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        mock_process.return_value = {"s3_urls": {}, "analysis_results": {}}
+        self.client.post(f"{url}?{query}")
+        kwargs = mock_process.call_args.kwargs
+        self.assertFalse(kwargs["roi_only"])
 
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     def test_scientific_deliverable_handles_all_deliverables(self, mock_process):

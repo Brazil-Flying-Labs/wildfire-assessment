@@ -188,6 +188,12 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
                 type=OpenApiTypes.DATE,
                 required=True,
             ),
+            OpenApiParameter(
+                name="roi_only",
+                description="Clip results to Region of Interest only (default: true)",
+                type=OpenApiTypes.BOOL,
+                required=False,
+            ),
         ],
     )
     @action(detail=True, methods=["post"], url_path="analyze")
@@ -201,11 +207,13 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
 
         pre_fire_date = request.query_params.get("pre_fire_date")
         post_fire_date = request.query_params.get("post_fire_date")
+        roi_only = request.query_params.get("roi_only", "true").lower() != "false"
 
         assessment_result = process_fire_assessment(
             pre_fire_date=pre_fire_date,
             post_fire_date=post_fire_date,
             polygon_path=instance.polygon_path,
+            roi_only=roi_only,
         )
 
         analysis_run = save_analysis_run(
@@ -214,6 +222,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             pre_fire_date=pre_fire_date,
             post_fire_date=post_fire_date,
             assessment_result=assessment_result,
+            roi_only=roi_only,
         )
         invalidate_dashboard_cache(request.user.id)
 
