@@ -34,6 +34,7 @@ def process_fire_assessment(
     pre_fire_date: str,
     post_fire_date: str,
     polygon_path: str,
+    roi_only: bool = True,
 ) -> dict:
     """
     Process a full fire assessment with all deliverables.
@@ -66,7 +67,7 @@ def process_fire_assessment(
                 Deliverable.RBR_VISUAL,
                 Deliverable.DNBR_AREA_STATISTICS,
             ],
-            roi_only=True
+            roi_only=roi_only
         )
 
         result = runner.run()

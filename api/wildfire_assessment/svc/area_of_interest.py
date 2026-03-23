@@ -74,7 +74,7 @@ def _download_and_store_image(url, run_id, name):
         return None
 
 
-def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_result):
+def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_result, roi_only=True):
     """Extract severity data from an assessment result and persist an AnalysisRun."""
     severity_data = None
     total_burned_ha = None
@@ -113,6 +113,7 @@ def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_resu
         status="completed",
         severity_data=severity_data,
         total_burned_ha=total_burned_ha,
+        roi_only=roi_only,
         completed_at=timezone.now(),
         **image_keys,
     )

@@ -136,6 +136,7 @@ class AnalysisRun(models.Model):
         choices=STATUS_CHOICES,
         default="completed",
     )
+    roi_only = models.BooleanField(default=True)
 
     # Severity data stored as JSON
     severity_data = models.JSONField(null=True, blank=True)

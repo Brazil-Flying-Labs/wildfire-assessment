@@ -81,6 +81,40 @@ class ProcessorTests(TestCase):
         self.assertIn("rbr_visual_jpg", result)
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_fire_assessment_passes_roi_only_false(
+        self, mock_secret, mock_download, mock_assessment, mock_unlink
+    ):
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "visual": {
+                "RGB_PRE_FIRE_VISUAL": {"url": "http://example.com/pre.jpg"},
+                "RGB_POST_FIRE_VISUAL": {"url": "http://example.com/post.jpg"},
+                "DNDVI_VISUAL": {"url": "http://example.com/dndvi.jpg"},
+                "DNBR_VISUAL": {"url": "http://example.com/dnbr.jpg"},
+                "RBR_VISUAL": {"url": "http://example.com/rbr.jpg"},
+            },
+            "statistics": {
+                "DNBR_AREA_STATISTICS": {"url": "http://example.com/stats.json"}
+            },
+        }
+        mock_assessment.return_value = assessment_instance
+
+        processor.process_fire_assessment(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+            roi_only=False,
+        )
+
+        call_kwargs = mock_assessment.call_args.kwargs
+        self.assertFalse(call_kwargs["roi_only"])
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.send_gmail_email")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
@@ -1470,6 +1504,20 @@ class AreaOfInterestServiceTests(TestCase):
 
         self.assertIsNone(run.rgb_pre_fire_image)
         mock_upload.assert_not_called()
+
+    def test_save_analysis_run_persists_roi_only_false(self):
+        result = {"severity_map": "{}"}
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2023-01-01", "2023-02-01", result, roi_only=False
+        )
+        self.assertFalse(run.roi_only)
+
+    def test_save_analysis_run_defaults_roi_only_true(self):
+        result = {"severity_map": "{}"}
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2023-01-01", "2023-02-01", result
+        )
+        self.assertTrue(run.roi_only)
 
     # -- delete_polygon_file with S3 ------------------------------------------
 
