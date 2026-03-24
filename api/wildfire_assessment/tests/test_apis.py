@@ -268,7 +268,7 @@ class WildfireAssessmentTests(APITestCase):
 
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     @patch("wildfire_assessment.views.process_fire_assessment")
-    def test_analyze_invalid_days_before_after_returns_400(
+    def test_analyze_negative_days_before_after_returns_400(
         self, mock_process, mock_scientific
     ):
         UserCountry.objects.create(user=self.user, country=self.country)
@@ -277,7 +277,7 @@ class WildfireAssessmentTests(APITestCase):
             {
                 "pre_fire_date": "2023-01-01",
                 "post_fire_date": "2023-01-15",
-                "days_before_after": "0",
+                "days_before_after": "-1",
             }
         )
         url = reverse("areaofinterest-analyze", args=[self.reserve.id])

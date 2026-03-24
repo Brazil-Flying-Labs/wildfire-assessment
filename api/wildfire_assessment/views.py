@@ -204,7 +204,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             OpenApiParameter(
                 name="days_before_after",
                 description=(
-                    "Search window in days before/after fire dates (>= 1, default: 30)"
+                    "Search window in days before/after fire dates (>= 0, default: 30)"
                 ),
                 type=OpenApiTypes.INT,
                 required=False,
@@ -274,9 +274,9 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
                 {"error": "days_before_after must be an integer"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if days_before_after < 1:
+        if days_before_after < 0:
             return Response(
-                {"error": "days_before_after must be >= 1"},
+                {"error": "days_before_after must be >= 0"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

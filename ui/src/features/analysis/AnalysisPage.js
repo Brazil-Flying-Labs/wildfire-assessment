@@ -606,12 +606,12 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
                               type="number"
                               className="form-control"
                               id="daysBeforeAfter"
-                              min="1"
+                              min="0"
                               step="1"
                               value={daysBeforeAfter}
                               onChange={(e) => {
                                 const val = parseInt(e.target.value, 10);
-                                if (!Number.isNaN(val) && val >= 1) setDaysBeforeAfter(val);
+                                setDaysBeforeAfter(!Number.isNaN(val) && val >= 0 ? val : 0);
                               }}
                               style={{ width: "100px" }}
                             />
