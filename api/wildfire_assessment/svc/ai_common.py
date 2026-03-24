@@ -176,7 +176,8 @@ def generate_followup_stream(
             previous_response_id=previous_response_id,
             question=question,
             language=language,
-            model=model or (conv_data.get("model") if conv_data else "gemini-2.0-flash-lite"),
+            model=model
+            or (conv_data.get("model") if conv_data else "gemini-2.0-flash-lite"),
         )
 
     # No cached conversation — use active provider

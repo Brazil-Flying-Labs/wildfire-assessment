@@ -310,9 +310,7 @@ class AIProviderAdmin(UnfoldModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         obj = AIProvider.load()
-        return redirect(
-            f"{request.path}{obj.pk}/change/"
-        )
+        return redirect(f"{request.path}{obj.pk}/change/")
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
@@ -359,9 +357,7 @@ def user_activity_report_view(request):
     except (ValueError, TypeError):
         parsed_end = default_end
         end_date = default_end.isoformat()
-    user_counts = get_user_analysis_counts(
-        start_date=parsed_start, end_date=parsed_end
-    )
+    user_counts = get_user_analysis_counts(start_date=parsed_start, end_date=parsed_end)
     total_analyses = sum(row["analysis_count"] for row in user_counts)
     context = {
         **admin.site.each_context(request),

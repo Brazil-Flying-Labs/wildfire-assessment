@@ -189,7 +189,10 @@ class GeminiStreamTests(TestCase):
         mock_chunk2 = MagicMock()
         mock_chunk2.text = "World"
 
-        mock_client.models.generate_content_stream.return_value = [mock_chunk1, mock_chunk2]
+        mock_client.models.generate_content_stream.return_value = [
+            mock_chunk1,
+            mock_chunk2,
+        ]
 
         stream, holder = _gemini_generate_analysis_stream(
             pre_fire_date=self.pre_fire_date,
@@ -328,7 +331,10 @@ class GeminiStreamTests(TestCase):
         mock_chunk2 = MagicMock()
         mock_chunk2.text = None
 
-        mock_client.models.generate_content_stream.return_value = [mock_chunk1, mock_chunk2]
+        mock_client.models.generate_content_stream.return_value = [
+            mock_chunk1,
+            mock_chunk2,
+        ]
 
         stream, holder = _gemini_generate_analysis_stream(
             pre_fire_date=self.pre_fire_date,
@@ -414,7 +420,9 @@ class ProviderDispatchTests(TestCase):
 
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_analysis_stream")
-    def test_dispatch_defaults_to_gemini_when_no_provider(self, mock_gemini, mock_get_provider):
+    def test_dispatch_defaults_to_gemini_when_no_provider(
+        self, mock_gemini, mock_get_provider
+    ):
         mock_get_provider.return_value = None
         mock_gemini.return_value = (iter([]), {"response_id": None})
 
@@ -429,7 +437,9 @@ class ProviderDispatchTests(TestCase):
 
     @patch("wildfire_assessment.svc.ai_common.cache")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_followup_stream")
-    def test_followup_dispatch_uses_cached_provider_gemini(self, mock_gemini, mock_cache):
+    def test_followup_dispatch_uses_cached_provider_gemini(
+        self, mock_gemini, mock_cache
+    ):
         mock_cache.get.return_value = {
             "history": [],
             "model": "gemini-2.0-flash",
@@ -447,7 +457,9 @@ class ProviderDispatchTests(TestCase):
 
     @patch("wildfire_assessment.svc.ai_common.cache")
     @patch("wildfire_assessment.svc.ai_common._openai_generate_followup_stream")
-    def test_followup_dispatch_uses_cached_provider_openai(self, mock_openai, mock_cache):
+    def test_followup_dispatch_uses_cached_provider_openai(
+        self, mock_openai, mock_cache
+    ):
         mock_cache.get.return_value = {
             "history": [],
             "model": "gpt-4o-mini",
@@ -466,7 +478,9 @@ class ProviderDispatchTests(TestCase):
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     @patch("wildfire_assessment.svc.ai_common.cache")
     @patch("wildfire_assessment.svc.ai_common._openai_generate_followup_stream")
-    def test_followup_fallback_to_openai_when_no_cache(self, mock_openai, mock_cache, mock_get_provider):
+    def test_followup_fallback_to_openai_when_no_cache(
+        self, mock_openai, mock_cache, mock_get_provider
+    ):
         mock_cache.get.return_value = None
         mock_provider = MagicMock()
         mock_provider.provider = "openai"
@@ -484,7 +498,9 @@ class ProviderDispatchTests(TestCase):
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     @patch("wildfire_assessment.svc.ai_common.cache")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_followup_stream")
-    def test_followup_fallback_to_gemini_when_no_cache(self, mock_gemini, mock_cache, mock_get_provider):
+    def test_followup_fallback_to_gemini_when_no_cache(
+        self, mock_gemini, mock_cache, mock_get_provider
+    ):
         mock_cache.get.return_value = None
         mock_provider = MagicMock()
         mock_provider.provider = "gemini"

@@ -43,9 +43,7 @@ def _parse_data_url(data_url: str):
     try:
         header, data = data_url.split(",", 1)
         mime_type = header.split(":")[1].split(";")[0]
-        return types.Part.from_bytes(
-            data=base64.b64decode(data), mime_type=mime_type
-        )
+        return types.Part.from_bytes(data=base64.b64decode(data), mime_type=mime_type)
     except (ValueError, IndexError, binascii.Error):
         return None
 
@@ -90,7 +88,9 @@ def _gemini_generate_analysis_stream(
     def stream_chunks():
         full_text = ""
         for chunk in client.models.generate_content_stream(
-            model=model, contents=contents, config=config,
+            model=model,
+            contents=contents,
+            config=config,
         ):
             if chunk.text:
                 full_text += chunk.text
@@ -103,7 +103,12 @@ def _gemini_generate_analysis_stream(
         ]
         cache.set(
             f"ai_chat_{conv_id}",
-            {"history": history, "model": model, "language": language, "provider": "gemini"},
+            {
+                "history": history,
+                "model": model,
+                "language": language,
+                "provider": "gemini",
+            },
             timeout=CONVERSATION_CACHE_TTL,
         )
         holder["response_id"] = conv_id

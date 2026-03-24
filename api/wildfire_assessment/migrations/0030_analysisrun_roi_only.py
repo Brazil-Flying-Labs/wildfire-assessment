@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('wildfire_assessment', '0029_alter_userprofile_default_language'),
+        ("wildfire_assessment", "0029_alter_userprofile_default_language"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='analysisrun',
-            name='roi_only',
+            model_name="analysisrun",
+            name="roi_only",
             field=models.BooleanField(default=True),
         ),
     ]

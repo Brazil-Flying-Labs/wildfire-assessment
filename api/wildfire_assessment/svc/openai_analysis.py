@@ -35,10 +35,12 @@ def _build_user_content(prompt: str, image_urls: list | None = None) -> list:
             continue
         if label:
             parts.append({"type": "text", "text": f"Image: {label}"})
-        parts.append({
-            "type": "image_url",
-            "image_url": {"url": url, "detail": "low"},
-        })
+        parts.append(
+            {
+                "type": "image_url",
+                "image_url": {"url": url, "detail": "low"},
+            }
+        )
     return parts
 
 
@@ -91,7 +93,12 @@ def generate_analysis_stream(
         history = messages + [{"role": "assistant", "content": full_text}]
         cache.set(
             f"ai_chat_{conv_id}",
-            {"history": history, "model": model, "language": language, "provider": "openai"},
+            {
+                "history": history,
+                "model": model,
+                "language": language,
+                "provider": "openai",
+            },
             timeout=CONVERSATION_CACHE_TTL,
         )
         holder["response_id"] = conv_id

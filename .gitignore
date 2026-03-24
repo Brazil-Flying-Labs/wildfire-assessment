@@ -63,3 +63,7 @@ node_modules/
 
 api/htmlcov
 api/.coverage
+
+
+#AI Stuff
+.superpowers

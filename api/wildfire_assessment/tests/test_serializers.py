@@ -157,9 +157,7 @@ class UserMeSerializerTests(TestCase):
         serializer.initial_data = {"expo_push_token": "ExponentPushToken[xyz]"}
         serializer.update(self.user, {})
         self.user.profile.refresh_from_db()
-        self.assertEqual(
-            self.user.profile.expo_push_token, "ExponentPushToken[xyz]"
-        )
+        self.assertEqual(self.user.profile.expo_push_token, "ExponentPushToken[xyz]")
 
     def test_update_clears_expo_push_token(self):
         profile = self.user.profile
@@ -795,9 +793,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         )
         self.assertFalse(serializer.is_valid())
         self.assertIn("geojson", serializer.errors)
-        self.assertIn(
-            "geometrycollection", str(serializer.errors["geojson"]).lower()
-        )
+        self.assertIn("geometrycollection", str(serializer.errors["geojson"]).lower())
 
     def test_validate_geojson_geometry_collection_with_polygons_valid(self):
         """GeometryCollection containing Polygons passes."""
@@ -961,7 +957,13 @@ class AreaOfInterestCreateSerializerTests(TestCase):
         # CCW exterior (correct)
         exterior = [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
         # CCW hole (incorrect — should be CW)
-        hole_ccw = [[0.02, 0.02], [0.08, 0.02], [0.08, 0.08], [0.02, 0.08], [0.02, 0.02]]
+        hole_ccw = [
+            [0.02, 0.02],
+            [0.08, 0.02],
+            [0.08, 0.08],
+            [0.02, 0.08],
+            [0.02, 0.02],
+        ]
         serializer = AreaOfInterestCreateSerializer(
             data={
                 "name": "Test Area",
@@ -1007,9 +1009,9 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             context={"request": request},
         )
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        result_ring = serializer.validated_data["geojson"]["features"][0][
-            "geometry"
-        ]["coordinates"][0]
+        result_ring = serializer.validated_data["geojson"]["features"][0]["geometry"][
+            "coordinates"
+        ][0]
         self.assertNotEqual(
             [list(c) for c in result_ring],
             cw_ring,
@@ -1086,9 +1088,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "Polygon",
-                    "coordinates": [
-                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
-                    ],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -1633,9 +1633,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "country": self.country.id,
                 "geojson": {
                     "type": "FeatureCollection",
-                    "features": [
-                        {"type": "Feature", "properties": {}}
-                    ],
+                    "features": [{"type": "Feature", "properties": {}}],
                 },
             },
             context={"request": request},
@@ -1857,9 +1855,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Polygon",
                     "bbox": "invalid",
-                    "coordinates": [
-                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
-                    ],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -1878,9 +1874,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Polygon",
                     "bbox": [1, 2, 3],
-                    "coordinates": [
-                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
-                    ],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -1899,9 +1893,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Polygon",
                     "bbox": [1, 2, "a", 4],
-                    "coordinates": [
-                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
-                    ],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -1920,9 +1912,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Polygon",
                     "bbox": [1, 2, True, 4],
-                    "coordinates": [
-                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
-                    ],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -1941,9 +1931,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
                 "geojson": {
                     "type": "Polygon",
                     "bbox": [-180, -100, 180, 90],
-                    "coordinates": [
-                        [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
-                    ],
+                    "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
                 },
             },
             context={"request": request},
@@ -2018,6 +2006,7 @@ class AreaOfInterestCreateSerializerTests(TestCase):
             },
             context={"request": request},
         )
+
         # Call _validate_bbox directly with a pathological object
         # that has bbox as a property but __getitem__ throws
         class BadObj(dict):
@@ -2094,9 +2083,7 @@ class AreaValidationTests(TestCase):
                     "type": "Feature",
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [
-                            [[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]]
-                        ],
+                        "coordinates": [[[0, 0], [3, 0], [3, 3], [0, 3], [0, 0]]],
                     },
                     "properties": {},
                 },
@@ -2491,9 +2478,7 @@ class AreaOfInterestUpdateCentroidTests(TestCase):
             "type": "Feature",
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [
-                    [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
-                ],
+                "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
             },
             "properties": {},
         }
@@ -2745,7 +2730,9 @@ class HelperFunctionTests(TestCase):
                     "type": "Feature",
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": [[[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]],
+                        "coordinates": [
+                            [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
+                        ],
                     },
                     "properties": {},
                 }

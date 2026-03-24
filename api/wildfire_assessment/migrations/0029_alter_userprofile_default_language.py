@@ -6,13 +6,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('wildfire_assessment', '0028_backfill_area_ha'),
+        ("wildfire_assessment", "0028_backfill_area_ha"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='userprofile',
-            name='default_language',
-            field=models.CharField(choices=[('en', 'English'), ('pt-BR', 'Português (Brasil)'), ('fr', 'Français'), ('es-ES', 'Español (España)')], default='en', max_length=5),
+            model_name="userprofile",
+            name="default_language",
+            field=models.CharField(
+                choices=[
+                    ("en", "English"),
+                    ("pt-BR", "Português (Brasil)"),
+                    ("fr", "Français"),
+                    ("es-ES", "Español (España)"),
+                ],
+                default="en",
+                max_length=5,
+            ),
         ),
     ]

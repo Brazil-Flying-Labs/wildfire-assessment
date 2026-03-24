@@ -86,8 +86,9 @@ def get_dashboard_stats(user):
 
     # === SINGLE QUERY for all runs with severity data ===
     runs_with_severity = list(
-        all_runs_qs.filter(severity_data__isnull=False)
-        .select_related("area_of_interest", "area_of_interest__country")
+        all_runs_qs.filter(severity_data__isnull=False).select_related(
+            "area_of_interest", "area_of_interest__country"
+        )
     )
 
     # === Initialize accumulators ===
@@ -175,10 +176,12 @@ def get_dashboard_stats(user):
                 avg = float(
                     (run_weighted_sum / run_total_area).quantize(Decimal("0.01"))
                 )
-                trend_data.append({
-                    "created_at": run.created_at.isoformat(),
-                    "avg_severity": avg,
-                })
+                trend_data.append(
+                    {
+                        "created_at": run.created_at.isoformat(),
+                        "avg_severity": avg,
+                    }
+                )
 
         # --- _areas_geo ---
         if aoi.centroid_lat is not None and aoi.centroid_lng is not None:

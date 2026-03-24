@@ -22,9 +22,7 @@ def main():
         session = boto3.Session()
         client = session.client("secretsmanager")
         env = os.environ.get("ENV", "local")
-        secret = json.loads(
-            client.get_secret_value(SecretId=env)["SecretString"]
-        )
+        secret = json.loads(client.get_secret_value(SecretId=env)["SecretString"])
 
         endpoint = secret.get("GRAFANA_CLOUD_OTLP_ENDPOINT", "")
         instance_id = secret.get("GRAFANA_CLOUD_INSTANCE_ID", "")
@@ -34,9 +32,7 @@ def main():
             credentials = f"{instance_id}:{api_key}"
             encoded = base64.b64encode(credentials.encode()).decode()
             print(f'export OTEL_EXPORTER_OTLP_ENDPOINT="{endpoint}"')
-            print(
-                f'export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic {encoded}"'
-            )
+            print(f'export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Basic {encoded}"')
     except Exception as e:
         print(f"# Warning: Could not configure OTEL: {e}", file=sys.stderr)
 

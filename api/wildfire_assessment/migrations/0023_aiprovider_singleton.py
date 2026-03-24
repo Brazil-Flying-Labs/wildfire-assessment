@@ -19,7 +19,9 @@ def clear_data(apps, schema_editor):
 def seed_default(apps, schema_editor):
     """Seed the singleton row using the NEW schema (after field changes)."""
     AIProvider = apps.get_model("wildfire_assessment", "AIProvider")
-    AIProvider.objects.create(pk=1, provider="gemini", model_name="gemini-2.0-flash-lite")
+    AIProvider.objects.create(
+        pk=1, provider="gemini", model_name="gemini-2.0-flash-lite"
+    )
 
 
 class Migration(migrations.Migration):
