@@ -55,6 +55,7 @@ from wildfire_assessment.svc.processor import (
     DELIVERABLE_ERROR_FIELD_MAP,
     DELIVERABLE_FIELD_MAP,
     DELIVERABLE_TASK_FIELD_MAP,
+    VALID_MOSAIC_STRATEGIES,
     process_fire_assessment,
     process_scientific_deliverable,
 )
@@ -194,6 +195,45 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
                 type=OpenApiTypes.BOOL,
                 required=False,
             ),
+            OpenApiParameter(
+                name="cloud_threshold",
+                description="Max cloud cover percentage allowed (0-100, default: 100)",
+                type=OpenApiTypes.INT,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="days_before_after",
+                description=(
+                    "Search window in days before/after fire dates (>= 1, default: 30)"
+                ),
+                type=OpenApiTypes.INT,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="pre_fire_mosaic_strategy",
+                description=(
+                    "Pre-fire mosaic strategy (default: best_available_per_tile_mosaic)"
+                ),
+                type=OpenApiTypes.STR,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="post_fire_mosaic_strategy",
+                description=(
+                    "Post-fire mosaic strategy"
+                    " (default: best_available_per_tile_mosaic)"
+                ),
+                type=OpenApiTypes.STR,
+                required=False,
+            ),
+            OpenApiParameter(
+                name="roi_only_bg_color",
+                description=(
+                    "Background color for ROI-only mode (black or white, default: black)"
+                ),
+                type=OpenApiTypes.STR,
+                required=False,
+            ),
         ],
     )
     @action(detail=True, methods=["post"], url_path="analyze")
@@ -209,11 +249,72 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         post_fire_date = request.query_params.get("post_fire_date")
         roi_only = request.query_params.get("roi_only", "true").lower() != "false"
 
+        # Extract and validate advanced settings
+        try:
+            cloud_threshold = int(
+                request.query_params.get("cloud_threshold", "100")
+            )
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "cloud_threshold must be an integer"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not (0 <= cloud_threshold <= 100):
+            return Response(
+                {"error": "cloud_threshold must be between 0 and 100"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            days_before_after = int(
+                request.query_params.get("days_before_after", "30")
+            )
+        except (ValueError, TypeError):
+            return Response(
+                {"error": "days_before_after must be an integer"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if days_before_after < 1:
+            return Response(
+                {"error": "days_before_after must be >= 1"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pre_fire_mosaic_strategy = request.query_params.get(
+            "pre_fire_mosaic_strategy", "best_available_per_tile_mosaic"
+        )
+        if pre_fire_mosaic_strategy not in VALID_MOSAIC_STRATEGIES:
+            return Response(
+                {"error": "Invalid pre_fire_mosaic_strategy"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        post_fire_mosaic_strategy = request.query_params.get(
+            "post_fire_mosaic_strategy", "best_available_per_tile_mosaic"
+        )
+        if post_fire_mosaic_strategy not in VALID_MOSAIC_STRATEGIES:
+            return Response(
+                {"error": "Invalid post_fire_mosaic_strategy"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        roi_only_bg_color = request.query_params.get("roi_only_bg_color", "black")
+        if roi_only_bg_color not in ("black", "white"):
+            return Response(
+                {"error": "roi_only_bg_color must be 'black' or 'white'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         assessment_result = process_fire_assessment(
             pre_fire_date=pre_fire_date,
             post_fire_date=post_fire_date,
             polygon_path=instance.polygon_path,
             roi_only=roi_only,
+            cloud_threshold=cloud_threshold,
+            days_before_after=days_before_after,
+            pre_fire_mosaic_strategy=pre_fire_mosaic_strategy,
+            post_fire_mosaic_strategy=post_fire_mosaic_strategy,
+            roi_only_bg_color=roi_only_bg_color,
         )
 
         analysis_run = save_analysis_run(
@@ -223,6 +324,11 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             post_fire_date=post_fire_date,
             assessment_result=assessment_result,
             roi_only=roi_only,
+            cloud_threshold=cloud_threshold,
+            days_before_after=days_before_after,
+            pre_fire_mosaic_strategy=pre_fire_mosaic_strategy,
+            post_fire_mosaic_strategy=post_fire_mosaic_strategy,
+            roi_only_bg_color=roi_only_bg_color,
         )
         invalidate_dashboard_cache(request.user.id)
 

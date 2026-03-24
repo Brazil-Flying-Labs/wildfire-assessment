@@ -158,6 +158,203 @@ class WildfireAssessmentTests(APITestCase):
         self.assertFalse(kwargs["roi_only"])
 
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_passes_advanced_settings(self, mock_process, mock_scientific):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        mock_process.return_value = {"s3_urls": {}, "analysis_results": {}}
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "roi_only": "true",
+                "cloud_threshold": "50",
+                "days_before_after": "15",
+                "pre_fire_mosaic_strategy": "best_date_mosaic",
+                "post_fire_mosaic_strategy": "cloud_masked_light_mosaic",
+                "roi_only_bg_color": "white",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        self.client.post(f"{url}?{query}")
+        kwargs = mock_process.call_args.kwargs
+        self.assertEqual(kwargs["cloud_threshold"], 50)
+        self.assertEqual(kwargs["days_before_after"], 15)
+        self.assertEqual(kwargs["pre_fire_mosaic_strategy"], "best_date_mosaic")
+        self.assertEqual(
+            kwargs["post_fire_mosaic_strategy"], "cloud_masked_light_mosaic"
+        )
+        self.assertEqual(kwargs["roi_only_bg_color"], "white")
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_advanced_settings_defaults(self, mock_process, mock_scientific):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        mock_process.return_value = {"s3_urls": {}, "analysis_results": {}}
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        self.client.post(f"{url}?{query}")
+        kwargs = mock_process.call_args.kwargs
+        self.assertEqual(kwargs["cloud_threshold"], 100)
+        self.assertEqual(kwargs["days_before_after"], 30)
+        self.assertEqual(
+            kwargs["pre_fire_mosaic_strategy"], "best_available_per_tile_mosaic"
+        )
+        self.assertEqual(
+            kwargs["post_fire_mosaic_strategy"], "best_available_per_tile_mosaic"
+        )
+        self.assertEqual(kwargs["roi_only_bg_color"], "black")
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_invalid_cloud_threshold_returns_400(
+        self, mock_process, mock_scientific
+    ):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "cloud_threshold": "150",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 400)
+        mock_process.assert_not_called()
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_invalid_cloud_threshold_negative_returns_400(
+        self, mock_process, mock_scientific
+    ):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "cloud_threshold": "-1",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_invalid_cloud_threshold_non_integer_returns_400(
+        self, mock_process, mock_scientific
+    ):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "cloud_threshold": "abc",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_invalid_days_before_after_returns_400(
+        self, mock_process, mock_scientific
+    ):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "days_before_after": "0",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_invalid_days_before_after_non_integer_returns_400(
+        self, mock_process, mock_scientific
+    ):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "days_before_after": "abc",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_invalid_pre_fire_mosaic_strategy_returns_400(
+        self, mock_process, mock_scientific
+    ):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "pre_fire_mosaic_strategy": "invalid_strategy",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_invalid_post_fire_mosaic_strategy_returns_400(
+        self, mock_process, mock_scientific
+    ):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "post_fire_mosaic_strategy": "invalid_strategy",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_invalid_bg_color_returns_400(self, mock_process, mock_scientific):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+                "roi_only_bg_color": "red",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     def test_scientific_deliverable_handles_all_deliverables(self, mock_process):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
@@ -466,9 +663,7 @@ class UserMeViewTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.profile.refresh_from_db()
-        self.assertEqual(
-            self.user.profile.expo_push_token, "ExponentPushToken[new]"
-        )
+        self.assertEqual(self.user.profile.expo_push_token, "ExponentPushToken[new]")
 
     def test_me_patch_clears_push_token(self):
         profile, _ = UserProfile.objects.get_or_create(user=self.user)
@@ -989,11 +1184,10 @@ class DashboardCacheTests(APITestCase):
         self.assertIsNotNone(cache.get(cache_key))
 
         # Run analysis (triggers cache invalidation in view)
-        with patch(
-            "wildfire_assessment.views.process_fire_assessment"
-        ) as mock_process, patch(
-            "wildfire_assessment.views.save_analysis_run"
-        ) as mock_save:
+        with (
+            patch("wildfire_assessment.views.process_fire_assessment") as mock_process,
+            patch("wildfire_assessment.views.save_analysis_run") as mock_save,
+        ):
             mock_process.return_value = {"severity_map": "{}"}
             mock_save.return_value = AnalysisRun(id=999)
             analyze_url = reverse("areaofinterest-analyze", args=[self.area.id])
