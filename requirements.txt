@@ -1,4 +1,4 @@
-wildfire_analyser==1.0.0
+wildfire_analyser @ git+https://github.com/Brazil-Flying-Labs/wildfire-analyser.git@1ae1409
 celery==5.6.2
 redis==5.0.4
 django-redis==5.4.0

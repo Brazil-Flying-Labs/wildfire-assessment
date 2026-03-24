@@ -8,7 +8,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         gdal-bin libgdal-dev \
-        libpq-dev && \
+        libpq-dev \
+        git && \
     rm -rf /var/lib/apt/lists/*
 
 ENV GDAL_VERSION=3.6.0
