@@ -1,0 +1,25 @@
+# Wildfire Insight Intelligence
+> A data-driven platform by Brazil Flying Labs that transforms satellite data into actionable wildfire intelligence.
+
+## What It Does
+- Calculates burned area extent from Sentinel-2 satellite imagery
+- Classifies fire severity using dNBR, RBR, and dNDVI indices
+- Maps spatial distribution of fire damage
+- Generates georeferenced scientific deliverables (GeoTIFF)
+- Produces AI-powered fire impact analysis reports
+
+## Who It Serves
+Environmental agencies, local governments, climate resilience programs, and organizations managing forested and natural landscapes.
+
+## Deployments
+Active pilots with Fundacao Florestal (Sao Paulo, Brazil) and Flying Labs in Bolivia, Cameroon, Malaysia, Morocco, Mozambique, Nepal, and Sierra Leone.
+
+## Technology
+Built on Google Earth Engine, Sentinel-2 imagery, and scientifically validated burn severity algorithms. No advanced remote sensing expertise required.
+
+## Access
+Free platform. Requires authentication. Request access at humanos@brazilflyinglabs.org.br
+
+## Links
+- Platform: https://wildfire.droneai.com.br
+- Privacy Policy: https://wildfire.droneai.com.br/privacy

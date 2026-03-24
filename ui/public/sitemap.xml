@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://wildfire.droneai.com.br/</loc>
+    <lastmod>2026-03-24</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://wildfire.droneai.com.br/" />
+    <xhtml:link rel="alternate" hreflang="pt-BR" href="https://wildfire.droneai.com.br/" />
+    <xhtml:link rel="alternate" hreflang="es" href="https://wildfire.droneai.com.br/" />
+    <xhtml:link rel="alternate" hreflang="fr" href="https://wildfire.droneai.com.br/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://wildfire.droneai.com.br/" />
+  </url>
+  <url>
+    <loc>https://wildfire.droneai.com.br/privacy</loc>
+    <lastmod>2026-03-13</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+</urlset>

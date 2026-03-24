@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import en from "../translations/en.json";
 import ptBR from "../translations/pt-BR.json";
 import fr from "../translations/fr.json";
@@ -36,6 +36,10 @@ export function LanguageProvider({ children }) {
       localStorage.setItem(STORAGE_KEY, lang);
     }
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   const t = useCallback(
     (key, params) => {
