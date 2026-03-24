@@ -59,7 +59,9 @@ class AIProviderModelTests(TestCase):
         provider.save()
         self.assertEqual(provider.pk, 1)
 
-        provider2 = AIProvider(pk=99, provider="gemini", model_name="gemini-2.0-flash-lite")
+        provider2 = AIProvider(
+            pk=99, provider="gemini", model_name="gemini-2.0-flash-lite"
+        )
         provider2.save()
         self.assertEqual(provider2.pk, 1)
         self.assertEqual(AIProvider.objects.count(), 1)
@@ -78,21 +80,62 @@ class AIProviderModelTests(TestCase):
 
 
 class AnalysisRunModelTests(TestCase):
-    def test_str_representation(self):
-        user = get_user_model().objects.create(username="analyst")
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="analyst")
         country = Country.objects.create(name="TestAnalysis Country", code="TA")
-        area = AreaOfInterest.objects.create(
+        self.area = AreaOfInterest.objects.create(
             name="Amazon Reserve",
             polygon_path="amazon.geojson",
             country=country,
         )
+
+    def test_str_representation(self):
         analysis = AnalysisRun.objects.create(
-            user=user,
-            area_of_interest=area,
+            user=self.user,
+            area_of_interest=self.area,
             pre_fire_date="2024-01-01",
             post_fire_date="2024-01-15",
         )
         self.assertEqual(str(analysis), "Amazon Reserve - 2024-01-01 to 2024-01-15")
+
+    def test_analysis_run_cloud_threshold_default(self):
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2023-01-01",
+            post_fire_date="2023-02-01",
+        )
+        self.assertEqual(run.cloud_threshold, 100)
+
+    def test_analysis_run_days_before_after_default(self):
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2023-01-01",
+            post_fire_date="2023-02-01",
+        )
+        self.assertEqual(run.days_before_after, 30)
+
+    def test_analysis_run_mosaic_strategy_defaults(self):
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2023-01-01",
+            post_fire_date="2023-02-01",
+        )
+        self.assertEqual(run.pre_fire_mosaic_strategy, "best_available_per_tile_mosaic")
+        self.assertEqual(
+            run.post_fire_mosaic_strategy, "best_available_per_tile_mosaic"
+        )
+
+    def test_analysis_run_roi_only_bg_color_default(self):
+        run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2023-01-01",
+            post_fire_date="2023-02-01",
+        )
+        self.assertEqual(run.roi_only_bg_color, "black")
 
 
 class NotificationModelTests(TestCase):

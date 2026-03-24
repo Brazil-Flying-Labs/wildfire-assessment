@@ -137,6 +137,15 @@ class AnalysisRun(models.Model):
         default="completed",
     )
     roi_only = models.BooleanField(default=True)
+    cloud_threshold = models.IntegerField(default=100)
+    days_before_after = models.IntegerField(default=30)
+    pre_fire_mosaic_strategy = models.CharField(
+        max_length=50, default="best_available_per_tile_mosaic"
+    )
+    post_fire_mosaic_strategy = models.CharField(
+        max_length=50, default="best_available_per_tile_mosaic"
+    )
+    roi_only_bg_color = models.CharField(max_length=10, default="black")
 
     # Severity data stored as JSON
     severity_data = models.JSONField(null=True, blank=True)
