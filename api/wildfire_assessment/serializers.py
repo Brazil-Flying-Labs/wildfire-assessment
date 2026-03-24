@@ -214,9 +214,7 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
                 # RFC 7946 Section 3.2: Feature must have "properties"
                 if "properties" not in feature:
                     raise serializers.ValidationError(
-                        self._t(
-                            "error.feature_no_properties", context=f"Feature[{i}]"
-                        )
+                        self._t("error.feature_no_properties", context=f"Feature[{i}]")
                     )
                 # RFC 7946 Section 3.2: Feature "id" must be string or number
                 self._validate_feature_id(feature, f"Feature[{i}]")
@@ -354,22 +352,16 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
             lon, lat = coords[0], coords[1]
             if not (-180 <= lon <= 180):
                 raise serializers.ValidationError(
-                    self._t(
-                        "error.longitude_out_of_range", context=context, value=lon
-                    )
+                    self._t("error.longitude_out_of_range", context=context, value=lon)
                 )
             if not (-90 <= lat <= 90):
                 raise serializers.ValidationError(
-                    self._t(
-                        "error.latitude_out_of_range", context=context, value=lat
-                    )
+                    self._t("error.latitude_out_of_range", context=context, value=lat)
                 )
         else:
             # Container — check for mixed types like [1, "b"]
             has_number = any(isinstance(c, (int, float)) for c in coords)
-            has_invalid = any(
-                not isinstance(c, (int, float, list)) for c in coords
-            )
+            has_invalid = any(not isinstance(c, (int, float, list)) for c in coords)
             if has_number and has_invalid:
                 raise serializers.ValidationError(
                     self._t("error.position_not_all_numbers", context=context)
@@ -391,9 +383,7 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
                         continue
                     if len(ring) < 4:
                         raise serializers.ValidationError(
-                            self._t(
-                                "error.ring_too_few_positions", context=context
-                            )
+                            self._t("error.ring_too_few_positions", context=context)
                         )
                     if ring[0] != ring[-1]:
                         raise serializers.ValidationError(
@@ -416,9 +406,7 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
             for sub in geometry.get("geometries", []):
                 if isinstance(sub, dict) and sub.get("type") == "GeometryCollection":
                     raise serializers.ValidationError(
-                        self._t(
-                            "error.nested_geometry_collection", context=context
-                        )
+                        self._t("error.nested_geometry_collection", context=context)
                     )
         except serializers.ValidationError:
             raise
@@ -454,16 +442,11 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
             if bbox is None:
                 return
             if not isinstance(bbox, list) or len(bbox) != 4:
-                raise serializers.ValidationError(
-                    self._t("error.bbox_invalid_length")
-                )
+                raise serializers.ValidationError(self._t("error.bbox_invalid_length"))
             if not all(
-                isinstance(v, (int, float)) and not isinstance(v, bool)
-                for v in bbox
+                isinstance(v, (int, float)) and not isinstance(v, bool) for v in bbox
             ):
-                raise serializers.ValidationError(
-                    self._t("error.bbox_invalid_length")
-                )
+                raise serializers.ValidationError(self._t("error.bbox_invalid_length"))
             south, north = bbox[1], bbox[3]
             if not (-90 <= south <= 90) or not (-90 <= north <= 90):
                 raise serializers.ValidationError(
@@ -742,6 +725,12 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
             "scientific_rbr_error",
             "created_at",
             "completed_at",
+            "roi_only",
+            "cloud_threshold",
+            "days_before_after",
+            "pre_fire_mosaic_strategy",
+            "post_fire_mosaic_strategy",
+            "roi_only_bg_color",
         ]
         read_only_fields = ["id", "created_at"]
 
