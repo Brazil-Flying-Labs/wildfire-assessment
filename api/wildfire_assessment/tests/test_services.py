@@ -115,6 +115,49 @@ class ProcessorTests(TestCase):
         self.assertFalse(call_kwargs["roi_only"])
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_fire_assessment_passes_advanced_settings(
+        self, mock_secret, mock_download, mock_assessment, mock_unlink
+    ):
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "visual": {
+                "RGB_PRE_FIRE_VISUAL": {"url": ""},
+                "RGB_POST_FIRE_VISUAL": {"url": ""},
+                "DNDVI_VISUAL": {"url": ""},
+                "DNBR_VISUAL": {"url": ""},
+                "RBR_VISUAL": {"url": ""},
+            },
+            "statistics": {"DNBR_AREA_STATISTICS": {}},
+        }
+        mock_assessment.return_value = assessment_instance
+
+        processor.process_fire_assessment(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+            roi_only=True,
+            cloud_threshold=50,
+            days_before_after=15,
+            pre_fire_mosaic_strategy="best_date_mosaic",
+            post_fire_mosaic_strategy="cloud_masked_light_mosaic",
+            roi_only_bg_color="white",
+        )
+
+        call_kwargs = mock_assessment.call_args.kwargs
+        self.assertEqual(call_kwargs["cloud_threshold"], 50)
+        self.assertEqual(call_kwargs["days_before_after"], 15)
+        self.assertEqual(call_kwargs["pre_fire_mosaic_strategy"], "best_date_mosaic")
+        self.assertEqual(
+            call_kwargs["post_fire_mosaic_strategy"], "cloud_masked_light_mosaic"
+        )
+        self.assertEqual(call_kwargs["roi_only_bg_color"], "white")
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.send_gmail_email")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
@@ -421,6 +464,80 @@ class ProcessorTests(TestCase):
             )
             self.assertEqual(status, "COMPLETED")
             mock_send.assert_called()
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
+    @patch("wildfire_assessment.svc.processor.ee")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_scientific_deliverable_reads_advanced_settings_from_run(
+        self,
+        mock_secret,
+        mock_download,
+        mock_assessment,
+        mock_ee,
+        _mock_sleep,
+        mock_send_email,
+        mock_unlink,
+    ):
+        user = get_user_model().objects.create(username="sci_adv_user")
+        country = Country.objects.create(name="SciAdv Country", code="SA")
+        area = AreaOfInterest.objects.create(
+            name="SciAdv Reserve",
+            polygon_path="sciadv.geojson",
+            country=country,
+        )
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2023-01-01",
+            post_fire_date="2023-02-01",
+            cloud_threshold=50,
+            days_before_after=15,
+            pre_fire_mosaic_strategy="best_date_mosaic",
+            post_fire_mosaic_strategy="cloud_masked_light_mosaic",
+            roi_only=False,
+            roi_only_bg_color="white",
+        )
+
+        mock_secret.return_value = json.dumps(
+            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
+        )
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "scientific": {
+                "RGB_PRE_FIRE": {
+                    "gee_task_id": "task-1",
+                    "url": "http://files/pre.tif",
+                }
+            }
+        }
+        mock_assessment.return_value = assessment_instance
+        mock_ee.data.getTaskStatus.return_value = [{"state": "COMPLETED"}]
+
+        processor.process_scientific_deliverable(
+            pre_fire_date="2023-01-01",
+            post_fire_date="2023-02-01",
+            polygon_path="sciadv.geojson",
+            deliverable_name=Deliverable.RGB_PRE_FIRE.name,
+            email="sciadv@example.com",
+            reserve_name="SciAdv Reserve",
+            analysis_run_id=run.id,
+            user_id=user.id,
+        )
+
+        pfa_kwargs = mock_assessment.call_args.kwargs
+        self.assertEqual(pfa_kwargs.get("cloud_threshold"), 50)
+        self.assertEqual(pfa_kwargs.get("days_before_after"), 15)
+        self.assertEqual(pfa_kwargs.get("pre_fire_mosaic_strategy"), "best_date_mosaic")
+        self.assertEqual(
+            pfa_kwargs.get("post_fire_mosaic_strategy"), "cloud_masked_light_mosaic"
+        )
+        self.assertFalse(pfa_kwargs.get("roi_only"))
+        self.assertEqual(pfa_kwargs.get("roi_only_bg_color"), "white")
 
 
 class AwsUtilsTests(TestCase):
@@ -1083,9 +1200,7 @@ class ProcessorErrorPersistenceTests(TestCase):
             "scientific": {"DNBR": {"gee_task_id": "task-1", "url": ""}}
         }
         mock_assessment.return_value = assessment_instance
-        mock_ee.data.getTaskStatus.return_value = [
-            {"state": "SOME_UNKNOWN_STATE"}
-        ]
+        mock_ee.data.getTaskStatus.return_value = [{"state": "SOME_UNKNOWN_STATE"}]
 
         with self.assertRaises(RuntimeError) as ctx:
             processor.process_scientific_deliverable(
@@ -1702,9 +1817,7 @@ class UserServiceTests(TestCase):
         self.user = User.objects.create_user(
             username="deleter", email="del@example.com", password="pw"
         )
-        self.country = Country.objects.create(
-            name="UserSvcCountry", code="UC"
-        )
+        self.country = Country.objects.create(name="UserSvcCountry", code="UC")
         self.area = AreaOfInterest.objects.create(
             name="UserSvcArea", polygon_path="a.geojson", country=self.country
         )

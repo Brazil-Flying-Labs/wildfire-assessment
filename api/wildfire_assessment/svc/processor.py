@@ -29,12 +29,24 @@ load_dotenv()
 
 ENV = os.environ.get("ENV", "local")
 
+VALID_MOSAIC_STRATEGIES = {
+    "best_date_mosaic",
+    "best_date_masked_mosaic",
+    "best_available_per_tile_mosaic",
+    "cloud_masked_light_mosaic",
+}
+
 
 def process_fire_assessment(
     pre_fire_date: str,
     post_fire_date: str,
     polygon_path: str,
     roi_only: bool = True,
+    cloud_threshold: int = 100,
+    days_before_after: int = 30,
+    pre_fire_mosaic_strategy: str = "best_available_per_tile_mosaic",
+    post_fire_mosaic_strategy: str = "best_available_per_tile_mosaic",
+    roi_only_bg_color: str = "black",
 ) -> dict:
     """
     Process a full fire assessment with all deliverables.
@@ -43,6 +55,12 @@ def process_fire_assessment(
         pre_fire_date (str): Pre-fire date in YYYY-MM-DD format.
         post_fire_date (str): Post-fire date in YYYY-MM-DD format.
         polygon_path (str): Path to the polygon file.
+        roi_only (bool): Whether to crop output to the ROI extent.
+        cloud_threshold (int): Maximum cloud cover percentage (0-100).
+        days_before_after (int): Days before/after the fire dates to search.
+        pre_fire_mosaic_strategy (str): Strategy for pre-fire image mosaic.
+        post_fire_mosaic_strategy (str): Strategy for post-fire image mosaic.
+        roi_only_bg_color (str): Background color when roi_only is True.
 
     Returns:
         dict: A dictionary with URLs to the generated deliverables and area statistics.
@@ -67,7 +85,12 @@ def process_fire_assessment(
                 Deliverable.RBR_VISUAL,
                 Deliverable.DNBR_AREA_STATISTICS,
             ],
-            roi_only=roi_only
+            roi_only=roi_only,
+            cloud_threshold=cloud_threshold,
+            days_before_after=days_before_after,
+            pre_fire_mosaic_strategy=pre_fire_mosaic_strategy,
+            post_fire_mosaic_strategy=post_fire_mosaic_strategy,
+            roi_only_bg_color=roi_only_bg_color,
         )
 
         result = runner.run()
@@ -177,6 +200,22 @@ def process_scientific_deliverable(
 
     deliverable_key = deliverable.name
 
+    # Read advanced settings from the AnalysisRun if available
+    advanced_kwargs = {}
+    if analysis_run_id:
+        try:
+            run = AnalysisRun.objects.get(id=analysis_run_id)
+            advanced_kwargs = {
+                "roi_only": run.roi_only,
+                "cloud_threshold": run.cloud_threshold,
+                "days_before_after": run.days_before_after,
+                "pre_fire_mosaic_strategy": run.pre_fire_mosaic_strategy,
+                "post_fire_mosaic_strategy": run.post_fire_mosaic_strategy,
+                "roi_only_bg_color": run.roi_only_bg_color,
+            }
+        except AnalysisRun.DoesNotExist:
+            pass
+
     # Download polygon from S3 to a temp file for PostFireAssessment
     geojson_content = download_polygon_from_s3(polygon_path)
     tmp = tempfile.NamedTemporaryFile(suffix=".geojson", delete=False)
@@ -192,6 +231,7 @@ def process_scientific_deliverable(
             deliverables=[deliverable],
             gcs_bucket="wildfire-analyser-outputs",
             verbose=False,
+            **advanced_kwargs,
         )
 
         result = runner.run()
