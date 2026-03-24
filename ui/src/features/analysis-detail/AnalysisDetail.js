@@ -9,6 +9,13 @@ import SeverityTable from "./SeverityTable";
 import ImageGallery from "./ImageGallery";
 import ScientificDeliverables from "./ScientificDeliverables";
 
+const MOSAIC_STRATEGY_LABELS = {
+  best_date_mosaic: "app.mosaicBestDate",
+  best_date_masked_mosaic: "app.mosaicBestDateMasked",
+  best_available_per_tile_mosaic: "app.mosaicBestAvailable",
+  cloud_masked_light_mosaic: "app.mosaicCloudMasked",
+};
+
 function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotificationsRead, scrollToDeliverable }) {
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -312,6 +319,12 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
 
                 <dt className="text-muted small">{t("analysisDetail.postFireDate")}</dt>
                 <dd className="mb-3">{formatDate(analysis?.post_fire_date)}</dd>
+
+                <dt className="text-muted small">{t("app.cloudThreshold")}</dt>
+                <dd className="mb-3">{analysis?.cloud_threshold != null ? `${analysis.cloud_threshold}%` : "-"}</dd>
+
+                <dt className="text-muted small">{t("app.daysBeforeAfter")}</dt>
+                <dd className="mb-3">{analysis?.days_before_after != null ? `${analysis.days_before_after} ${t("app.daysBeforeAfterSuffix")}` : "-"}</dd>
               </dl>
             </div>
             <div className="col-md-6">
@@ -330,7 +343,10 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
                 </dd>
 
                 <dt className="text-muted small">{t("analysisDetail.runDate")}</dt>
-                <dd className="mb-0">{formatDateTime(analysis?.created_at)}</dd>
+                <dd className="mb-3">{formatDateTime(analysis?.created_at)}</dd>
+
+                <dt className="text-muted small">{t("app.mosaicStrategy")}</dt>
+                <dd className="mb-0">{analysis?.pre_fire_mosaic_strategy ? t(MOSAIC_STRATEGY_LABELS[analysis.pre_fire_mosaic_strategy] || analysis.pre_fire_mosaic_strategy) : "-"}</dd>
               </dl>
             </div>
           </div>

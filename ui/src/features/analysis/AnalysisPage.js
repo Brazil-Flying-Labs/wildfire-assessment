@@ -29,8 +29,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [cloudThreshold, setCloudThreshold] = useState(100);
   const [daysBeforeAfter, setDaysBeforeAfter] = useState(30);
-  const [preFireMosaicStrategy, setPreFireMosaicStrategy] = useState("best_available_per_tile_mosaic");
-  const [postFireMosaicStrategy, setPostFireMosaicStrategy] = useState("best_available_per_tile_mosaic");
+  const [mosaicStrategy, setMosaicStrategy] = useState("best_available_per_tile_mosaic");
   const analysisStepRef = useRef(null);
   const [hasResults, setHasResults] = useState(false);
   const [deliverableStatus, setDeliverableStatus] = useState({});
@@ -402,8 +401,8 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
         roi_only: String(roiOnly),
         cloud_threshold: String(cloudThreshold),
         days_before_after: String(daysBeforeAfter),
-        pre_fire_mosaic_strategy: preFireMosaicStrategy,
-        post_fire_mosaic_strategy: postFireMosaicStrategy,
+        pre_fire_mosaic_strategy: mosaicStrategy,
+        post_fire_mosaic_strategy: mosaicStrategy,
         roi_only_bg_color: currentTheme === "light" ? "white" : "black",
       });
       const url = `${baseUrl}/area_of_interest/${selectedReserve}/analyze/?${queryParams.toString()}`;
@@ -592,7 +591,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
                               value={cloudThreshold}
                               onChange={(e) => setCloudThreshold(Number(e.target.value))}
                             />
-                            <span className="fw-semibold" style={{ minWidth: "40px", textAlign: "right" }}>
+                            <span className="fw-semibold" style={{ minWidth: "48px", textAlign: "right", whiteSpace: "nowrap" }}>
                               {cloudThreshold}%
                             </span>
                           </div>
@@ -623,39 +622,20 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
                       </div>
                       {/* Right column: Mosaic strategies */}
                       <div className="col-12 col-md-6">
-                        <div className="mb-3">
-                          <label className="form-label fw-semibold">{t("app.preFireMosaicStrategy")}</label>
-                          {MOSAIC_STRATEGIES.map(({ value, labelKey }) => (
-                            <div className="form-check" key={`pre-${value}`}>
-                              <input
-                                className="form-check-input"
-                                type="radio"
-                                name="preFireMosaicStrategy"
-                                id={`pre-${value}`}
-                                value={value}
-                                checked={preFireMosaicStrategy === value}
-                                onChange={(e) => setPreFireMosaicStrategy(e.target.value)}
-                              />
-                              <label className="form-check-label" htmlFor={`pre-${value}`}>
-                                {t(labelKey)}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
                         <div>
-                          <label className="form-label fw-semibold">{t("app.postFireMosaicStrategy")}</label>
+                          <label className="form-label fw-semibold">{t("app.mosaicStrategy")}</label>
                           {MOSAIC_STRATEGIES.map(({ value, labelKey }) => (
-                            <div className="form-check" key={`post-${value}`}>
+                            <div className="form-check" key={value}>
                               <input
                                 className="form-check-input"
                                 type="radio"
-                                name="postFireMosaicStrategy"
-                                id={`post-${value}`}
+                                name="mosaicStrategy"
+                                id={`mosaic-${value}`}
                                 value={value}
-                                checked={postFireMosaicStrategy === value}
-                                onChange={(e) => setPostFireMosaicStrategy(e.target.value)}
+                                checked={mosaicStrategy === value}
+                                onChange={(e) => setMosaicStrategy(e.target.value)}
                               />
-                              <label className="form-check-label" htmlFor={`post-${value}`}>
+                              <label className="form-check-label" htmlFor={`mosaic-${value}`}>
                                 {t(labelKey)}
                               </label>
                             </div>
