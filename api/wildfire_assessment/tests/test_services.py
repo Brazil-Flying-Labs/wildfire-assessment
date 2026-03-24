@@ -1634,6 +1634,50 @@ class AreaOfInterestServiceTests(TestCase):
         )
         self.assertTrue(run.roi_only)
 
+    @patch(
+        "wildfire_assessment.svc.area_of_interest._download_and_store_image",
+        return_value=None,
+    )
+    def test_save_analysis_run_persists_advanced_settings(self, mock_img):
+        result = {
+            "severity_map": '{"Total Burned Area": {"area_ha": 10}}',
+        }
+        run = aoi_service.save_analysis_run(
+            self.user,
+            self.area,
+            "2023-01-01",
+            "2023-02-01",
+            result,
+            roi_only=False,
+            cloud_threshold=50,
+            days_before_after=15,
+            pre_fire_mosaic_strategy="best_date_mosaic",
+            post_fire_mosaic_strategy="cloud_masked_light_mosaic",
+            roi_only_bg_color="white",
+        )
+        self.assertEqual(run.cloud_threshold, 50)
+        self.assertEqual(run.days_before_after, 15)
+        self.assertEqual(run.pre_fire_mosaic_strategy, "best_date_mosaic")
+        self.assertEqual(run.post_fire_mosaic_strategy, "cloud_masked_light_mosaic")
+        self.assertEqual(run.roi_only_bg_color, "white")
+
+    @patch(
+        "wildfire_assessment.svc.area_of_interest._download_and_store_image",
+        return_value=None,
+    )
+    def test_save_analysis_run_advanced_settings_defaults(self, mock_img):
+        result = {"severity_map": "{}"}
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2023-01-01", "2023-02-01", result
+        )
+        self.assertEqual(run.cloud_threshold, 100)
+        self.assertEqual(run.days_before_after, 30)
+        self.assertEqual(run.pre_fire_mosaic_strategy, "best_available_per_tile_mosaic")
+        self.assertEqual(
+            run.post_fire_mosaic_strategy, "best_available_per_tile_mosaic"
+        )
+        self.assertEqual(run.roi_only_bg_color, "black")
+
     # -- delete_polygon_file with S3 ------------------------------------------
 
     @patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3")

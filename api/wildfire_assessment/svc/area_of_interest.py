@@ -74,7 +74,19 @@ def _download_and_store_image(url, run_id, name):
         return None
 
 
-def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_result, roi_only=True):
+def save_analysis_run(
+    user,
+    area,
+    pre_fire_date,
+    post_fire_date,
+    assessment_result,
+    roi_only=True,
+    cloud_threshold=100,
+    days_before_after=30,
+    pre_fire_mosaic_strategy="best_available_per_tile_mosaic",
+    post_fire_mosaic_strategy="best_available_per_tile_mosaic",
+    roi_only_bg_color="black",
+):
     """Extract severity data from an assessment result and persist an AnalysisRun."""
     severity_data = None
     total_burned_ha = None
@@ -114,6 +126,11 @@ def save_analysis_run(user, area, pre_fire_date, post_fire_date, assessment_resu
         severity_data=severity_data,
         total_burned_ha=total_burned_ha,
         roi_only=roi_only,
+        cloud_threshold=cloud_threshold,
+        days_before_after=days_before_after,
+        pre_fire_mosaic_strategy=pre_fire_mosaic_strategy,
+        post_fire_mosaic_strategy=post_fire_mosaic_strategy,
+        roi_only_bg_color=roi_only_bg_color,
         completed_at=timezone.now(),
         **image_keys,
     )
