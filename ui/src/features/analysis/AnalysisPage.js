@@ -7,6 +7,13 @@ import { SEVERITY_COLORS, getSeverityTranslations, parseSeverityData } from "../
 import { formatLabel, formatAreaValue, formatPercentValue } from "../../utils/formatting";
 import { downloadSeverityCsv } from "../../utils/csvExport";
 
+const MOSAIC_STRATEGIES = [
+  { value: "best_date_mosaic", labelKey: "app.mosaicBestDate" },
+  { value: "best_date_masked_mosaic", labelKey: "app.mosaicBestDateMasked" },
+  { value: "best_available_per_tile_mosaic", labelKey: "app.mosaicBestAvailable" },
+  { value: "cloud_masked_light_mosaic", labelKey: "app.mosaicCloudMasked" },
+];
+
 function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) {
   const { t } = useLanguage();
 
@@ -19,6 +26,11 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
   const [analysisState, setAnalysisState] = useState({ loading: false, error: null });
   const [analysisStep, setAnalysisStep] = useState(0);
   const [roiOnly, setRoiOnly] = useState(true);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [cloudThreshold, setCloudThreshold] = useState(100);
+  const [daysBeforeAfter, setDaysBeforeAfter] = useState(30);
+  const [preFireMosaicStrategy, setPreFireMosaicStrategy] = useState("best_available_per_tile_mosaic");
+  const [postFireMosaicStrategy, setPostFireMosaicStrategy] = useState("best_available_per_tile_mosaic");
   const analysisStepRef = useRef(null);
   const [hasResults, setHasResults] = useState(false);
   const [deliverableStatus, setDeliverableStatus] = useState({});
@@ -383,10 +395,16 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
     setDeliverableStatus({});
 
     try {
+      const currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
       const queryParams = new URLSearchParams({
         pre_fire_date: preFireDate,
         post_fire_date: postFireDate,
         roi_only: String(roiOnly),
+        cloud_threshold: String(cloudThreshold),
+        days_before_after: String(daysBeforeAfter),
+        pre_fire_mosaic_strategy: preFireMosaicStrategy,
+        post_fire_mosaic_strategy: postFireMosaicStrategy,
+        roi_only_bg_color: currentTheme === "light" ? "white" : "black",
       });
       const url = `${baseUrl}/area_of_interest/${selectedReserve}/analyze/?${queryParams.toString()}`;
 
@@ -537,6 +555,116 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
                   </label>
                   <div className="form-text">{t("app.roiOnlyHint")}</div>
                 </div>
+              </div>
+              <div className="mt-3 pt-3 border-top">
+                <div
+                  className="d-flex align-items-center gap-2 mb-0"
+                  style={{ cursor: "pointer", color: "var(--bs-primary)", fontWeight: 600 }}
+                  onClick={() => setAdvancedOpen(!advancedOpen)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setAdvancedOpen(!advancedOpen); }}
+                >
+                  <svg
+                    width="12" height="12" viewBox="0 0 12 12" fill="currentColor"
+                    style={{ transform: advancedOpen ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.2s" }}
+                  >
+                    <path d="M2 4l4 4 4-4" />
+                  </svg>
+                  {t("app.advancedSettings")}
+                </div>
+                {advancedOpen ? (
+                  <div className="mt-3 p-3 border rounded" style={{ background: "var(--card-bg, inherit)" }}>
+                    <div className="row g-3">
+                      {/* Left column: Cloud threshold + Days */}
+                      <div className="col-12 col-md-6">
+                        <div className="mb-3">
+                          <label htmlFor="cloudThreshold" className="form-label fw-semibold">
+                            {t("app.cloudThreshold")}
+                          </label>
+                          <div className="d-flex align-items-center gap-2">
+                            <input
+                              type="range"
+                              className="form-range flex-grow-1"
+                              id="cloudThreshold"
+                              min="0"
+                              max="100"
+                              value={cloudThreshold}
+                              onChange={(e) => setCloudThreshold(Number(e.target.value))}
+                            />
+                            <span className="fw-semibold" style={{ minWidth: "40px", textAlign: "right" }}>
+                              {cloudThreshold}%
+                            </span>
+                          </div>
+                          <div className="form-text">{t("app.cloudThresholdHint")}</div>
+                        </div>
+                        <div>
+                          <label htmlFor="daysBeforeAfter" className="form-label fw-semibold">
+                            {t("app.daysBeforeAfter")}
+                          </label>
+                          <div className="d-flex align-items-center gap-2">
+                            <input
+                              type="number"
+                              className="form-control"
+                              id="daysBeforeAfter"
+                              min="1"
+                              step="1"
+                              value={daysBeforeAfter}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (!Number.isNaN(val) && val >= 1) setDaysBeforeAfter(val);
+                              }}
+                              style={{ width: "100px" }}
+                            />
+                            <span className="text-muted">{t("app.daysBeforeAfterSuffix")}</span>
+                          </div>
+                          <div className="form-text">{t("app.daysBeforeAfterHint")}</div>
+                        </div>
+                      </div>
+                      {/* Right column: Mosaic strategies */}
+                      <div className="col-12 col-md-6">
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold">{t("app.preFireMosaicStrategy")}</label>
+                          {MOSAIC_STRATEGIES.map(({ value, labelKey }) => (
+                            <div className="form-check" key={`pre-${value}`}>
+                              <input
+                                className="form-check-input"
+                                type="radio"
+                                name="preFireMosaicStrategy"
+                                id={`pre-${value}`}
+                                value={value}
+                                checked={preFireMosaicStrategy === value}
+                                onChange={(e) => setPreFireMosaicStrategy(e.target.value)}
+                              />
+                              <label className="form-check-label" htmlFor={`pre-${value}`}>
+                                {t(labelKey)}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <label className="form-label fw-semibold">{t("app.postFireMosaicStrategy")}</label>
+                          {MOSAIC_STRATEGIES.map(({ value, labelKey }) => (
+                            <div className="form-check" key={`post-${value}`}>
+                              <input
+                                className="form-check-input"
+                                type="radio"
+                                name="postFireMosaicStrategy"
+                                id={`post-${value}`}
+                                value={value}
+                                checked={postFireMosaicStrategy === value}
+                                onChange={(e) => setPostFireMosaicStrategy(e.target.value)}
+                              />
+                              <label className="form-check-label" htmlFor={`post-${value}`}>
+                                {t(labelKey)}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </form>
           </div>
