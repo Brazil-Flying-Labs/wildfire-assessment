@@ -8,6 +8,7 @@ import { downloadSeverityCsv } from "../../utils/csvExport";
 import SeverityTable from "./SeverityTable";
 import ImageGallery from "./ImageGallery";
 import ScientificDeliverables from "./ScientificDeliverables";
+import PrintReport from "./PrintReport";
 
 const MOSAIC_STRATEGY_LABELS = {
   best_date_mosaic: "app.mosaicBestDate",
@@ -17,13 +18,16 @@ const MOSAIC_STRATEGY_LABELS = {
 };
 
 function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotificationsRead, scrollToDeliverable }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [deliverableStatus, setDeliverableStatus] = useState({});
   const pollIntervalsRef = useRef({});
   const deliverablesRef = useRef(null);
+  const [reportSummary, setReportSummary] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState(null);
 
   const loadAnalysis = useCallback(async () => {
     if (!baseUrl || !analysisId) return;
@@ -50,6 +54,12 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
   useEffect(() => {
     loadAnalysis();
   }, [loadAnalysis]);
+
+  useEffect(() => {
+    if (analysis?.report_summary) {
+      setReportSummary(analysis.report_summary);
+    }
+  }, [analysis]);
 
   // Auto-mark notifications as read for this analysis
   useEffect(() => {
@@ -251,6 +261,68 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
     [analysis, authorizedFetch, baseUrl, startPolling, t]
   );
 
+  const handlePrintReport = useCallback(async () => {
+    if (reportSummary) {
+      window.print();
+      return;
+    }
+
+    setReportLoading(true);
+    setReportError(null);
+
+    try {
+      const response = await authorizedFetch(
+        `${baseUrl}/analysis_run/${analysisId}/report/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(t("report.generateError"));
+      }
+
+      const data = await response.json();
+      setReportSummary(data.report_summary);
+      setTimeout(() => window.print(), 100);
+    } catch (err) {
+      console.error("Failed to generate report:", err);
+      setReportError(err.message || t("report.generateError"));
+    } finally {
+      setReportLoading(false);
+    }
+  }, [reportSummary, authorizedFetch, baseUrl, analysisId, language, t]);
+
+  const handleRegenerate = useCallback(async () => {
+    setReportLoading(true);
+    setReportError(null);
+
+    try {
+      const response = await authorizedFetch(
+        `${baseUrl}/analysis_run/${analysisId}/report/?regenerate=true`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(t("report.generateError"));
+      }
+
+      const data = await response.json();
+      setReportSummary(data.report_summary);
+    } catch (err) {
+      console.error("Failed to regenerate report:", err);
+      setReportError(err.message || t("report.generateError"));
+    } finally {
+      setReportLoading(false);
+    }
+  }, [authorizedFetch, baseUrl, analysisId, language, t]);
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center p-5">
@@ -287,16 +359,16 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
         <div className="d-flex align-items-center gap-2">
         <button
           type="button"
-          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 no-print"
-          onClick={() => window.print()}
-          title={t("common.print")}
+          className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 no-print btn-print-report"
+          onClick={handlePrintReport}
+          title={t("common.printReport")}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="6 9 6 2 18 2 18 9" />
             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
             <rect x="6" y="14" width="12" height="8" />
           </svg>
-          {t("common.print")}
+          {t("common.printReport")}
         </button>
           <BackButton onClick={onBack} />
         </div>
@@ -387,6 +459,36 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
         </div>
       </div>
     </div>
+
+    {reportLoading && (
+      <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center no-print"
+        style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 9999 }}>
+        <div className="bg-white rounded p-4 text-center shadow">
+          <div className="spinner-border text-primary mb-3" role="status">
+            <span className="visually-hidden">{t("common.loading")}</span>
+          </div>
+          <p className="mb-0">{t("report.generating")}</p>
+        </div>
+      </div>
+    )}
+
+    {reportError && (
+      <div className="alert alert-danger alert-dismissible fade show position-fixed bottom-0 end-0 m-3 no-print" style={{ zIndex: 9999 }} role="alert">
+        {reportError}
+        <button type="button" className="btn-close" onClick={() => setReportError(null)} />
+      </div>
+    )}
+
+    <PrintReport
+      analysis={analysis}
+      severityEntries={severityEntries}
+      imageEntries={imageEntries}
+      reportSummary={reportSummary}
+      reportLoading={reportLoading}
+      reportError={reportError}
+      onRegenerate={handleRegenerate}
+      t={t}
+    />
 
     <AIAnalysisModal
       isVisible={!!analysis && severityEntries.length > 0}
