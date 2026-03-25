@@ -254,9 +254,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
 
         # Extract and validate advanced settings
         try:
-            cloud_threshold = int(
-                request.query_params.get("cloud_threshold", "100")
-            )
+            cloud_threshold = int(request.query_params.get("cloud_threshold", "100"))
         except (ValueError, TypeError):
             return Response(
                 {"error": "cloud_threshold must be an integer"},
@@ -269,9 +267,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
             )
 
         try:
-            days_before_after = int(
-                request.query_params.get("days_before_after", "30")
-            )
+            days_before_after = int(request.query_params.get("days_before_after", "30"))
         except (ValueError, TypeError):
             return Response(
                 {"error": "days_before_after must be an integer"},

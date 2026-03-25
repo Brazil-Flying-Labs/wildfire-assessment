@@ -300,9 +300,7 @@ def generate_report_summary(analysis_run, language: str = "en") -> str:
                 {"label": label, "url": f"data:{content_type};base64,{b64}"}
             )
         except Exception:
-            LOG.warning(
-                "Failed to fetch image %s for report, skipping", label
-            )
+            LOG.warning("Failed to fetch image %s for report, skipping", label)
 
     provider = get_active_provider()
     if provider and provider.provider == "openai":
@@ -325,8 +323,6 @@ def generate_report_summary(analysis_run, language: str = "en") -> str:
     # Save to DB (shadow replacement: only on success)
     analysis_run.report_summary = text
     analysis_run.report_summary_language = language
-    analysis_run.save(
-        update_fields=["report_summary", "report_summary_language"]
-    )
+    analysis_run.save(update_fields=["report_summary", "report_summary_language"])
 
     return text

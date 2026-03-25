@@ -2360,6 +2360,10 @@
   .widget-controls {
     display: flex !important;
   }
+
+  .btn-print-report {
+    display: none !important;
+  }
 }
 
 /* Dark mode for widget controls */
@@ -2486,6 +2490,11 @@
   .analysis-results img,
   .analysis-detail img {
     max-height: 250px !important;
+  }
+
+  /* When the print-report is present, hide the screen layout */
+  .analysis-detail {
+    display: none !important;
   }
 }
 

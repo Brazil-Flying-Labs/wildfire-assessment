@@ -379,9 +379,7 @@ class WildfireAssessmentTests(APITestCase):
 
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     @patch("wildfire_assessment.views.process_fire_assessment")
-    def test_analyze_ee_other_error_still_raises(
-        self, mock_process, mock_scientific
-    ):
+    def test_analyze_ee_other_error_still_raises(self, mock_process, mock_scientific):
         import ee
 
         UserCountry.objects.create(user=self.user, country=self.country)
@@ -2089,9 +2087,7 @@ class ReportEndpointTests(APITestCase):
 
         self.client.force_authenticate(user=self.user)
         url = reverse("analysisrun-report", args=[self.analysis.id])
-        with patch(
-            "wildfire_assessment.views.generate_report_summary"
-        ) as mock_gen:
+        with patch("wildfire_assessment.views.generate_report_summary") as mock_gen:
             mock_gen.return_value = "# Relatório em Português"
             response = self.client.post(url, {"language": "pt-BR"}, format="json")
             self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -2121,8 +2117,7 @@ class ReportEndpointTests(APITestCase):
 
         self.client.force_authenticate(user=self.user)
         url = (
-            reverse("analysisrun-report", args=[self.analysis.id])
-            + "?regenerate=true"
+            reverse("analysisrun-report", args=[self.analysis.id]) + "?regenerate=true"
         )
         response = self.client.post(url, {"language": "en"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -2139,8 +2134,7 @@ class ReportEndpointTests(APITestCase):
 
         self.client.force_authenticate(user=self.user)
         url = (
-            reverse("analysisrun-report", args=[self.analysis.id])
-            + "?regenerate=true"
+            reverse("analysisrun-report", args=[self.analysis.id]) + "?regenerate=true"
         )
         response = self.client.post(url, {"language": "en"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)

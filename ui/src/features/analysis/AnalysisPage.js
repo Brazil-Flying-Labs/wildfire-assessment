@@ -707,7 +707,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
             <div className="d-flex justify-content-end no-print">
               <button
                 type="button"
-                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 btn-print-report"
                 onClick={() => window.print()}
                 title={t("common.print")}
               >

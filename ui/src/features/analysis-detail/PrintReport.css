@@ -165,7 +165,6 @@
   /* ── Sections ── */
   .pr-section {
     margin-bottom: 22px;
-    break-inside: avoid;
   }
 
   .pr-section-head {
@@ -175,6 +174,7 @@
     margin-bottom: 10px;
     padding-bottom: 5px;
     border-bottom: 2px solid #222 !important;
+    break-after: avoid;
   }
 
   .pr-section-icon {
@@ -342,8 +342,9 @@
     letter-spacing: 0.03em;
   }
 
-  /* ── Parameters Grid ── */
+  /* ── Parameters Grid ── keep together on one page */
   .pr-params {
+    break-inside: avoid;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 6px 20px;
