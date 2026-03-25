@@ -7,6 +7,8 @@ import { SEVERITY_COLORS, getSeverityTranslations, parseSeverityData } from "../
 import { formatLabel, formatAreaValue, formatPercentValue } from "../../utils/formatting";
 import { downloadSeverityCsv } from "../../utils/csvExport";
 
+const DAYS_BEFORE_AFTER_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 30, 45, 90];
+
 const MOSAIC_STRATEGIES = [
   { value: "best_date_mosaic", labelKey: "app.mosaicBestDate" },
   { value: "best_date_masked_mosaic", labelKey: "app.mosaicBestDateMasked" },
@@ -415,7 +417,8 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
       ensureAuthorizedResponse(response);
 
       if (!response.ok) {
-        throw new Error(t("app.errorAnalysis", { status: response.status }));
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || t("app.errorAnalysis", { status: response.status }));
       }
 
       const data = await response.json();
@@ -603,19 +606,17 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
                           </label>
                           <div className="d-flex align-items-center gap-2">
                             <input
-                              type="number"
-                              className="form-control"
+                              type="range"
+                              className="form-range flex-grow-1"
                               id="daysBeforeAfter"
                               min="0"
-                              step="1"
-                              value={daysBeforeAfter}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                setDaysBeforeAfter(!Number.isNaN(val) && val >= 0 ? val : 0);
-                              }}
-                              style={{ width: "100px" }}
+                              max={DAYS_BEFORE_AFTER_OPTIONS.length - 1}
+                              value={DAYS_BEFORE_AFTER_OPTIONS.indexOf(daysBeforeAfter)}
+                              onChange={(e) => setDaysBeforeAfter(DAYS_BEFORE_AFTER_OPTIONS[Number(e.target.value)])}
                             />
-                            <span className="text-muted">{t("app.daysBeforeAfterSuffix")}</span>
+                            <span className="fw-semibold" style={{ minWidth: "48px", textAlign: "right", whiteSpace: "nowrap" }}>
+                              {daysBeforeAfter} {t("app.daysBeforeAfterSuffix")}
+                            </span>
                           </div>
                           <div className="form-text">{t("app.daysBeforeAfterHint")}</div>
                         </div>

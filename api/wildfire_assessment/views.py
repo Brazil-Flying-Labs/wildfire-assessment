@@ -1,6 +1,7 @@
 import logging
 import uuid
 
+import ee
 from celery.result import AsyncResult
 from django.core.cache import cache
 from django.http import JsonResponse, StreamingHttpResponse
@@ -305,17 +306,31 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        assessment_result = process_fire_assessment(
-            pre_fire_date=pre_fire_date,
-            post_fire_date=post_fire_date,
-            polygon_path=instance.polygon_path,
-            roi_only=roi_only,
-            cloud_threshold=cloud_threshold,
-            days_before_after=days_before_after,
-            pre_fire_mosaic_strategy=pre_fire_mosaic_strategy,
-            post_fire_mosaic_strategy=post_fire_mosaic_strategy,
-            roi_only_bg_color=roi_only_bg_color,
-        )
+        try:
+            assessment_result = process_fire_assessment(
+                pre_fire_date=pre_fire_date,
+                post_fire_date=post_fire_date,
+                polygon_path=instance.polygon_path,
+                roi_only=roi_only,
+                cloud_threshold=cloud_threshold,
+                days_before_after=days_before_after,
+                pre_fire_mosaic_strategy=pre_fire_mosaic_strategy,
+                post_fire_mosaic_strategy=post_fire_mosaic_strategy,
+                roi_only_bg_color=roi_only_bg_color,
+            )
+        except ee.EEException as exc:
+            if "No band named" in str(exc):
+                language = get_user_language(request)
+                return Response(
+                    {
+                        "error": get_error_translation(
+                            language, "error.no_satellite_imagery"
+                        ),
+                        "code": "NO_SATELLITE_IMAGERY",
+                    },
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                )
+            raise
 
         analysis_run = save_analysis_run(
             user=request.user,

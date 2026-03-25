@@ -355,6 +355,49 @@ class WildfireAssessmentTests(APITestCase):
         self.assertEqual(response.status_code, 400)
 
     @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_ee_no_band_returns_422_with_message(
+        self, mock_process, mock_scientific
+    ):
+        import ee
+
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        mock_process.side_effect = ee.EEException("No band named B4.")
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 422)
+        data = response.json()
+        self.assertEqual(data["code"], "NO_SATELLITE_IMAGERY")
+        self.assertIn("satellite imagery", data["error"])
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
+    @patch("wildfire_assessment.views.process_fire_assessment")
+    def test_analyze_ee_other_error_still_raises(
+        self, mock_process, mock_scientific
+    ):
+        import ee
+
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.client.force_authenticate(user=self.user)
+        mock_process.side_effect = ee.EEException("Some other GEE error.")
+        query = urlencode(
+            {
+                "pre_fire_date": "2023-01-01",
+                "post_fire_date": "2023-01-15",
+            }
+        )
+        url = reverse("areaofinterest-analyze", args=[self.reserve.id])
+        response = self.client.post(f"{url}?{query}")
+        self.assertEqual(response.status_code, 500)
+
+    @patch("wildfire_assessment.views.process_scientific_deliverable.delay")
     def test_scientific_deliverable_handles_all_deliverables(self, mock_process):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)

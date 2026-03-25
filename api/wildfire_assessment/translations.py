@@ -81,6 +81,7 @@ ERROR_TRANSLATIONS = {
         "error.ai_failed": "Failed to generate analysis: {detail}",
         "error.ai_followup_empty": "AI returned empty response",
         "error.ai_followup_failed": "Failed to generate response: {detail}",
+        "error.no_satellite_imagery": "No satellite imagery was found for the selected dates and filters. Try adjusting your settings: use dates further in the past, increase the cloud threshold, or extend the days before/after range.",
     },
     "pt-BR": {
         "error.no_permission_create": "Você não tem permissão para criar áreas de interesse neste país.",
@@ -122,6 +123,7 @@ ERROR_TRANSLATIONS = {
         "error.ai_failed": "Falha ao gerar análise: {detail}",
         "error.ai_followup_empty": "A IA retornou uma resposta vazia",
         "error.ai_followup_failed": "Falha ao gerar resposta: {detail}",
+        "error.no_satellite_imagery": "Nenhuma imagem de satélite foi encontrada para as datas e filtros selecionados. Tente ajustar suas configurações: use datas mais no passado, aumente o limite de nuvens ou amplie o intervalo de dias antes/depois.",
     },
     "fr": {
         "error.no_permission_create": "Vous n'avez pas la permission de créer des zones d'intérêt dans ce pays.",
@@ -163,6 +165,7 @@ ERROR_TRANSLATIONS = {
         "error.ai_failed": "Échec de la génération de l'analyse : {detail}",
         "error.ai_followup_empty": "L'IA a renvoyé une réponse vide",
         "error.ai_followup_failed": "Échec de la génération de la réponse : {detail}",
+        "error.no_satellite_imagery": "Aucune image satellite n'a été trouvée pour les dates et filtres sélectionnés. Essayez d'ajuster vos paramètres : utilisez des dates plus anciennes, augmentez le seuil de nuages ou élargissez la plage de jours avant/après.",
     },
     "es-ES": {
         "error.no_permission_create": "No tiene permiso para crear áreas de interés en este país.",
@@ -204,6 +207,7 @@ ERROR_TRANSLATIONS = {
         "error.ai_failed": "Error al generar el análisis: {detail}",
         "error.ai_followup_empty": "La IA devolvió una respuesta vacía",
         "error.ai_followup_failed": "Error al generar la respuesta: {detail}",
+        "error.no_satellite_imagery": "No se encontraron imágenes de satélite para las fechas y filtros seleccionados. Intente ajustar su configuración: use fechas más antiguas, aumente el umbral de nubes o amplíe el rango de días antes/después.",
     },
 }
 
