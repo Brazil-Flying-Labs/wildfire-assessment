@@ -169,7 +169,7 @@ class SharedHelperTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="Brazil", code="BR")
+        country = Country.objects.create(name="Brazil RPT", code="BT")
         area = AreaOfInterest.objects.create(
             name="Serra da Canastra", polygon_path="p.json", country=country
         )
@@ -219,7 +219,7 @@ class SharedHelperTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="TestC2", code="TC2")
+        country = Country.objects.create(name="TestC2", code="C2")
         area = AreaOfInterest.objects.create(
             name="Null Area", polygon_path="p.json", country=country
         )
@@ -240,7 +240,7 @@ class SharedHelperTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="TestC3", code="TC3")
+        country = Country.objects.create(name="TestC3", code="C3")
         area = AreaOfInterest.objects.create(
             name="Simple Area", polygon_path="p.json", country=country
         )
@@ -261,7 +261,7 @@ class SharedHelperTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="TestC4", code="TC4")
+        country = Country.objects.create(name="TestC4", code="C4")
         area = AreaOfInterest.objects.create(
             name="Fallback Area", polygon_path="p.json", country=country
         )
@@ -743,7 +743,7 @@ class ProviderDispatchTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="Brazil", code="BR")
+        country = Country.objects.create(name="Brazil GEM", code="BG")
         area = AreaOfInterest.objects.create(
             name="Test Area", polygon_path="p.json", country=country
         )
@@ -781,7 +781,7 @@ class ProviderDispatchTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="Brazil", code="BR2")
+        country = Country.objects.create(name="Brazil OAI", code="B2")
         area = AreaOfInterest.objects.create(
             name="Test Area 2", polygon_path="p2.json", country=country
         )
@@ -819,7 +819,7 @@ class ProviderDispatchTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="Brazil", code="BR3")
+        country = Country.objects.create(name="Brazil IMG", code="B3")
         area = AreaOfInterest.objects.create(
             name="Test Area 3", polygon_path="p3.json", country=country
         )
@@ -865,7 +865,7 @@ class ProviderDispatchTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="Brazil", code="BR4")
+        country = Country.objects.create(name="Brazil NPR", code="B4")
         area = AreaOfInterest.objects.create(
             name="Test Area 4", polygon_path="p4.json", country=country
         )
@@ -898,7 +898,7 @@ class ProviderDispatchTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="Brazil", code="BR5")
+        country = Country.objects.create(name="Brazil NLC", code="B5")
         area = AreaOfInterest.objects.create(
             name="Test Area 5", polygon_path="p5.json", country=country
         )
@@ -935,7 +935,7 @@ class ProviderDispatchTests(TestCase):
         from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
 
         User = get_user_model()
-        country = Country.objects.create(name="Brazil", code="BR6")
+        country = Country.objects.create(name="Brazil IFF", code="B6")
         area = AreaOfInterest.objects.create(
             name="Test Area 6", polygon_path="p6.json", country=country
         )
