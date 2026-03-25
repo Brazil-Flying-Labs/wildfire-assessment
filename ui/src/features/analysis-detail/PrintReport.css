@@ -390,14 +390,19 @@
   .pr-disclaimer {
     margin-bottom: 8px;
     font-style: italic;
-    color: #555 !important;
+    color: #000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-size: 8.5pt;
   }
 
   .pr-footer-brand {
     display: flex;
     justify-content: center;
     gap: 6px;
-    color: #888 !important;
+    color: #333 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   /* ── Markdown content in summary ── */
