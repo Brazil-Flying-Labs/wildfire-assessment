@@ -13,7 +13,7 @@ const MOSAIC_STRATEGY_LABELS = {
 
 function PrintReport({ analysis, severityEntries, imageEntries, reportSummary, reportLoading, onRegenerate, t }) {
   const severityTranslationMap = useMemo(() => getSeverityTranslations(t), [t]);
-  const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo.png`, []);
+  const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo-report.jpeg`, []);
   const generatedAt = useMemo(() => formatDateTime(new Date().toISOString()), []);
 
   if (!analysis) return null;
