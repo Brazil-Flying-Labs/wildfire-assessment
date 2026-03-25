@@ -5,9 +5,11 @@ Both gemini_analysis and openai_analysis import shared code from here.
 This module imports from both provider modules to dispatch requests.
 """
 
+import base64
 import logging
 from typing import Generator
 
+import requests
 from django.core.cache import cache
 from wildfire_assessment.models import AIProvider
 
@@ -24,6 +26,7 @@ LANGUAGE_MAP = {
     "en": "English",
     "pt-BR": "Brazilian Portuguese",
     "fr": "French",
+    "es-ES": "Spanish",
 }
 
 PROVIDER_DISPLAY = {
@@ -88,6 +91,67 @@ Format your response in markdown for readability."""
     return prompt
 
 
+REPORT_SYSTEM_INSTRUCTIONS = (
+    "You are a senior remote sensing scientist specialized in wildfire impact "
+    "assessment and post-fire environmental management, with experience "
+    "supporting environmental agencies such as state forest foundations.\n\n"
+    "Based on the following outputs generated from a Sentinel-2 wildfire burn "
+    "severity analysis (including burn severity maps, RGB composites, severity "
+    "class statistics, and metadata), produce a structured technical analysis "
+    "suitable for inclusion in an official environmental assessment report.\n\n"
+    "Your analysis must go beyond describing the data and provide expert "
+    "interpretation, spatial reasoning, and actionable recommendations.\n\n"
+    "Use a formal, technical, and objective tone appropriate for a scientific "
+    "and institutional audience.\n\n"
+    "The report should include:\n\n"
+    "1. Executive Summary\n"
+    "   - Brief overview of the wildfire extent, severity distribution, and key findings.\n\n"
+    "2. Burn Severity Analysis\n"
+    "   - Interpretation of dNBR, RBR, and dNDVI indices.\n"
+    "   - Spatial distribution of severity classes.\n\n"
+    "3. Environmental Impact Assessment\n"
+    "   - Vegetation loss and ecosystem implications.\n"
+    "   - Soil degradation risk.\n"
+    "   - Water resource impacts.\n\n"
+    "4. Recommendations\n"
+    "   - Immediate response priorities.\n"
+    "   - Medium-term restoration actions.\n"
+    "   - Long-term monitoring needs."
+)
+
+
+def _get_report_instructions(language: str | None = None) -> str:
+    lang_name = LANGUAGE_MAP.get(language or "en", "English")
+    return f"{REPORT_SYSTEM_INSTRUCTIONS}\n\nAlways respond in {lang_name}."
+
+
+def build_report_prompt(analysis_run) -> str:
+    """Build the user prompt for the report summary using AnalysisRun data."""
+    severity_text = ""
+    for severity_level, data in (analysis_run.severity_data or {}).items():
+        if isinstance(data, dict):
+            area = data.get("area_ha", data.get("area", "N/A"))
+            percent = data.get("percent", data.get("percentage", "N/A"))
+            severity_text += f"- {severity_level}: {area} ha ({percent}%)\n"
+        else:
+            severity_text += f"- {severity_level}: {data}\n"
+
+    return (
+        f"**Fire Event Details:**\n"
+        f"- Location: {analysis_run.area_of_interest.name}\n"
+        f"- Country: {analysis_run.area_of_interest.country.name}\n"
+        f"- Pre-fire date: {analysis_run.pre_fire_date}\n"
+        f"- Post-fire date: {analysis_run.post_fire_date}\n"
+        f"- Total burned area: {analysis_run.total_burned_ha} ha\n\n"
+        f"**DNBR Severity Distribution:**\n"
+        f"{severity_text}\n"
+        f"Satellite imagery is attached (RGB composites, dNBR, RBR, dNDVI maps). "
+        f"Use the visual evidence from these images together with the numerical "
+        f"data above to support your analysis.\n\n"
+        f"Format your response in markdown for readability."
+    )
+
+
 # ---------------------------------------------------------------------------
 # Provider imports — placed after shared code to avoid circular imports.
 # Both gemini_analysis and openai_analysis import shared symbols defined above.
@@ -95,12 +159,16 @@ Format your response in markdown for readability."""
 from wildfire_assessment.svc.gemini_analysis import (
     _gemini_generate_analysis_stream,
     _gemini_generate_followup_stream,
+    _gemini_generate_report,
 )
 from wildfire_assessment.svc.openai_analysis import (
     generate_analysis_stream as _openai_generate_analysis_stream,
 )
 from wildfire_assessment.svc.openai_analysis import (
     generate_followup_stream as _openai_generate_followup_stream,
+)
+from wildfire_assessment.svc.openai_analysis import (
+    generate_report as _openai_generate_report,
 )
 
 # ---------------------------------------------------------------------------
@@ -196,3 +264,69 @@ def generate_followup_stream(
         language=language,
         model=model or (provider.model_name if provider else "gemini-2.0-flash-lite"),
     )
+
+
+def generate_report_summary(analysis_run, language: str = "en") -> str:
+    """
+    Generate a non-streaming report summary using the active AI provider.
+
+    Fetches satellite images from S3, builds the prompt, dispatches to the
+    active provider, saves the result to the DB, and returns the markdown.
+    """
+    from wildfire_assessment.svc.aws import get_presigned_image_url
+
+    prompt = build_report_prompt(analysis_run)
+
+    # Fetch satellite images from S3 as base64 data URLs
+    image_fields = [
+        ("dNBR", "dnbr_image"),
+        ("RBR", "rbr_image"),
+        ("dNDVI", "dndvi_image"),
+        ("RGB Pre-fire", "rgb_pre_fire_image"),
+        ("RGB Post-fire", "rgb_post_fire_image"),
+    ]
+    image_urls = []
+    for label, field in image_fields:
+        key = getattr(analysis_run, field)
+        if not key:
+            continue
+        try:
+            presigned_url = get_presigned_image_url(key)
+            resp = requests.get(presigned_url, timeout=30)
+            resp.raise_for_status()
+            content_type = resp.headers.get("Content-Type", "image/png")
+            b64 = base64.b64encode(resp.content).decode()
+            image_urls.append(
+                {"label": label, "url": f"data:{content_type};base64,{b64}"}
+            )
+        except Exception:
+            LOG.warning(
+                "Failed to fetch image %s for report, skipping", label
+            )
+
+    provider = get_active_provider()
+    if provider and provider.provider == "openai":
+        model = provider.model_name if provider else "gpt-4o-mini"
+        text = _openai_generate_report(
+            prompt=prompt,
+            image_urls=image_urls,
+            language=language,
+            model=model,
+        )
+    else:
+        model = provider.model_name if provider else "gemini-2.0-flash-lite"
+        text = _gemini_generate_report(
+            prompt=prompt,
+            image_urls=image_urls,
+            language=language,
+            model=model,
+        )
+
+    # Save to DB (shadow replacement: only on success)
+    analysis_run.report_summary = text
+    analysis_run.report_summary_language = language
+    analysis_run.save(
+        update_fields=["report_summary", "report_summary_language"]
+    )
+
+    return text

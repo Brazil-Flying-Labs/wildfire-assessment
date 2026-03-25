@@ -12,6 +12,7 @@ from openai import OpenAI
 from wildfire_assessment.svc.ai_common import (
     CONVERSATION_CACHE_TTL,
     _get_instructions,
+    _get_report_instructions,
     build_analysis_prompt,
 )
 
@@ -104,6 +105,28 @@ def generate_analysis_stream(
         holder["response_id"] = conv_id
 
     return stream_chunks(), holder
+
+
+def generate_report(
+    prompt: str,
+    image_urls: list | None = None,
+    language: str | None = None,
+    model: str = "gpt-4o-mini",
+) -> str:
+    """Generate a complete (non-streaming) report using OpenAI."""
+    LOG.info("Generating report with OpenAI (model=%s)", model)
+    client = _get_openai_client()
+    messages = [
+        {"role": "system", "content": _get_report_instructions(language)},
+        {"role": "user", "content": _build_user_content(prompt, image_urls)},
+    ]
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=0.7,
+        max_completion_tokens=4096,
+    )
+    return response.choices[0].message.content or ""
 
 
 def generate_followup_stream(

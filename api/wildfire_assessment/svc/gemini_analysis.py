@@ -15,6 +15,7 @@ from google.genai import types
 from wildfire_assessment.svc.ai_common import (
     CONVERSATION_CACHE_TTL,
     _get_instructions,
+    _get_report_instructions,
     build_analysis_prompt,
 )
 
@@ -114,6 +115,32 @@ def _gemini_generate_analysis_stream(
         holder["response_id"] = conv_id
 
     return stream_chunks(), holder
+
+
+def _gemini_generate_report(
+    prompt: str,
+    image_urls: list | None = None,
+    language: str | None = None,
+    model: str = "gemini-2.0-flash-lite",
+) -> str:
+    """Generate a complete (non-streaming) report using Gemini."""
+    LOG.info("Generating report with Gemini (model=%s)", model)
+    client = _get_gemini_client()
+    config = types.GenerateContentConfig(
+        system_instruction=_get_report_instructions(language),
+        temperature=0.7,
+        max_output_tokens=4096,
+    )
+
+    contents = [prompt]
+    contents.extend(_build_image_content(image_urls))
+
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=config,
+    )
+    return response.text or ""
 
 
 def _gemini_generate_followup_stream(

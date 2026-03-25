@@ -6,9 +6,12 @@ from django.test import TestCase
 from wildfire_assessment.svc.ai_common import (
     PROVIDER_DISPLAY,
     _get_instructions,
+    _get_report_instructions,
     build_analysis_prompt,
+    build_report_prompt,
     generate_analysis_stream,
     generate_followup_stream,
+    generate_report_summary,
     get_active_provider,
 )
 from wildfire_assessment.svc.gemini_analysis import (
@@ -143,6 +146,137 @@ class SharedHelperTests(TestCase):
     def test_provider_display_map(self):
         self.assertEqual(PROVIDER_DISPLAY["gemini"], "Google Gemini")
         self.assertEqual(PROVIDER_DISPLAY["openai"], "OpenAI")
+
+    def test_get_instructions_spanish(self):
+        result = _get_instructions("es-ES")
+        self.assertIn("Spanish", result)
+
+    def test_get_report_instructions_defaults_to_english(self):
+        result = _get_report_instructions()
+        self.assertIn("English", result)
+        self.assertIn("remote sensing scientist", result)
+
+    def test_get_report_instructions_with_language(self):
+        result = _get_report_instructions("pt-BR")
+        self.assertIn("Brazilian Portuguese", result)
+
+    def test_get_report_instructions_with_spanish(self):
+        result = _get_report_instructions("es-ES")
+        self.assertIn("Spanish", result)
+
+    def test_build_report_prompt_contains_metadata(self):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="Brazil", code="BR")
+        area = AreaOfInterest.objects.create(
+            name="Serra da Canastra", polygon_path="p.json", country=country
+        )
+        user = User.objects.create_user(username="t", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-06-01",
+            post_fire_date="2024-06-15",
+            total_burned_ha=500.0,
+            severity_data={
+                "Unburned": {"area_ha": 100.0, "percent": 20.0},
+                "High": {"area_ha": 400.0, "percent": 80.0},
+            },
+        )
+        prompt = build_report_prompt(run)
+        self.assertIn("Serra da Canastra", prompt)
+        self.assertIn("Brazil", prompt)
+        self.assertIn("2024-06-01", prompt)
+        self.assertIn("500.0", prompt)
+        self.assertIn("High", prompt)
+        self.assertIn("80.0", prompt)
+
+    def test_build_report_prompt_handles_empty_severity_data(self):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="TestC", code="TC")
+        area = AreaOfInterest.objects.create(
+            name="Empty Area", polygon_path="p.json", country=country
+        )
+        user = User.objects.create_user(username="t2", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-06-01",
+            post_fire_date="2024-06-15",
+            total_burned_ha=0.0,
+            severity_data={},
+        )
+        prompt = build_report_prompt(run)
+        self.assertIn("Empty Area", prompt)
+
+    def test_build_report_prompt_handles_none_severity_data(self):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="TestC2", code="TC2")
+        area = AreaOfInterest.objects.create(
+            name="Null Area", polygon_path="p.json", country=country
+        )
+        user = User.objects.create_user(username="t3", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-06-01",
+            post_fire_date="2024-06-15",
+            total_burned_ha=0.0,
+            severity_data=None,
+        )
+        prompt = build_report_prompt(run)
+        self.assertIn("Null Area", prompt)
+
+    def test_build_report_prompt_handles_simple_severity_values(self):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="TestC3", code="TC3")
+        area = AreaOfInterest.objects.create(
+            name="Simple Area", polygon_path="p.json", country=country
+        )
+        user = User.objects.create_user(username="t4", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-06-01",
+            post_fire_date="2024-06-15",
+            total_burned_ha=100.0,
+            severity_data={"High": "400 ha"},
+        )
+        prompt = build_report_prompt(run)
+        self.assertIn("High: 400 ha", prompt)
+
+    def test_build_report_prompt_uses_fallback_keys(self):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="TestC4", code="TC4")
+        area = AreaOfInterest.objects.create(
+            name="Fallback Area", polygon_path="p.json", country=country
+        )
+        user = User.objects.create_user(username="t5", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-06-01",
+            post_fire_date="2024-06-15",
+            total_burned_ha=100.0,
+            severity_data={"High": {"area": 40.0, "percentage": 20.0}},
+        )
+        prompt = build_report_prompt(run)
+        self.assertIn("40.0 ha", prompt)
+        self.assertIn("20.0%", prompt)
 
 
 class GeminiClientTests(TestCase):
@@ -345,6 +479,49 @@ class GeminiStreamTests(TestCase):
         chunks = list(stream)
 
         self.assertEqual(chunks, ["Hello"])
+
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_generate_report_returns_text(self, mock_client_fn):
+        from wildfire_assessment.svc.gemini_analysis import _gemini_generate_report
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = "# Report\nContent here"
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_fn.return_value = mock_client
+
+        result = _gemini_generate_report(prompt="test prompt", language="en")
+        self.assertEqual(result, "# Report\nContent here")
+        mock_client.models.generate_content.assert_called_once()
+
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_generate_report_with_images(self, mock_client_fn):
+        from wildfire_assessment.svc.gemini_analysis import _gemini_generate_report
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = "Report with images"
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_fn.return_value = mock_client
+
+        images = [{"label": "dNBR", "url": "data:image/png;base64,iVBOR"}]
+        result = _gemini_generate_report(
+            prompt="test", image_urls=images, language="pt-BR"
+        )
+        self.assertEqual(result, "Report with images")
+
+    @patch("wildfire_assessment.svc.gemini_analysis._get_gemini_client")
+    def test_gemini_generate_report_empty_response(self, mock_client_fn):
+        from wildfire_assessment.svc.gemini_analysis import _gemini_generate_report
+
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = None
+        mock_client.models.generate_content.return_value = mock_response
+        mock_client_fn.return_value = mock_client
+
+        result = _gemini_generate_report(prompt="test")
+        self.assertEqual(result, "")
 
 
 class ProviderDispatchTests(TestCase):
@@ -555,6 +732,237 @@ class ProviderDispatchTests(TestCase):
 
         mock_gemini.assert_called_once()
 
+    @patch("wildfire_assessment.svc.ai_common.requests")
+    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    def test_generate_report_summary_gemini(
+        self, mock_provider, mock_gemini_report, mock_presigned, mock_requests
+    ):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="Brazil", code="BR")
+        area = AreaOfInterest.objects.create(
+            name="Test Area", polygon_path="p.json", country=country
+        )
+        user = User.objects.create_user(username="rpt", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            total_burned_ha=100.0,
+            severity_data={"High": {"area_ha": 100.0, "percent": 100.0}},
+        )
+
+        mock_prov = MagicMock()
+        mock_prov.provider = "gemini"
+        mock_prov.model_name = "gemini-2.0-flash-lite"
+        mock_provider.return_value = mock_prov
+        mock_gemini_report.return_value = "# Generated Report"
+
+        result = generate_report_summary(run, language="en")
+        self.assertEqual(result, "# Generated Report")
+        mock_gemini_report.assert_called_once()
+        run.refresh_from_db()
+        self.assertEqual(run.report_summary, "# Generated Report")
+        self.assertEqual(run.report_summary_language, "en")
+
+    @patch("wildfire_assessment.svc.ai_common.requests")
+    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.ai_common._openai_generate_report")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    def test_generate_report_summary_openai(
+        self, mock_provider, mock_openai_report, mock_presigned, mock_requests
+    ):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="Brazil", code="BR2")
+        area = AreaOfInterest.objects.create(
+            name="Test Area 2", polygon_path="p2.json", country=country
+        )
+        user = User.objects.create_user(username="rpt2", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+            total_burned_ha=200.0,
+            severity_data={"Low": {"area_ha": 200.0, "percent": 100.0}},
+        )
+
+        mock_prov = MagicMock()
+        mock_prov.provider = "openai"
+        mock_prov.model_name = "gpt-4o-mini"
+        mock_provider.return_value = mock_prov
+        mock_openai_report.return_value = "# OpenAI Report"
+
+        result = generate_report_summary(run, language="pt-BR")
+        self.assertEqual(result, "# OpenAI Report")
+        mock_openai_report.assert_called_once()
+        run.refresh_from_db()
+        self.assertEqual(run.report_summary, "# OpenAI Report")
+        self.assertEqual(run.report_summary_language, "pt-BR")
+
+    @patch("wildfire_assessment.svc.ai_common.requests")
+    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    def test_generate_report_summary_fetches_images(
+        self, mock_provider, mock_gemini_report, mock_presigned, mock_requests
+    ):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="Brazil", code="BR3")
+        area = AreaOfInterest.objects.create(
+            name="Test Area 3", polygon_path="p3.json", country=country
+        )
+        user = User.objects.create_user(username="rpt3", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-03-01",
+            post_fire_date="2024-03-15",
+            total_burned_ha=50.0,
+            severity_data={},
+            dnbr_image="test_dnbr.png",
+            rbr_image="test_rbr.png",
+        )
+
+        mock_prov = MagicMock()
+        mock_prov.provider = "gemini"
+        mock_prov.model_name = "gemini-2.0-flash-lite"
+        mock_provider.return_value = mock_prov
+        mock_presigned.return_value = "https://s3.example.com/signed"
+        mock_resp = MagicMock()
+        mock_resp.content = b"fake_image_bytes"
+        mock_resp.headers = {"Content-Type": "image/png"}
+        mock_resp.raise_for_status = MagicMock()
+        mock_requests.get.return_value = mock_resp
+        mock_gemini_report.return_value = "Report"
+
+        generate_report_summary(run, language="en")
+
+        # Should have fetched 2 images (dnbr + rbr)
+        self.assertEqual(mock_requests.get.call_count, 2)
+        image_urls = mock_gemini_report.call_args.kwargs["image_urls"]
+        self.assertEqual(len(image_urls), 2)
+
+    @patch("wildfire_assessment.svc.ai_common.requests")
+    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    def test_generate_report_summary_no_provider_defaults_to_gemini(
+        self, mock_provider, mock_gemini_report, mock_presigned, mock_requests
+    ):
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="Brazil", code="BR4")
+        area = AreaOfInterest.objects.create(
+            name="Test Area 4", polygon_path="p4.json", country=country
+        )
+        user = User.objects.create_user(username="rpt4", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-04-01",
+            post_fire_date="2024-04-15",
+            total_burned_ha=75.0,
+            severity_data={"Low": {"area_ha": 75.0, "percent": 100.0}},
+        )
+
+        mock_provider.return_value = None
+        mock_gemini_report.return_value = "# Default Report"
+
+        result = generate_report_summary(run, language="en")
+        self.assertEqual(result, "# Default Report")
+        mock_gemini_report.assert_called_once()
+
+    @patch("wildfire_assessment.svc.ai_common.requests")
+    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    def test_generate_report_summary_null_language_cached(
+        self, mock_provider, mock_gemini_report, mock_presigned, mock_requests
+    ):
+        """Test that report_summary with None language triggers regeneration."""
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="Brazil", code="BR5")
+        area = AreaOfInterest.objects.create(
+            name="Test Area 5", polygon_path="p5.json", country=country
+        )
+        user = User.objects.create_user(username="rpt5", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-05-01",
+            post_fire_date="2024-05-15",
+            total_burned_ha=60.0,
+            severity_data={},
+            report_summary="# Old report",
+            report_summary_language=None,
+        )
+
+        mock_prov = MagicMock()
+        mock_prov.provider = "gemini"
+        mock_prov.model_name = "gemini-2.0-flash-lite"
+        mock_provider.return_value = mock_prov
+        mock_gemini_report.return_value = "# New Report"
+
+        result = generate_report_summary(run, language="en")
+        self.assertEqual(result, "# New Report")
+
+    @patch("wildfire_assessment.svc.ai_common.requests")
+    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    def test_generate_report_summary_image_fetch_failure_skips(
+        self, mock_provider, mock_gemini_report, mock_presigned, mock_requests
+    ):
+        """Test that failed image fetches are skipped gracefully."""
+        from django.contrib.auth import get_user_model
+        from wildfire_assessment.models import AnalysisRun, AreaOfInterest, Country
+
+        User = get_user_model()
+        country = Country.objects.create(name="Brazil", code="BR6")
+        area = AreaOfInterest.objects.create(
+            name="Test Area 6", polygon_path="p6.json", country=country
+        )
+        user = User.objects.create_user(username="rpt6", password="p")
+        run = AnalysisRun.objects.create(
+            user=user,
+            area_of_interest=area,
+            pre_fire_date="2024-06-01",
+            post_fire_date="2024-06-15",
+            total_burned_ha=30.0,
+            severity_data={},
+            dnbr_image="test_dnbr.png",
+        )
+
+        mock_prov = MagicMock()
+        mock_prov.provider = "gemini"
+        mock_prov.model_name = "gemini-2.0-flash-lite"
+        mock_provider.return_value = mock_prov
+        mock_presigned.side_effect = Exception("S3 error")
+        mock_gemini_report.return_value = "Report without images"
+
+        result = generate_report_summary(run, language="en")
+        self.assertEqual(result, "Report without images")
+        # Images should be empty since fetch failed
+        image_urls = mock_gemini_report.call_args.kwargs["image_urls"]
+        self.assertEqual(len(image_urls), 0)
+
 
 class OpenAIAnalysisTests(TestCase):
     """Tests for the OpenAI streaming service."""
@@ -691,3 +1099,44 @@ class OpenAIAnalysisTests(TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(result[0]["type"], "text")
         self.assertEqual(result[1]["type"], "image_url")
+
+    @patch("wildfire_assessment.svc.openai_analysis._get_openai_client")
+    def test_openai_generate_report_returns_text(self, mock_client_fn):
+        from wildfire_assessment.svc.openai_analysis import (
+            generate_report as openai_generate_report,
+        )
+
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = "# OpenAI Report\nContent"
+        mock_choice = MagicMock()
+        mock_choice.message = mock_message
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_client_fn.return_value = mock_client
+
+        result = openai_generate_report(prompt="test prompt", language="en")
+        self.assertEqual(result, "# OpenAI Report\nContent")
+        mock_client.chat.completions.create.assert_called_once()
+        call_kwargs = mock_client.chat.completions.create.call_args[1]
+        self.assertFalse(call_kwargs.get("stream", False))
+
+    @patch("wildfire_assessment.svc.openai_analysis._get_openai_client")
+    def test_openai_generate_report_empty_response(self, mock_client_fn):
+        from wildfire_assessment.svc.openai_analysis import (
+            generate_report as openai_generate_report,
+        )
+
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = None
+        mock_choice = MagicMock()
+        mock_choice.message = mock_message
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_client_fn.return_value = mock_client
+
+        result = openai_generate_report(prompt="test")
+        self.assertEqual(result, "")
