@@ -2406,13 +2406,18 @@
 
   .app-root {
     height: auto !important;
+    max-height: none !important;
     min-height: auto !important;
     overflow: visible !important;
+    display: block !important;
   }
 
   .app-body {
     display: block !important;
     overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    flex: none !important;
   }
 
   .app-main {
