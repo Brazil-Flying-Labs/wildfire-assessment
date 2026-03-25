@@ -380,8 +380,11 @@
   .pr-footer {
     margin-top: 28px;
     padding-top: 14px;
+    padding-bottom: 10px;
     border-top: 1px solid #ccc !important;
     font-size: 8pt;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .pr-disclaimer {
