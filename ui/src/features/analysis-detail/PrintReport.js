@@ -311,8 +311,8 @@ function PrintReport({ analysis, severityEntries, imageEntries, reportSummary, r
 
       {/* ── Footer ── */}
       <div className="pr-footer">
-        <div className="pr-disclaimer">{t("report.disclaimer")}</div>
-        <div className="pr-footer-brand">
+        <div className="pr-disclaimer" style={{ color: "#000" }}>{t("report.disclaimer")}</div>
+        <div className="pr-footer-brand" style={{ color: "#333" }}>
           <span>{t("report.generatedBy")}</span>
           <span className="pr-sep">|</span>
           <span>{generatedAt}</span>
