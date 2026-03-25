@@ -5,7 +5,7 @@ import BackButton from "../../components/BackButton";
 import DateRangePicker from "../../components/DateRangePicker";
 import { useLanguage } from "../../context/LanguageContext";
 import { SEVERITY_COLORS, getSeverityTranslations, parseSeverityData } from "../../constants/severity";
-import { formatLabel, formatAreaValue, formatPercentValue, formatDate } from "../../utils/formatting";
+import { formatLabel, formatAreaValue, formatPercentValue } from "../../utils/formatting";
 import { downloadSeverityCsv } from "../../utils/csvExport";
 
 const DAYS_BEFORE_AFTER_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 30, 45, 90];
