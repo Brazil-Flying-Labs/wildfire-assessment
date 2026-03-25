@@ -353,7 +353,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
 
   return (
     <>
-    <div className="analysis-detail p-4">
+    <div className="analysis-detail p-4 no-print">
       <div className="d-flex align-items-center justify-content-between mb-4 page-header-sticky">
         <h2 className="h4 mb-0">{t("analysisDetail.title")}</h2>
         <div className="d-flex align-items-center gap-2">
