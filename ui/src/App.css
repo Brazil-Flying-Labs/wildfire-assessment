@@ -2418,6 +2418,8 @@
   .app-main {
     background-color: #fff !important;
     overflow: visible !important;
+    height: auto !important;
+    flex: none !important;
   }
 
   .page-header-sticky {
