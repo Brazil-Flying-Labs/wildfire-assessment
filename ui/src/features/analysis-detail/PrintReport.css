@@ -1,0 +1,441 @@
+/* PrintReport – hidden on screen, professional layout on print */
+
+.print-report {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 15mm 12mm;
+  }
+
+  .print-report {
+    display: block !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Override App.css generic print resets inside report */
+  .print-report,
+  .print-report * {
+    color: #1a1a1a !important;
+  }
+
+  /* ── Header ── */
+  .pr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .pr-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .pr-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+  }
+
+  .pr-title {
+    font-size: 17pt !important;
+    font-weight: 800 !important;
+    margin: 0 !important;
+    letter-spacing: -0.02em;
+  }
+
+  .pr-subtitle {
+    font-size: 9pt;
+    color: #666 !important;
+    margin: 2px 0 0 0;
+  }
+
+  .pr-header-right {
+    text-align: right;
+    font-size: 8.5pt;
+  }
+
+  .pr-meta-row {
+    display: flex;
+    gap: 5px;
+    justify-content: flex-end;
+    margin-bottom: 2px;
+  }
+
+  .pr-meta-label {
+    color: #888 !important;
+  }
+
+  /* ── Divider (severity gradient) ── */
+  .pr-divider {
+    height: 3px !important;
+    background: linear-gradient(90deg, #dc3545, #fd7e14, #ffc107, #28a745) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 10px 0 18px 0;
+  }
+
+  /* ── Area Banner ── */
+  .pr-area-banner {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 14px;
+    border: 2px solid #d0d0d0 !important;
+    border-radius: 6px;
+  }
+
+  .pr-area-name {
+    font-size: 15pt !important;
+    font-weight: 700 !important;
+    margin: 0 0 3px 0 !important;
+  }
+
+  .pr-area-meta {
+    font-size: 10pt;
+    color: #555 !important;
+  }
+
+  .pr-sep {
+    margin: 0 6px;
+    color: #bbb !important;
+  }
+
+  /* ── Metrics Row ── */
+  .pr-metrics {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+
+  .pr-metric-card {
+    flex: 1;
+    text-align: center;
+    padding: 10px 6px;
+    border: 1px solid #d0d0d0 !important;
+    border-radius: 5px;
+    background-color: #f8f8f8 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .pr-metric-value {
+    font-size: 20pt !important;
+    font-weight: 800 !important;
+    line-height: 1.1;
+  }
+
+  .pr-metric-value.pr-danger {
+    color: #dc3545 !important;
+  }
+
+  .pr-metric-value.pr-warning {
+    color: #e67700 !important;
+  }
+
+  .pr-metric-value.pr-metric-text {
+    font-size: 11pt !important;
+    font-weight: 700 !important;
+    line-height: 1.3;
+  }
+
+  .pr-metric-unit {
+    font-size: 9pt;
+    color: #888 !important;
+    margin-top: 1px;
+  }
+
+  .pr-metric-label {
+    font-size: 7.5pt;
+    color: #666 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 3px;
+    font-weight: 600 !important;
+  }
+
+  /* ── Sections ── */
+  .pr-section {
+    margin-bottom: 22px;
+    break-inside: avoid;
+  }
+
+  .pr-section-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #222 !important;
+  }
+
+  .pr-section-icon {
+    flex-shrink: 0;
+    color: #555 !important;
+  }
+
+  .pr-section-head h3 {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .pr-ai-badge {
+    font-size: 7pt;
+    padding: 2px 8px;
+    background: #e8f4fd !important;
+    color: #0969da !important;
+    border-radius: 10px;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    white-space: nowrap;
+  }
+
+  /* ── Executive Summary ── */
+  .pr-summary-body {
+    padding: 14px;
+    border: 1px solid #ddd !important;
+    border-left: 4px solid #0969da !important;
+    border-radius: 0 5px 5px 0;
+    font-size: 10pt;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .pr-summary-body p {
+    margin: 0 0 8px 0;
+    color: #333 !important;
+  }
+
+  .pr-summary-body p:last-child {
+    margin-bottom: 0;
+  }
+
+  .pr-recommendations {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e8e8e8 !important;
+  }
+
+  .pr-recommendations strong {
+    font-size: 10pt;
+    color: #1a1a1a !important;
+  }
+
+  .pr-recommendations ol {
+    margin: 5px 0 0 0;
+    padding-left: 18px;
+  }
+
+  .pr-recommendations li {
+    margin-bottom: 3px;
+    color: #333 !important;
+  }
+
+  /* ── Severity Table ── */
+  .pr-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+
+  .pr-table th {
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    padding: 7px 10px;
+    text-align: left;
+    font-weight: 600 !important;
+    font-size: 8.5pt;
+    color: #555 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 2px solid #ccc !important;
+  }
+
+  .pr-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #eee !important;
+    color: #333 !important;
+  }
+
+  .pr-sev-cell {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .pr-sev-dot {
+    width: 11px;
+    height: 11px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .pr-bar-track {
+    width: 100%;
+    height: 12px;
+    background-color: #ececec !important;
+    border-radius: 3px;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    overflow: hidden;
+  }
+
+  .pr-bar {
+    height: 100%;
+    border-radius: 3px;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .pr-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Images ── */
+  .pr-images-section {
+    break-before: auto;
+  }
+
+  .pr-images {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .pr-img-block {
+    break-inside: avoid;
+    text-align: center;
+  }
+
+  .pr-img {
+    width: 100% !important;
+    max-height: none !important;
+    object-fit: contain;
+    border: 1px solid #d0d0d0 !important;
+    border-radius: 3px;
+  }
+
+  .pr-img-caption {
+    font-size: 9pt;
+    color: #555 !important;
+    margin-top: 3px;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Parameters Grid ── */
+  .pr-params {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 20px;
+    font-size: 10pt;
+  }
+
+  .pr-param {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px dotted #ccc !important;
+  }
+
+  .pr-param-label {
+    color: #666 !important;
+    font-weight: 500 !important;
+  }
+
+  .pr-status {
+    text-transform: capitalize;
+    font-weight: 600 !important;
+  }
+
+  /* ── Footer ── */
+  .pr-footer {
+    margin-top: 28px;
+    padding-top: 14px;
+    border-top: 1px solid #ccc !important;
+    font-size: 8pt;
+  }
+
+  .pr-disclaimer {
+    margin-bottom: 8px;
+    font-style: italic;
+    color: #999 !important;
+  }
+
+  .pr-footer-brand {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    color: #888 !important;
+  }
+
+  /* ── Markdown content in summary ── */
+  .pr-markdown h1 {
+    font-size: 13pt !important;
+    font-weight: 700 !important;
+    margin: 14px 0 6px 0 !important;
+    border-bottom: 1px solid #ddd !important;
+    padding-bottom: 4px;
+  }
+
+  .pr-markdown h2 {
+    font-size: 12pt !important;
+    font-weight: 700 !important;
+    margin: 12px 0 5px 0 !important;
+  }
+
+  .pr-markdown h3 {
+    font-size: 11pt !important;
+    font-weight: 600 !important;
+    margin: 10px 0 4px 0 !important;
+  }
+
+  .pr-markdown p {
+    margin: 0 0 8px 0 !important;
+    color: #333 !important;
+  }
+
+  .pr-markdown ul,
+  .pr-markdown ol {
+    margin: 4px 0 8px 0 !important;
+    padding-left: 20px !important;
+  }
+
+  .pr-markdown li {
+    margin-bottom: 3px !important;
+    color: #333 !important;
+  }
+
+  .pr-markdown strong {
+    font-weight: 700 !important;
+  }
+
+  .pr-markdown em {
+    font-style: italic !important;
+  }
+
+  .pr-markdown hr {
+    border: none !important;
+    border-top: 1px solid #ddd !important;
+    margin: 10px 0 !important;
+  }
+}
