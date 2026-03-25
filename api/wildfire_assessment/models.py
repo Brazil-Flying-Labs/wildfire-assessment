@@ -197,6 +197,10 @@ class AnalysisRun(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
+    # AI-generated report summary (cached)
+    report_summary = models.TextField(null=True, blank=True)
+    report_summary_language = models.CharField(max_length=10, null=True, blank=True)
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Analysis Run"
