@@ -731,6 +731,8 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
             "pre_fire_mosaic_strategy",
             "post_fire_mosaic_strategy",
             "roi_only_bg_color",
+            "report_summary",
+            "report_summary_language",
         ]
         read_only_fields = ["id", "created_at"]
 
@@ -847,6 +849,16 @@ class AnalysisFollowUpSerializer(serializers.Serializer):
         help_text="Conversation ID from the previous response"
     )
     question = serializers.CharField(help_text="Follow-up question about the analysis")
+
+
+class ReportSummaryRequestSerializer(serializers.Serializer):
+    """Serializer for the report summary generation request."""
+
+    language = serializers.CharField(
+        required=False,
+        default="en",
+        help_text="Language code for the report (e.g., en, pt-BR, fr, es-ES)",
+    )
 
 
 class NotificationSerializer(serializers.ModelSerializer):

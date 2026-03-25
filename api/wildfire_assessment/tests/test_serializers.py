@@ -20,6 +20,7 @@ from wildfire_assessment.serializers import (
     AreaOfInterestSerializer,
     AreaOfInterestUpdateSerializer,
     NotificationSerializer,
+    ReportSummaryRequestSerializer,
     UserMeSerializer,
     check_duplicate_area_name,
     compute_area_ha,
@@ -2323,6 +2324,24 @@ class AnalysisRunSerializerTests(TestCase):
         self.assertIsNone(data["scientific_rgb_post_fire_error"])
         self.assertIsNone(data["scientific_dndvi_error"])
 
+    def test_report_summary_in_serialized_output(self):
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        self.analysis.report_summary = "# Test Report\nSome content"
+        self.analysis.report_summary_language = "en"
+        self.analysis.save()
+        serializer = AnalysisRunSerializer(self.analysis)
+        self.assertIn("report_summary", serializer.data)
+        self.assertEqual(
+            serializer.data["report_summary"], "# Test Report\nSome content"
+        )
+        self.assertIn("report_summary_language", serializer.data)
+        self.assertEqual(serializer.data["report_summary_language"], "en")
+
 
 class AreaOfInterestCreateCentroidTests(TestCase):
     """Tests for centroid computation branches in create serializer."""
@@ -2841,3 +2860,15 @@ class HelperFunctionTests(TestCase):
         result = compute_area_ha(geojson)
         # Check that it has at most 3 decimal places
         self.assertEqual(result, round(result, 3))
+
+
+class ReportSummaryRequestSerializerTests(TestCase):
+    def test_defaults_to_english(self):
+        serializer = ReportSummaryRequestSerializer(data={})
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data["language"], "en")
+
+    def test_accepts_language(self):
+        serializer = ReportSummaryRequestSerializer(data={"language": "pt-BR"})
+        self.assertTrue(serializer.is_valid())
+        self.assertEqual(serializer.validated_data["language"], "pt-BR")
