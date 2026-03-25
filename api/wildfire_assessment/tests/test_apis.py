@@ -2040,3 +2040,136 @@ class AnalysisRunValidateUrlsTests(APITestCase):
         url = reverse("analysisrun-validate-urls", args=[other_analysis.id])
         response = self.client.post(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class ReportEndpointTests(APITestCase):
+    """Tests for the POST /analysis_run/{id}/report/ endpoint."""
+
+    def setUp(self):
+        self.country = Country.objects.create(name="Test Country", code="TC")
+        self.area = AreaOfInterest.objects.create(
+            name="Test Area", polygon_path="polygon.json", country=self.country
+        )
+        self.user = User.objects.create_user(
+            username="tester", email="tester@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            total_burned_ha=100.5,
+            severity_data={"High": {"area_ha": 100.5, "percent": 100.0}},
+        )
+
+    def test_report_requires_authentication(self):
+        url = reverse("analysisrun-report", args=[self.analysis.id])
+        response = self.client.post(url)
+        self.assertIn(
+            response.status_code,
+            (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
+        )
+
+    def test_report_returns_cached_summary(self):
+        self.analysis.report_summary = "# Cached Report"
+        self.analysis.report_summary_language = "en"
+        self.analysis.save()
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-report", args=[self.analysis.id])
+        response = self.client.post(url, {"language": "en"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["report_summary"], "# Cached Report")
+
+    def test_report_regenerates_on_language_mismatch(self):
+        self.analysis.report_summary = "# English Report"
+        self.analysis.report_summary_language = "en"
+        self.analysis.save()
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-report", args=[self.analysis.id])
+        with patch(
+            "wildfire_assessment.views.generate_report_summary"
+        ) as mock_gen:
+            mock_gen.return_value = "# Relatório em Português"
+            response = self.client.post(url, {"language": "pt-BR"}, format="json")
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            mock_gen.assert_called_once()
+            self.assertEqual(
+                response.json()["report_summary"], "# Relatório em Português"
+            )
+
+    @patch("wildfire_assessment.views.generate_report_summary")
+    def test_report_generates_fresh_summary(self, mock_gen):
+        mock_gen.return_value = "# Fresh Report"
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-report", args=[self.analysis.id])
+        response = self.client.post(url, {"language": "en"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["report_summary"], "# Fresh Report")
+        mock_gen.assert_called_once()
+
+    @patch("wildfire_assessment.views.generate_report_summary")
+    def test_report_regenerate_forces_new_generation(self, mock_gen):
+        self.analysis.report_summary = "# Old Report"
+        self.analysis.report_summary_language = "en"
+        self.analysis.save()
+
+        mock_gen.return_value = "# New Report"
+
+        self.client.force_authenticate(user=self.user)
+        url = (
+            reverse("analysisrun-report", args=[self.analysis.id])
+            + "?regenerate=true"
+        )
+        response = self.client.post(url, {"language": "en"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()["report_summary"], "# New Report")
+        mock_gen.assert_called_once()
+
+    @patch("wildfire_assessment.views.generate_report_summary")
+    def test_report_preserves_old_on_failure(self, mock_gen):
+        self.analysis.report_summary = "# Old Report"
+        self.analysis.report_summary_language = "en"
+        self.analysis.save()
+
+        mock_gen.side_effect = Exception("AI provider error")
+
+        self.client.force_authenticate(user=self.user)
+        url = (
+            reverse("analysisrun-report", args=[self.analysis.id])
+            + "?regenerate=true"
+        )
+        response = self.client.post(url, {"language": "en"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        self.analysis.refresh_from_db()
+        self.assertEqual(self.analysis.report_summary, "# Old Report")
+
+    @patch("wildfire_assessment.views.generate_report_summary")
+    def test_report_returns_502_on_empty_response(self, mock_gen):
+        mock_gen.return_value = ""
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-report", args=[self.analysis.id])
+        response = self.client.post(url, {"language": "en"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+
+    def test_report_returns_404_for_unauthorized(self):
+        other_country = Country.objects.create(name="Other", code="OC")
+        other_area = AreaOfInterest.objects.create(
+            name="Other Area", polygon_path="p2.json", country=other_country
+        )
+        other_analysis = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=other_area,
+            pre_fire_date="2024-02-01",
+            post_fire_date="2024-02-15",
+        )
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-report", args=[other_analysis.id])
+        response = self.client.post(url, {"language": "en"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

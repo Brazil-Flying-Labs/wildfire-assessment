@@ -23,12 +23,14 @@ from wildfire_assessment.serializers import (
     AreaOfInterestUpdateSerializer,
     DashboardStatsSerializer,
     NotificationSerializer,
+    ReportSummaryRequestSerializer,
     UserMeSerializer,
 )
 from wildfire_assessment.svc.ai_common import (
     PROVIDER_DISPLAY,
     generate_analysis_stream,
     generate_followup_stream,
+    generate_report_summary,
     get_active_provider,
 )
 from wildfire_assessment.svc.area_of_interest import (
@@ -588,6 +590,53 @@ class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
         updated = validate_deliverable_urls(instance.id)
         serializer = self.get_serializer(updated)
         return Response(serializer.data)
+
+    @extend_schema(
+        methods=["POST"],
+        request=ReportSummaryRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                response={
+                    "type": "object",
+                    "properties": {
+                        "report_summary": {"type": "string"},
+                    },
+                },
+                description="Generated or cached report summary in markdown",
+            )
+        },
+    )
+    @action(detail=True, methods=["post"], url_path="report")
+    def report(self, request, pk=None):
+        """Generate or return a cached AI report summary."""
+        instance = self.get_object()
+        serializer = ReportSummaryRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        language = serializer.validated_data["language"]
+        regenerate = request.query_params.get("regenerate", "").lower() == "true"
+
+        # Return cached summary if language matches and no regeneration requested
+        if (
+            instance.report_summary
+            and instance.report_summary_language == language
+            and not regenerate
+        ):
+            return Response({"report_summary": instance.report_summary})
+
+        try:
+            summary = generate_report_summary(instance, language=language)
+            if not summary:
+                return Response(
+                    {"error": "AI provider returned an empty report"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            return Response({"report_summary": summary})
+        except Exception:
+            LOG.exception("Failed to generate report summary")
+            return Response(
+                {"error": "Failed to generate report summary"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class UserMeView(generics.RetrieveUpdateAPIView):
