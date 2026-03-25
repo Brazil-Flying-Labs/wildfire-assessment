@@ -7,6 +7,7 @@ from django.test import TestCase, override_settings
 from rest_framework.test import APIRequestFactory
 from wildfire_assessment.models import (
     AnalysisRun,
+    AnalysisRunProvenance,
     AreaOfInterest,
     Country,
     Notification,
@@ -15,6 +16,7 @@ from wildfire_assessment.models import (
 )
 from wildfire_assessment.serializers import (
     MAX_AREA_HA,
+    AnalysisRunProvenanceSerializer,
     AnalysisRunSerializer,
     AreaOfInterestCreateSerializer,
     AreaOfInterestSerializer,
@@ -2872,3 +2874,96 @@ class ReportSummaryRequestSerializerTests(TestCase):
         serializer = ReportSummaryRequestSerializer(data={"language": "pt-BR"})
         self.assertTrue(serializer.is_valid())
         self.assertEqual(serializer.validated_data["language"], "pt-BR")
+
+
+class AnalysisRunProvenanceSerializerTests(TestCase):
+    """Tests for provenance serialization in AnalysisRunSerializer."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="provseruser", email="provser@example.com", password="pw"
+        )
+        self.country = Country.objects.create(name="Prov Ser Country", code="PS")
+        self.area = AreaOfInterest.objects.create(
+            name="Prov Ser Area",
+            polygon_path="provser.geojson",
+            country=self.country,
+        )
+        self.run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+
+    def test_includes_provenance_field(self):
+        """AnalysisRunSerializer includes provenance records."""
+        AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="pre_fire",
+            scene_id="LC08_SER_001",
+            date="2024-01-01",
+            spacecraft_name="LANDSAT_8",
+            cloud_percent=4.5,
+        )
+        AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="post_fire",
+            scene_id="S2A_SER_001",
+            date="2024-01-20",
+            spacecraft_name="SENTINEL_2A",
+            cloud_percent=1.2,
+        )
+        data = AnalysisRunSerializer(self.run).data
+        self.assertIn("provenance", data)
+        self.assertEqual(len(data["provenance"]), 2)
+
+    def test_provenance_record_fields(self):
+        """Each provenance record has the expected fields."""
+        AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="pre_fire",
+            scene_id="LC08_FIELDS_001",
+            date="2024-01-01",
+            spacecraft_name="LANDSAT_8",
+            cloud_percent=7.3,
+        )
+        data = AnalysisRunSerializer(self.run).data
+        record = data["provenance"][0]
+        self.assertIn("id", record)
+        self.assertEqual(record["phase"], "pre_fire")
+        self.assertEqual(record["scene_id"], "LC08_FIELDS_001")
+        self.assertEqual(record["date"], "2024-01-01")
+        self.assertEqual(record["spacecraft_name"], "LANDSAT_8")
+        self.assertAlmostEqual(float(record["cloud_percent"]), 7.3)
+
+    def test_empty_provenance(self):
+        """A run with no provenance records serializes as an empty list."""
+        data = AnalysisRunSerializer(self.run).data
+        self.assertIn("provenance", data)
+        self.assertEqual(data["provenance"], [])
+
+    def test_provenance_standalone_serializer(self):
+        """AnalysisRunProvenanceSerializer serializes a single record correctly."""
+        record = AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="post_fire",
+            scene_id="STANDALONE_001",
+            date="2024-02-01",
+            spacecraft_name=None,
+            cloud_percent=None,
+        )
+        data = AnalysisRunProvenanceSerializer(record).data
+        expected_fields = {
+            "id",
+            "phase",
+            "scene_id",
+            "date",
+            "spacecraft_name",
+            "cloud_percent",
+        }
+        self.assertEqual(set(data.keys()), expected_fields)
+        self.assertEqual(data["phase"], "post_fire")
+        self.assertEqual(data["scene_id"], "STANDALONE_001")
+        self.assertIsNone(data["spacecraft_name"])
+        self.assertIsNone(data["cloud_percent"])

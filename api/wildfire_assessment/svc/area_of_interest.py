@@ -6,7 +6,11 @@ import requests
 from django.db import connection
 from django.db.models import Q
 from django.utils import timezone
-from wildfire_assessment.models import AnalysisRun, AreaOfInterest
+from wildfire_assessment.models import (
+    AnalysisRun,
+    AnalysisRunProvenance,
+    AreaOfInterest,
+)
 from wildfire_assessment.svc.aws import (
     delete_polygon_from_s3,
     download_polygon_from_s3,
@@ -117,7 +121,7 @@ def save_analysis_run(
         url = assessment_result.get(result_key)
         image_keys[field] = _download_and_store_image(url, run_id, s3_name)
 
-    return AnalysisRun.objects.create(
+    run = AnalysisRun.objects.create(
         user=user,
         area_of_interest=area,
         pre_fire_date=pre_fire_date,
@@ -135,6 +139,35 @@ def save_analysis_run(
         **image_keys,
     )
 
+    # Persist provenance records for both phases
+    provenance_data = assessment_result.get("provenance", {})
+    records = []
+    for phase in ("pre_fire", "post_fire"):
+        phase_data = provenance_data.get(phase, {})
+        items = phase_data.get("images", []) if isinstance(phase_data, dict) else phase_data
+        for item in items:
+            try:
+                records.append(
+                    AnalysisRunProvenance(
+                        analysis_run=run,
+                        phase=phase,
+                        scene_id=item["id"],
+                        date=item["date"],
+                        spacecraft_name=item.get("spacecraft_name"),
+                        cloud_percent=item.get("cloud_percent"),
+                    )
+                )
+            except (KeyError, TypeError, ValueError):
+                LOG.warning(
+                    "Skipping malformed provenance record for run %s: %r",
+                    run.id,
+                    item,
+                )
+    if records:
+        AnalysisRunProvenance.objects.bulk_create(records)
+
+    return run
+
 
 def save_deliverable_task_id(analysis_run_id, task_field, task_id):
     """Persist a Celery task ID on an AnalysisRun for a scientific deliverable."""
@@ -147,9 +180,13 @@ def get_analysis_runs_queryset(user):
     if not country_ids:
         return AnalysisRun.objects.none()
 
-    return AnalysisRun.objects.filter(
-        area_of_interest__country_id__in=country_ids
-    ).order_by("-created_at")
+    return (
+        AnalysisRun.objects.filter(
+            area_of_interest__country_id__in=country_ids
+        )
+        .prefetch_related("provenance_records")
+        .order_by("-created_at")
+    )
 
 
 def validate_deliverable_urls(analysis_run_id):

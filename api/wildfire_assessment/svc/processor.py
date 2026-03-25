@@ -102,6 +102,7 @@ def process_fire_assessment(
             "dndvi_visual_jpg": result["visual"]["DNDVI_VISUAL"]["url"],
             "dnbr_visual_jpg": result["visual"]["DNBR_VISUAL"]["url"],
             "rbr_visual_jpg": result["visual"]["RBR_VISUAL"]["url"],
+            "provenance": result.get("provenance", {}),
         }
     finally:
         os.unlink(tmp.name)

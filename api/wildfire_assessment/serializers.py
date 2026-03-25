@@ -11,6 +11,7 @@ from shapely.ops import orient
 from shapely.validation import explain_validity
 from wildfire_assessment.models import (
     AnalysisRun,
+    AnalysisRunProvenance,
     AreaOfInterest,
     Country,
     Notification,
@@ -676,6 +677,14 @@ class UserMeSerializer(serializers.ModelSerializer):
         return instance
 
 
+class AnalysisRunProvenanceSerializer(serializers.ModelSerializer):
+    """Serializer for satellite image provenance records."""
+
+    class Meta:
+        model = AnalysisRunProvenance
+        fields = ["id", "phase", "scene_id", "date", "spacecraft_name", "cloud_percent"]
+
+
 class AnalysisRunSerializer(serializers.ModelSerializer):
     """Serializer for AnalysisRun model."""
 
@@ -689,6 +698,9 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
     dndvi_url = serializers.SerializerMethodField()
     dnbr_url = serializers.SerializerMethodField()
     rbr_url = serializers.SerializerMethodField()
+    provenance = AnalysisRunProvenanceSerializer(
+        many=True, read_only=True, source="provenance_records"
+    )
 
     class Meta:
         model = AnalysisRun
@@ -733,6 +745,7 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
             "roi_only_bg_color",
             "report_summary",
             "report_summary_language",
+            "provenance",
         ]
         read_only_fields = ["id", "created_at"]
 

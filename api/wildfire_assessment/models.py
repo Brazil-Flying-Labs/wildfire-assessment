@@ -222,6 +222,34 @@ class AnalysisRun(models.Model):
         return f"{self.area_of_interest.name} - {self.pre_fire_date} to {self.post_fire_date}"
 
 
+class AnalysisRunProvenance(models.Model):
+    """Stores satellite image provenance for each phase of an AnalysisRun."""
+
+    PHASE_CHOICES = [
+        ("pre_fire", "Pre-fire"),
+        ("post_fire", "Post-fire"),
+    ]
+
+    analysis_run = models.ForeignKey(
+        AnalysisRun,
+        on_delete=models.CASCADE,
+        related_name="provenance_records",
+    )
+    phase = models.CharField(max_length=10, choices=PHASE_CHOICES)
+    scene_id = models.CharField(max_length=255)
+    date = models.DateField()
+    spacecraft_name = models.CharField(max_length=100, null=True, blank=True)
+    cloud_percent = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["phase", "date", "scene_id"]
+        verbose_name = "Analysis Run Provenance"
+        verbose_name_plural = "Analysis Run Provenance Records"
+
+    def __str__(self):
+        return f"{self.analysis_run_id} / {self.phase} / {self.scene_id}"
+
+
 class Notification(models.Model):
     """In-app notifications for users."""
 

@@ -15,6 +15,7 @@ from unfold.admin import TabularInline as UnfoldTabularInline
 from wildfire_assessment.models import (
     AIProvider,
     AnalysisRun,
+    AnalysisRunProvenance,
     AreaOfInterest,
     Country,
     Notification,
@@ -177,7 +178,18 @@ except admin.sites.NotRegistered:
 admin.site.register(User, UserAdmin)
 
 
+class AnalysisRunProvenanceInline(UnfoldTabularInline):
+    model = AnalysisRunProvenance
+    extra = 0
+    readonly_fields = ("phase", "scene_id", "date", "spacecraft_name", "cloud_percent")
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 class AnalysisRunAdmin(UnfoldModelAdmin):
+    inlines = [AnalysisRunProvenanceInline]
     list_display = (
         "area_of_interest",
         "user",

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AIAnalysisModal from "../ai/AIAnalysisModal";
+import PrintReport from "../analysis-detail/PrintReport";
 import BackButton from "../../components/BackButton";
 import DateRangePicker from "../../components/DateRangePicker";
 import { useLanguage } from "../../context/LanguageContext";
 import { SEVERITY_COLORS, getSeverityTranslations, parseSeverityData } from "../../constants/severity";
-import { formatLabel, formatAreaValue, formatPercentValue } from "../../utils/formatting";
+import { formatLabel, formatAreaValue, formatPercentValue, formatDate } from "../../utils/formatting";
 import { downloadSeverityCsv } from "../../utils/csvExport";
 
 const DAYS_BEFORE_AFTER_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 30, 45, 90];
@@ -17,7 +18,7 @@ const MOSAIC_STRATEGIES = [
 ];
 
 function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const [areasOfInterest, setAreasOfInterest] = useState([]);
   const [fetchState, setFetchState] = useState({ loading: true, error: null });
@@ -38,6 +39,10 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
   const [backendAuthorizationError, setBackendAuthorizationError] = useState(false);
   const analyzeControllerRef = useRef(null);
   const deliverablePollRef = useRef({});
+  const [reportAnalysis, setReportAnalysis] = useState(null);
+  const [reportSummary, setReportSummary] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState(null);
 
   const ensureAuthorizedResponse = useCallback(
     (response) => {
@@ -463,6 +468,108 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
     }, {});
   }, [severityEntries]);
 
+  // PrintReport data derived from the fetched analysis run
+  const reportImageEntries = useMemo(() => {
+    if (!reportAnalysis) return [];
+    const items = [
+      { label: t("analysisDetail.dnbr"), url: reportAnalysis.dnbr_url },
+      { label: t("analysisDetail.rbr"), url: reportAnalysis.rbr_url },
+      { label: t("analysisDetail.dndvi"), url: reportAnalysis.dndvi_url },
+      { label: t("analysisDetail.preFireRgb"), url: reportAnalysis.rgb_pre_fire_url },
+      { label: t("analysisDetail.postFireRgb"), url: reportAnalysis.rgb_post_fire_url },
+    ];
+    return items.filter((item) => item.url);
+  }, [reportAnalysis, t]);
+
+  const reportSeverityEntries = useMemo(() => {
+    return parseSeverityData(reportAnalysis?.severity_data);
+  }, [reportAnalysis]);
+
+  const handlePrintReport = useCallback(async () => {
+    const runId = analysisResult?.analysis_run_id;
+    if (!runId || !baseUrl) return;
+
+    setReportLoading(true);
+    setReportError(null);
+
+    try {
+      // Fetch full analysis run (with provenance) if we haven't yet
+      if (!reportAnalysis || reportAnalysis.id !== runId) {
+        const runResponse = await authorizedFetch(`${baseUrl}/analysis_run/${runId}/`);
+        if (!runResponse.ok) throw new Error(t("report.generateError"));
+        const runData = await runResponse.json();
+        setReportAnalysis(runData);
+        if (runData.report_summary) {
+          setReportSummary(runData.report_summary);
+          setReportLoading(false);
+          setTimeout(() => window.print(), 100);
+          return;
+        }
+      } else if (reportSummary) {
+        setReportLoading(false);
+        window.print();
+        return;
+      }
+
+      // Generate AI report summary
+      const response = await authorizedFetch(
+        `${baseUrl}/analysis_run/${runId}/report/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language }),
+        }
+      );
+
+      if (!response.ok) throw new Error(t("report.generateError"));
+
+      const data = await response.json();
+      setReportSummary(data.report_summary);
+      setTimeout(() => window.print(), 100);
+    } catch (err) {
+      console.error("Failed to generate report:", err);
+      setReportError(err.message || t("report.generateError"));
+    } finally {
+      setReportLoading(false);
+    }
+  }, [analysisResult, baseUrl, authorizedFetch, reportAnalysis, reportSummary, language, t]);
+
+  const handleRegenerate = useCallback(async () => {
+    const runId = analysisResult?.analysis_run_id;
+    if (!runId || !baseUrl) return;
+
+    setReportLoading(true);
+    setReportError(null);
+
+    try {
+      const response = await authorizedFetch(
+        `${baseUrl}/analysis_run/${runId}/report/?regenerate=true`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ language }),
+        }
+      );
+
+      if (!response.ok) throw new Error(t("report.generateError"));
+
+      const data = await response.json();
+      setReportSummary(data.report_summary);
+    } catch (err) {
+      console.error("Failed to regenerate report:", err);
+      setReportError(err.message || t("report.generateError"));
+    } finally {
+      setReportLoading(false);
+    }
+  }, [analysisResult, baseUrl, authorizedFetch, language, t]);
+
+  // Reset report state when a new analysis is run
+  useEffect(() => {
+    setReportAnalysis(null);
+    setReportSummary(null);
+    setReportError(null);
+  }, [analysisResult?.analysis_run_id]);
+
   if (backendAuthorizationError) {
     return (
       <section className="app-main-content p-4 flex-grow-1">
@@ -475,7 +582,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
 
   return (
     <>
-      <section className="app-main-content p-4 flex-grow-1">
+      <section className="app-main-content analysis-page-content p-4 flex-grow-1">
         <div className="d-flex align-items-center justify-content-between mb-4 page-header-sticky">
           <h2 className="h4 mb-0">{t("app.analysisTitle")}</h2>
           <BackButton onClick={onBack} />
@@ -705,19 +812,23 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
         {!analysisState.loading && !analysisState.error && hasResults && analysisResult ? (
           <div className="analysis-results d-flex flex-column gap-4">
             <div className="d-flex justify-content-end no-print">
-              <button
-                type="button"
-                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 btn-print-report"
-                onClick={() => window.print()}
-                title={t("common.print")}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 6 2 18 2 18 9" />
-                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                  <rect x="6" y="14" width="12" height="8" />
-                </svg>
-                {t("common.print")}
-              </button>
+              {analysisResult?.analysis_run_id && (
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 btn-print-report"
+                  onClick={handlePrintReport}
+                  disabled={reportLoading}
+                  title={t("common.printReport")}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                  </svg>
+                  {t("common.printReport")}
+                </button>
+              )}
             </div>
 
             {/* Best Dates */}
@@ -876,23 +987,6 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
               </div>
             ) : null}
 
-            {/* Raw JSON */}
-            <div className="card shadow-sm no-print">
-              <div className="card-header">
-                <h3 className="h5 mb-0">{t("app.viewJson")}</h3>
-              </div>
-              <div className="card-body">
-                <details>
-                  <summary className="fw-medium mb-2">
-                    {t("app.viewJson")}
-                  </summary>
-                  <pre className="mb-0 bg-light p-3 rounded overflow-auto">
-                    {JSON.stringify(analysisResult, null, 2)}
-                  </pre>
-                </details>
-              </div>
-            </div>
-
             {/* Scientific Deliverables */}
             <div className="card shadow-sm no-print">
               <div className="card-header">
@@ -994,6 +1088,37 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
         authorizedFetch={authorizedFetch}
         baseUrl={baseUrl}
       />
+
+      {reportLoading && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center no-print"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 9999 }}>
+          <div className="bg-white rounded p-4 text-center shadow">
+            <div className="spinner-border text-primary mb-3" role="status">
+              <span className="visually-hidden">{t("common.loading")}</span>
+            </div>
+            <p className="mb-0">{t("report.generating")}</p>
+          </div>
+        </div>
+      )}
+
+      {reportError && (
+        <div className="alert alert-danger alert-dismissible fade show position-fixed bottom-0 end-0 m-3 no-print" style={{ zIndex: 9999 }} role="alert">
+          {reportError}
+          <button type="button" className="btn-close" onClick={() => setReportError(null)} />
+        </div>
+      )}
+
+      {reportAnalysis && (
+        <PrintReport
+          analysis={reportAnalysis}
+          severityEntries={reportSeverityEntries}
+          imageEntries={reportImageEntries}
+          reportSummary={reportSummary}
+          reportLoading={reportLoading}
+          onRegenerate={handleRegenerate}
+          t={t}
+        />
+      )}
     </>
   );
 }

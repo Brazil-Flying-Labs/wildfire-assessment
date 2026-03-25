@@ -1,8 +1,11 @@
+from datetime import date
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from wildfire_assessment.models import (
     AIProvider,
     AnalysisRun,
+    AnalysisRunProvenance,
     AreaOfInterest,
     Country,
     Notification,
@@ -162,7 +165,7 @@ class NotificationModelTests(TestCase):
         )
 
 
-class AIProviderModelTests(TestCase):
+class AIProviderModelTests2(TestCase):
     def test_str_representation(self):
         provider = AIProvider.load()
         self.assertEqual(str(provider), "Google Gemini — gemini-2.0-flash-lite")
@@ -178,3 +181,98 @@ class AIProviderModelTests(TestCase):
         provider = AIProvider.load()
         self.assertEqual(provider.pk, 1)
         self.assertEqual(provider.provider, "gemini")
+
+
+class AnalysisRunProvenanceModelTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create(username="provuser")
+        country = Country.objects.create(name="Provenance Model Country", code="P1")
+        self.area = AreaOfInterest.objects.create(
+            name="Prov Area",
+            polygon_path="prov.geojson",
+            country=country,
+        )
+        self.run = AnalysisRun.objects.create(
+            user=self.user,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+
+    def test_str_representation(self):
+        record = AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="pre_fire",
+            scene_id="LC08_L1TP_001062_20240101",
+            date=date(2024, 1, 1),
+        )
+        self.assertEqual(
+            str(record),
+            f"{self.run.id} / pre_fire / LC08_L1TP_001062_20240101",
+        )
+
+    def test_ordering(self):
+        """Records are ordered by phase, date, scene_id (alphabetical)."""
+        # Alphabetically: "post_fire" < "pre_fire"
+        AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="post_fire",
+            scene_id="SCENE_B",
+            date=date(2024, 1, 20),
+        )
+        AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="pre_fire",
+            scene_id="SCENE_C",
+            date=date(2024, 1, 5),
+        )
+        AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="pre_fire",
+            scene_id="SCENE_A",
+            date=date(2024, 1, 2),
+        )
+        records = list(
+            AnalysisRunProvenance.objects.filter(analysis_run=self.run).values_list(
+                "phase", "date", "scene_id"
+            )
+        )
+        self.assertEqual(
+            records,
+            [
+                ("post_fire", date(2024, 1, 20), "SCENE_B"),
+                ("pre_fire", date(2024, 1, 2), "SCENE_A"),
+                ("pre_fire", date(2024, 1, 5), "SCENE_C"),
+            ],
+        )
+
+    def test_nullable_fields(self):
+        """spacecraft_name and cloud_percent can be None."""
+        record = AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="pre_fire",
+            scene_id="SCENE_NULL",
+            date=date(2024, 1, 1),
+            spacecraft_name=None,
+            cloud_percent=None,
+        )
+        record.refresh_from_db()
+        self.assertIsNone(record.spacecraft_name)
+        self.assertIsNone(record.cloud_percent)
+
+    def test_cascade_delete(self):
+        """Deleting the parent AnalysisRun cascades to provenance records."""
+        AnalysisRunProvenance.objects.create(
+            analysis_run=self.run,
+            phase="pre_fire",
+            scene_id="SCENE_DEL",
+            date=date(2024, 1, 1),
+        )
+        run_id = self.run.id
+        self.assertEqual(
+            AnalysisRunProvenance.objects.filter(analysis_run_id=run_id).count(), 1
+        )
+        self.run.delete()
+        self.assertEqual(
+            AnalysisRunProvenance.objects.filter(analysis_run_id=run_id).count(), 0
+        )

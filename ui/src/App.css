@@ -2493,7 +2493,8 @@
   }
 
   /* When the print-report is present, hide the screen layout */
-  .analysis-detail {
+  .analysis-detail,
+  .analysis-page-content {
     display: none !important;
   }
 }

@@ -444,20 +444,6 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
         t={t}
       />
 
-      {/* Raw Data */}
-      <div className="card shadow-sm no-print">
-        <div className="card-header">
-          <h3 className="h5 mb-0">{t("analysisDetail.rawData")}</h3>
-        </div>
-        <div className="card-body">
-          <details>
-            <summary className="fw-medium mb-2">{t("analysisDetail.viewJson")}</summary>
-            <pre className="mb-0 bg-light p-3 rounded overflow-auto" style={{ maxHeight: '300px' }}>
-              {JSON.stringify(analysis, null, 2)}
-            </pre>
-          </details>
-        </div>
-      </div>
     </div>
 
     {reportLoading && (

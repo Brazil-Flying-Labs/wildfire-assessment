@@ -9,6 +9,7 @@ from django.utils import timezone
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_assessment.models import (
     AnalysisRun,
+    AnalysisRunProvenance,
     AreaOfInterest,
     Country,
     Notification,
@@ -2675,3 +2676,221 @@ class ValidateDeliverableUrlsTests(TestCase):
         self.run.save()
         result = aoi_service.validate_deliverable_urls(self.run.id)
         self.assertEqual(result.id, self.run.id)
+
+
+class SaveAnalysisRunProvenanceTests(TestCase):
+    """Tests for provenance record creation in save_analysis_run."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="provsvcuser", password="pw")
+        self.country = Country.objects.create(name="Prov Svc Country", code="P2")
+        self.area = AreaOfInterest.objects.create(
+            name="Prov Svc Area",
+            polygon_path="provsvc.geojson",
+            country=self.country,
+        )
+
+    def test_save_creates_provenance_records(self):
+        """Provenance data with 2 pre_fire + 1 post_fire creates 3 records."""
+        result = {
+            "severity_map": "{}",
+            "provenance": {
+                "pre_fire": {
+                    "images": [
+                        {
+                            "id": "LC08_PRE_001",
+                            "date": "2024-01-01",
+                            "spacecraft_name": "LANDSAT_8",
+                            "cloud_percent": 5.2,
+                        },
+                        {
+                            "id": "LC08_PRE_002",
+                            "date": "2024-01-03",
+                            "spacecraft_name": "LANDSAT_8",
+                            "cloud_percent": 12.0,
+                        },
+                    ]
+                },
+                "post_fire": {
+                    "images": [
+                        {
+                            "id": "S2A_POST_001",
+                            "date": "2024-01-20",
+                            "spacecraft_name": "SENTINEL_2A",
+                            "cloud_percent": 3.1,
+                        },
+                    ]
+                },
+            },
+        }
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+        records = list(
+            AnalysisRunProvenance.objects.filter(analysis_run=run).order_by(
+                "phase", "date"
+            )
+        )
+        self.assertEqual(len(records), 3)
+        # Alphabetical ordering: "post_fire" < "pre_fire"
+        self.assertEqual(records[0].phase, "post_fire")
+        self.assertEqual(records[0].scene_id, "S2A_POST_001")
+        self.assertEqual(records[1].phase, "pre_fire")
+        self.assertEqual(records[1].scene_id, "LC08_PRE_001")
+        self.assertEqual(str(records[1].date), "2024-01-01")
+        self.assertEqual(records[1].spacecraft_name, "LANDSAT_8")
+        self.assertAlmostEqual(records[1].cloud_percent, 5.2)
+        self.assertEqual(records[2].phase, "pre_fire")
+        self.assertEqual(records[2].scene_id, "LC08_PRE_002")
+
+    def test_save_no_provenance_key(self):
+        """No 'provenance' key in assessment_result creates 0 records."""
+        result = {"severity_map": "{}"}
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+        self.assertEqual(
+            AnalysisRunProvenance.objects.filter(analysis_run=run).count(), 0
+        )
+
+    def test_save_empty_provenance(self):
+        """Empty provenance lists create 0 records."""
+        result = {
+            "severity_map": "{}",
+            "provenance": {
+                    "pre_fire": {"images": []},
+                    "post_fire": {"images": []},
+                },
+        }
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+        self.assertEqual(
+            AnalysisRunProvenance.objects.filter(analysis_run=run).count(), 0
+        )
+
+    def test_save_malformed_record_skipped(self):
+        """A record missing the 'id' key is skipped; valid records are saved."""
+        result = {
+            "severity_map": "{}",
+            "provenance": {
+                "pre_fire": {
+                    "images": [
+                        {"date": "2024-01-01"},  # missing "id"
+                        {
+                            "id": "LC08_GOOD",
+                            "date": "2024-01-02",
+                        },
+                    ]
+                },
+                "post_fire": {"images": []},
+            },
+        }
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+        records = AnalysisRunProvenance.objects.filter(analysis_run=run)
+        self.assertEqual(records.count(), 1)
+        self.assertEqual(records.first().scene_id, "LC08_GOOD")
+
+    def test_save_null_spacecraft_name(self):
+        """spacecraft_name=None persists correctly on provenance records."""
+        result = {
+            "severity_map": "{}",
+            "provenance": {
+                "pre_fire": {
+                    "images": [
+                        {
+                            "id": "SCENE_NULLSC",
+                            "date": "2024-01-01",
+                            "cloud_percent": 0.0,
+                        },
+                    ]
+                },
+                "post_fire": {"images": []},
+            },
+        }
+        run = aoi_service.save_analysis_run(
+            self.user, self.area, "2024-01-01", "2024-01-15", result
+        )
+        record = AnalysisRunProvenance.objects.get(analysis_run=run)
+        self.assertIsNone(record.spacecraft_name)
+        self.assertAlmostEqual(record.cloud_percent, 0.0)
+
+
+class ProcessorProvenanceTests(TestCase):
+    """Tests for provenance in processor.process_fire_assessment."""
+
+    def setUp(self):
+        self.pre_fire_date = "2023-01-01"
+        self.post_fire_date = "2023-01-10"
+        self.polygon_path = "sample.geojson"
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_fire_assessment_includes_provenance(
+        self, mock_secret, mock_download, mock_assessment, mock_unlink
+    ):
+        """When runner.run() returns provenance, it is passed through."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        provenance_data = {
+            "pre_fire": {"images": [{"id": "S1", "date": "2023-01-01"}]},
+            "post_fire": {"images": [{"id": "S2", "date": "2023-01-10"}]},
+        }
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "visual": {
+                "RGB_PRE_FIRE_VISUAL": {"url": ""},
+                "RGB_POST_FIRE_VISUAL": {"url": ""},
+                "DNDVI_VISUAL": {"url": ""},
+                "DNBR_VISUAL": {"url": ""},
+                "RBR_VISUAL": {"url": ""},
+            },
+            "statistics": {"DNBR_AREA_STATISTICS": {}},
+            "provenance": provenance_data,
+        }
+        mock_assessment.return_value = assessment_instance
+
+        result = processor.process_fire_assessment(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+        )
+
+        self.assertIn("provenance", result)
+        self.assertEqual(result["provenance"], provenance_data)
+
+    @patch("wildfire_assessment.svc.processor.os.unlink")
+    @patch("wildfire_assessment.svc.processor.PostFireAssessment")
+    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    def test_process_fire_assessment_missing_provenance(
+        self, mock_secret, mock_download, mock_assessment, mock_unlink
+    ):
+        """When runner.run() has no provenance key, result has empty dict."""
+        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
+        mock_download.return_value = '{"type": "Polygon"}'
+        assessment_instance = MagicMock()
+        assessment_instance.run.return_value = {
+            "visual": {
+                "RGB_PRE_FIRE_VISUAL": {"url": ""},
+                "RGB_POST_FIRE_VISUAL": {"url": ""},
+                "DNDVI_VISUAL": {"url": ""},
+                "DNBR_VISUAL": {"url": ""},
+                "RBR_VISUAL": {"url": ""},
+            },
+            "statistics": {"DNBR_AREA_STATISTICS": {}},
+        }
+        mock_assessment.return_value = assessment_instance
+
+        result = processor.process_fire_assessment(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            polygon_path=self.polygon_path,
+        )
+
+        self.assertIn("provenance", result)
+        self.assertEqual(result["provenance"], {})

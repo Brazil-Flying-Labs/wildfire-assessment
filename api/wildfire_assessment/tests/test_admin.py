@@ -13,12 +13,14 @@ from rest_framework.test import APITestCase
 from wildfire_assessment.admin import (
     AIProviderAdmin,
     AnalysisRunAdmin,
+    AnalysisRunProvenanceInline,
     AreaOfInterestAdminForm,
     NotificationAdmin,
 )
 from wildfire_assessment.models import (
     AIProvider,
     AnalysisRun,
+    AnalysisRunProvenance,
     AreaOfInterest,
     Country,
     Notification,
@@ -488,3 +490,58 @@ class AIProviderAdminTests(TestCase):
         response = admin_instance.changelist_view(request)
         self.assertEqual(response.status_code, 302)
         self.assertIn("/1/change/", response.url)
+
+
+class AnalysisRunProvenanceInlineTests(TestCase):
+    """Tests for the AnalysisRunProvenance admin inline."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.superuser = User.objects.create_superuser(
+            username="provinline", password="pw", email="provinline@example.com"
+        )
+        self.country = Country.objects.create(name="Inline Country", code="IL")
+        self.area = AreaOfInterest.objects.create(
+            name="Inline Area", polygon_path="il.geojson", country=self.country
+        )
+        self.analysis = AnalysisRun.objects.create(
+            user=self.superuser,
+            area_of_interest=self.area,
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+        )
+        AnalysisRunProvenance.objects.create(
+            analysis_run=self.analysis,
+            phase="pre_fire",
+            scene_id="INLINE_SCENE_001",
+            date="2024-01-01",
+            spacecraft_name="LANDSAT_8",
+            cloud_percent=5.0,
+        )
+
+    def test_provenance_inline_has_add_permission_false(self):
+        """The inline should not allow adding new provenance records."""
+        inline = AnalysisRunProvenanceInline(AnalysisRun, admin.site)
+        request = RequestFactory().get("/")
+        request.user = self.superuser
+        self.assertFalse(inline.has_add_permission(request))
+        self.assertFalse(inline.has_add_permission(request, obj=self.analysis))
+
+    def test_provenance_inline_can_delete_false(self):
+        """The inline should not allow deleting provenance records."""
+        inline = AnalysisRunProvenanceInline(AnalysisRun, admin.site)
+        self.assertFalse(inline.can_delete)
+
+    def test_provenance_inline_readonly_fields(self):
+        """The inline readonly fields include all provenance data fields."""
+        inline = AnalysisRunProvenanceInline(AnalysisRun, admin.site)
+        for field in ("phase", "scene_id", "date", "spacecraft_name", "cloud_percent"):
+            self.assertIn(field, inline.readonly_fields)
+
+    def test_provenance_inline_visible_on_change_page(self):
+        """GET the admin change page for an AnalysisRun; verify 200 and inline content."""
+        self.client.force_login(self.superuser)
+        url = f"/admin/wildfire_assessment/analysisrun/{self.analysis.pk}/change/"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "INLINE_SCENE_001")
