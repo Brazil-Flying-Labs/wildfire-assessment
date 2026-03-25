@@ -383,8 +383,9 @@
     padding-bottom: 10px;
     border-top: 1px solid #ccc !important;
     font-size: 8pt;
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-before: page;
+    -webkit-break-before: page;
+    page-break-before: always;
   }
 
   .pr-disclaimer {
