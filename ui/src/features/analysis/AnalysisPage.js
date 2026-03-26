@@ -33,6 +33,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
   const [cloudThreshold, setCloudThreshold] = useState(100);
   const [daysBeforeAfter, setDaysBeforeAfter] = useState(30);
   const [mosaicStrategy, setMosaicStrategy] = useState("best_available_per_tile_mosaic");
+  const [showMosaicInfo, setShowMosaicInfo] = useState(false);
   const analysisStepRef = useRef(null);
   const [hasResults, setHasResults] = useState(false);
   const [deliverableStatus, setDeliverableStatus] = useState({});
@@ -684,9 +685,9 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
                 </div>
                 {advancedOpen ? (
                   <div className="mt-3 p-3 border rounded" style={{ background: "var(--card-bg, inherit)" }}>
-                    <div className="row g-3">
+                    <div className="row">
                       {/* Left column: Cloud threshold + Days */}
-                      <div className="col-12 col-md-6">
+                      <div className="col-12 col-md-5">
                         <div className="mb-3">
                           <label htmlFor="cloudThreshold" className="form-label fw-semibold">
                             {t("app.cloudThreshold")}
@@ -729,9 +730,23 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
                         </div>
                       </div>
                       {/* Right column: Mosaic strategies */}
-                      <div className="col-12 col-md-6">
+                      <div className="col-12 col-md-5 offset-md-2">
                         <div>
-                          <label className="form-label fw-semibold">{t("app.mosaicStrategy")}</label>
+                          <label className="form-label fw-semibold">
+                            {t("app.mosaicStrategy")}
+                            <button
+                              type="button"
+                              className="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                              onClick={() => setShowMosaicInfo(true)}
+                              title={t("app.mosaicStrategyInfo")}
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="16" x2="12" y2="12" />
+                                <line x1="12" y1="8" x2="12.01" y2="8" />
+                              </svg>
+                            </button>
+                          </label>
                           {MOSAIC_STRATEGIES.map(({ value, labelKey }) => (
                             <div className="form-check" key={value}>
                               <input
@@ -1118,6 +1133,60 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
           onRegenerate={handleRegenerate}
           t={t}
         />
+      )}
+
+      {showMosaicInfo && (
+        <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={() => setShowMosaicInfo(false)}>
+          <div className="modal-dialog modal-lg modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t("app.mosaicStrategyInfo")}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowMosaicInfo(false)} />
+              </div>
+              <div className="modal-body">
+                <p>{t("mosaic.intro")}</p>
+                <p>{t("mosaic.differencePoints")}</p>
+                <ul>
+                  <li>{t("mosaic.point1")}</li>
+                  <li>{t("mosaic.point2")}</li>
+                  <li>{t("mosaic.point3")}</li>
+                </ul>
+
+                <h6 className="fw-bold mt-4">{t("app.mosaicBestDate")}</h6>
+                <p>{t("mosaic.bestDate.description")}</p>
+                <ul>
+                  <li><strong>{t("mosaic.characteristics")}:</strong> {t("mosaic.bestDate.characteristics")}</li>
+                  <li><strong>{t("mosaic.advantage")}:</strong> {t("mosaic.bestDate.advantage")}</li>
+                  <li><strong>{t("mosaic.limitation")}:</strong> {t("mosaic.bestDate.limitation")}</li>
+                </ul>
+
+                <h6 className="fw-bold mt-4">{t("app.mosaicBestDateMasked")}</h6>
+                <p>{t("mosaic.bestDateMasked.description")}</p>
+                <ul>
+                  <li><strong>{t("mosaic.characteristics")}:</strong> {t("mosaic.bestDateMasked.characteristics")}</li>
+                  <li><strong>{t("mosaic.advantage")}:</strong> {t("mosaic.bestDateMasked.advantage")}</li>
+                  <li><strong>{t("mosaic.limitation")}:</strong> {t("mosaic.bestDateMasked.limitation")}</li>
+                </ul>
+
+                <h6 className="fw-bold mt-4">{t("app.mosaicBestAvailable")}</h6>
+                <p>{t("mosaic.bestAvailable.description")}</p>
+                <ul>
+                  <li><strong>{t("mosaic.characteristics")}:</strong> {t("mosaic.bestAvailable.characteristics")}</li>
+                  <li><strong>{t("mosaic.advantage")}:</strong> {t("mosaic.bestAvailable.advantage")}</li>
+                  <li><strong>{t("mosaic.limitation")}:</strong> {t("mosaic.bestAvailable.limitation")}</li>
+                </ul>
+
+                <h6 className="fw-bold mt-4">{t("app.mosaicCloudMasked")}</h6>
+                <p>{t("mosaic.cloudMasked.description")}</p>
+                <ul>
+                  <li><strong>{t("mosaic.characteristics")}:</strong> {t("mosaic.cloudMasked.characteristics")}</li>
+                  <li><strong>{t("mosaic.advantage")}:</strong> {t("mosaic.cloudMasked.advantage")}</li>
+                  <li><strong>{t("mosaic.limitation")}:</strong> {t("mosaic.cloudMasked.limitation")}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
