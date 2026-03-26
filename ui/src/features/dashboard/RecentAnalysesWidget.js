@@ -16,6 +16,7 @@ function RecentAnalysesWidget({
   closeMenu,
   currentPage,
   totalPages,
+  totalCount,
   onPageChange,
   analysesLoading,
 }) {
@@ -239,6 +240,7 @@ function RecentAnalysesWidget({
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={onPageChange}
+          totalCount={totalCount}
         />
       )}
     </div>

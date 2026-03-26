@@ -1289,6 +1289,15 @@
   text-align: center;
 }
 
+.areas-pagination-total {
+  margin-left: 0.4rem;
+  opacity: 0.75;
+}
+
+[data-theme="dark"] .areas-pagination-info {
+  color: var(--text-secondary, #adb5bd);
+}
+
 /* Areas Floating Action Button */
 .areas-fab {
   position: fixed;

@@ -1,6 +1,6 @@
 import { useLanguage } from "../context/LanguageContext";
 
-function Pagination({ currentPage, totalPages, onPageChange }) {
+function Pagination({ currentPage, totalPages, onPageChange, totalCount }) {
   const { t } = useLanguage();
 
   if (totalPages <= 1) return null;
@@ -28,6 +28,11 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
         </button>
         <span className="areas-pagination-info">
           {currentPage} / {totalPages}
+          {totalCount != null && (
+            <span className="areas-pagination-total">
+              ({totalCount} {t("areas.total")})
+            </span>
+          )}
         </span>
         <button
           type="button"

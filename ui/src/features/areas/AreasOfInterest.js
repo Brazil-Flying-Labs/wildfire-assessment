@@ -310,6 +310,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBack }) {
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={(page) => loadAreas(page, searchTerm)}
+          totalCount={totalCount}
         />
       </div>
 

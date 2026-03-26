@@ -274,6 +274,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         closeMenu={closeMenu}
         currentPage={analysesPage}
         totalPages={Math.ceil(analysesCount / analysesPageSize)}
+        totalCount={analysesCount}
         onPageChange={loadAnalyses}
         analysesLoading={analysesLoading}
       />
