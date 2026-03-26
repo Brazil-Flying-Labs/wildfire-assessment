@@ -77,6 +77,18 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
     }
   }, [nextUrl, loading, fetchNotifications]);
 
+  const markReadByRun = useCallback(
+    (analysisRunId) => {
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.analysis_run_id === analysisRunId ? { ...n, is_read: true } : n
+        )
+      );
+      fetchUnreadCount();
+    },
+    [fetchUnreadCount]
+  );
+
   const markAllRead = useCallback(async () => {
     if (!baseUrl) return;
     try {
@@ -135,6 +147,7 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
     fetchNotifications,
     fetchMore,
     markAllRead,
+    markReadByRun,
     fetchUnreadCount,
   };
 }

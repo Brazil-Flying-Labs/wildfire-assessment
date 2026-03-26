@@ -144,6 +144,7 @@ function App() {
     fetchNotifications,
     fetchMore: fetchMoreNotifications,
     markAllRead: handleMarkAllRead,
+    markReadByRun,
     fetchUnreadCount,
   } = useNotifications(authorizedFetch, baseUrl, authReady);
 
@@ -350,7 +351,7 @@ function App() {
                   baseUrl={baseUrl}
                   analysisId={selectedAnalysisId}
                   onBack={goBack}
-                  onNotificationsRead={fetchUnreadCount}
+                  onNotificationsRead={() => markReadByRun(selectedAnalysisId)}
                   scrollToDeliverable={scrollToDeliverable}
                 />
               ) : currentPage === "areas" ? (
