@@ -106,21 +106,25 @@ function NotificationBell({
     [t]
   );
 
-  // Group consecutive notifications by area_name so nearby deliverables
-  // from the same area collapse into a single visual block.
+  // Group notifications by analysis_run_id so deliverables from the same
+  // run collapse into a single visual block.
   const groupedNotifications = useMemo(() => {
     const groups = [];
+    const groupMap = {};
     for (const n of notifications) {
-      const last = groups[groups.length - 1];
-      if (last && last.area_name === n.area_name) {
-        last.items.push(n);
-        if (!n.is_read) last.hasUnread = true;
+      const key = n.analysis_run_id || n.id;
+      if (groupMap[key]) {
+        groupMap[key].items.push(n);
+        if (!n.is_read) groupMap[key].hasUnread = true;
       } else {
-        groups.push({
+        const group = {
           area_name: n.area_name,
+          analysis_run_id: n.analysis_run_id,
           items: [n],
           hasUnread: !n.is_read,
-        });
+        };
+        groupMap[key] = group;
+        groups.push(group);
       }
     }
     return groups;

@@ -122,31 +122,24 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
     }
   }, [authorizedFetch, baseUrl]);
 
-  // Poll for unread notification count every 5 seconds
+  // Fetch notifications + poll unread count every 5 seconds
   useEffect(() => {
     if (!authReady || !baseUrl) return;
     fetchUnreadCount();
+    fetchNotifications();
     pollRef.current = setInterval(fetchUnreadCount, 5000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [authReady, baseUrl, fetchUnreadCount]);
+  }, [authReady, baseUrl, fetchUnreadCount, fetchNotifications]);
 
-  // Badge count = number of groups that contain at least one unread notification.
-  // Groups are consecutive notifications sharing the same area_name (matching
-  // the visual grouping in NotificationBell).
+  // Badge count = number of distinct analysis runs with unread notifications
+  // (matching the visual grouping by analysis_run_id in NotificationBell).
   const unreadGroupCount = (() => {
     const unread = notifications.filter((n) => !n.is_read);
     if (unread.length === 0) return 0;
-    let count = 0;
-    let prevArea = null;
-    for (const n of unread) {
-      if (n.area_name !== prevArea) {
-        count++;
-        prevArea = n.area_name;
-      }
-    }
-    return count;
+    const runs = new Set(unread.map((n) => n.analysis_run_id));
+    return runs.size;
   })();
 
   // Use grouped count when notifications are loaded, otherwise fall back to
