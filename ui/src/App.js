@@ -145,7 +145,6 @@ function App() {
     fetchMore: fetchMoreNotifications,
     markAllRead: handleMarkAllRead,
     markReadByRun,
-    fetchUnreadCount,
   } = useNotifications(authorizedFetch, baseUrl, authReady);
 
   // Keep browser tab title in sync with the active language
