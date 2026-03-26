@@ -685,6 +685,32 @@ class AnalysisRunProvenanceSerializer(serializers.ModelSerializer):
         fields = ["id", "phase", "scene_id", "date", "spacecraft_name", "cloud_percent"]
 
 
+class AnalysisRunListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for AnalysisRun list (no presigned URLs)."""
+
+    area_name = serializers.CharField(source="area_of_interest.name", read_only=True)
+    country_name = serializers.CharField(
+        source="area_of_interest.country.name", read_only=True
+    )
+
+    class Meta:
+        model = AnalysisRun
+        fields = [
+            "id",
+            "area_of_interest",
+            "area_name",
+            "country_name",
+            "pre_fire_date",
+            "post_fire_date",
+            "status",
+            "severity_data",
+            "total_burned_ha",
+            "created_at",
+            "completed_at",
+        ]
+        read_only_fields = ["id", "created_at"]
+
+
 class AnalysisRunSerializer(serializers.ModelSerializer):
     """Serializer for AnalysisRun model."""
 

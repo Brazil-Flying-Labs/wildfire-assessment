@@ -184,6 +184,7 @@ def get_analysis_runs_queryset(user):
         AnalysisRun.objects.filter(
             area_of_interest__country_id__in=country_ids
         )
+        .select_related("area_of_interest__country", "user")
         .prefetch_related("provenance_records")
         .order_by("-created_at")
     )

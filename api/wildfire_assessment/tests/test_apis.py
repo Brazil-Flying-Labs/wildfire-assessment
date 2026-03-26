@@ -1004,6 +1004,9 @@ class AnalysisRunViewSetTests(APITestCase):
         data = response.json()
         self.assertEqual(data["count"], 1)
         self.assertEqual(data["results"][0]["id"], self.analysis.id)
+        # List uses lightweight serializer (no presigned URLs)
+        self.assertNotIn("rgb_pre_fire_url", data["results"][0])
+        self.assertNotIn("provenance", data["results"][0])
 
     def test_retrieve_returns_analysis_for_authorized_user(self):
         UserCountry.objects.create(user=self.user, country=self.country)

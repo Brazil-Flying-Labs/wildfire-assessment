@@ -17,6 +17,7 @@ from wildfire_assessment.models import AreaOfInterest
 from wildfire_assessment.serializers import (
     AnalysisFollowUpSerializer,
     AnalysisRequestSerializer,
+    AnalysisRunListSerializer,
     AnalysisRunSerializer,
     AreaOfInterestCreateSerializer,
     AreaOfInterestSerializer,
@@ -503,6 +504,11 @@ class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
     def get_queryset(self):
         """Filter queryset to only show analyses the user has access to."""
         return get_analysis_runs_queryset(self.request.user)
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return AnalysisRunListSerializer
+        return AnalysisRunSerializer
 
     @extend_schema(
         methods=["GET"],
