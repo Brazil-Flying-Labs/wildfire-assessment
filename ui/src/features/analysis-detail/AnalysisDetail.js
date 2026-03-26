@@ -17,7 +17,7 @@ const MOSAIC_STRATEGY_LABELS = {
   cloud_masked_light_mosaic: "app.mosaicCloudMasked",
 };
 
-function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotificationsRead, scrollToDeliverable }) {
+function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, scrollToDeliverable }) {
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -61,19 +61,6 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, onNotifi
     }
   }, [analysis]);
 
-  // Auto-mark notifications as read for this analysis
-  useEffect(() => {
-    if (!baseUrl || !analysisId) return;
-    authorizedFetch(`${baseUrl}/notifications/mark-read/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ analysis_run_id: analysisId }),
-    })
-      .then((response) => {
-        if (response.ok && onNotificationsRead) onNotificationsRead();
-      })
-      .catch(() => {});
-  }, [authorizedFetch, baseUrl, analysisId, onNotificationsRead]);
 
   // Scroll to deliverables section when navigating from a notification
   useEffect(() => {

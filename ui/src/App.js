@@ -306,6 +306,7 @@ function App() {
           hasMore: notificationsHasMore,
           onLoadMore: fetchMoreNotifications,
           onMarkAllRead: handleMarkAllRead,
+          onMarkReadByRun: markReadByRun,
         }}
         t={t}
       />
@@ -350,7 +351,6 @@ function App() {
                   baseUrl={baseUrl}
                   analysisId={selectedAnalysisId}
                   onBack={goBack}
-                  onNotificationsRead={() => markReadByRun(selectedAnalysisId)}
                   scrollToDeliverable={scrollToDeliverable}
                 />
               ) : currentPage === "areas" ? (

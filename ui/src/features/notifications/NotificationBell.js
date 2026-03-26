@@ -11,6 +11,7 @@ function NotificationBell({
   hasMore,
   onLoadMore,
   onMarkAllRead,
+  onMarkReadByRun,
 }) {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
@@ -74,14 +75,17 @@ function NotificationBell({
   const handleNotificationClick = useCallback(
     (notification) => {
       setIsOpen(false);
-      if (notification.analysis_run_id && onNotificationClick) {
-        onNotificationClick(
-          notification.analysis_run_id,
-          notification.deliverable_name
-        );
+      if (notification.analysis_run_id) {
+        if (onMarkReadByRun) onMarkReadByRun(notification.analysis_run_id);
+        if (onNotificationClick) {
+          onNotificationClick(
+            notification.analysis_run_id,
+            notification.deliverable_name
+          );
+        }
       }
     },
-    [onNotificationClick]
+    [onNotificationClick, onMarkReadByRun]
   );
 
   const formatTimeAgo = useCallback(

@@ -79,14 +79,28 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
 
   const markReadByRun = useCallback(
     (analysisRunId) => {
+      if (!baseUrl || !analysisRunId) return;
+      // Optimistically update local state
       setNotifications((prev) =>
         prev.map((n) =>
           n.analysis_run_id === analysisRunId ? { ...n, is_read: true } : n
         )
       );
-      fetchUnreadCount();
+      // Persist on server and sync polled count
+      authorizedFetch(`${baseUrl}/notifications/mark-read/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ analysis_run_id: analysisRunId }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            prevUnreadRef.current = null;
+            fetchUnreadCount();
+          }
+        })
+        .catch(() => {});
     },
-    [fetchUnreadCount]
+    [authorizedFetch, baseUrl, fetchUnreadCount]
   );
 
   const markAllRead = useCallback(async () => {
