@@ -2054,6 +2054,13 @@
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 767.98px) {
+  .dashboard {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4rem);
+  }
 }
 
 .dashboard .card {
