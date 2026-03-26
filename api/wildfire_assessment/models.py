@@ -40,6 +40,9 @@ class AreaOfInterest(models.Model):
     class Meta:
         verbose_name = "Area of Interest"
         verbose_name_plural = "Areas of Interest"
+        indexes = [
+            models.Index(fields=["name", "country"], name="aoi_name_country"),
+        ]
 
 
 class UserCountry(models.Model):
@@ -194,7 +197,7 @@ class AnalysisRun(models.Model):
     scientific_rbr_error = models.CharField(max_length=500, null=True, blank=True)
 
     # Timestamps
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
     # AI-generated report summary (cached)
@@ -215,6 +218,10 @@ class AnalysisRun(models.Model):
             models.Index(
                 fields=["user", "severity_data", "created_at"],
                 name="analysisrun_user_sev_created",
+            ),
+            models.Index(
+                fields=["status", "completed_at"],
+                name="analysisrun_status_completed",
             ),
         ]
 

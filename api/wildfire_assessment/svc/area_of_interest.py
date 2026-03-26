@@ -31,8 +31,10 @@ def get_areas_queryset(user, search=None):
     if not country_ids:
         return AreaOfInterest.objects.none()
 
-    queryset = AreaOfInterest.objects.filter(country_id__in=country_ids).order_by(
-        "name"
+    queryset = (
+        AreaOfInterest.objects.filter(country_id__in=country_ids)
+        .select_related("country")
+        .order_by("name")
     )
 
     if search:
@@ -175,15 +177,9 @@ def save_deliverable_task_id(analysis_run_id, task_field, task_id):
 
 
 def get_analysis_runs_queryset(user):
-    """Return AnalysisRun queryset filtered by user country permissions."""
-    country_ids = get_user_country_ids(user)
-    if not country_ids:
-        return AnalysisRun.objects.none()
-
+    """Return AnalysisRun queryset filtered to only the user's own analyses."""
     return (
-        AnalysisRun.objects.filter(
-            area_of_interest__country_id__in=country_ids
-        )
+        AnalysisRun.objects.filter(user=user)
         .select_related("area_of_interest__country", "user")
         .prefetch_related("provenance_records")
         .order_by("-created_at")

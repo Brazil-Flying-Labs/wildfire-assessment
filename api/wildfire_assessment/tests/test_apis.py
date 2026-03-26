@@ -956,6 +956,9 @@ class AnalysisRunViewSetTests(APITestCase):
         self.user = User.objects.create_user(
             username="tester", email="tester@example.com", password="password"
         )
+        self.other_user = User.objects.create_user(
+            username="other", email="other@example.com", password="password"
+        )
         self.analysis = AnalysisRun.objects.create(
             user=self.user,
             area_of_interest=self.area,
@@ -964,7 +967,7 @@ class AnalysisRunViewSetTests(APITestCase):
             total_burned_ha=100.5,
         )
         self.other_analysis = AnalysisRun.objects.create(
-            user=self.user,
+            user=self.other_user,
             area_of_interest=self.other_area,
             pre_fire_date="2024-02-01",
             post_fire_date="2024-02-15",
@@ -987,16 +990,7 @@ class AnalysisRunViewSetTests(APITestCase):
             (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN),
         )
 
-    def test_list_returns_empty_without_country_permissions(self):
-        self.client.force_authenticate(user=self.user)
-        url = reverse("analysisrun-list")
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        data = response.json()
-        self.assertEqual(data["count"], 0)
-
-    def test_list_returns_only_authorized_analyses(self):
-        UserCountry.objects.create(user=self.user, country=self.country)
+    def test_list_returns_only_own_analyses(self):
         self.client.force_authenticate(user=self.user)
         url = reverse("analysisrun-list")
         response = self.client.get(url)
@@ -1008,8 +1002,15 @@ class AnalysisRunViewSetTests(APITestCase):
         self.assertNotIn("rgb_pre_fire_url", data["results"][0])
         self.assertNotIn("provenance", data["results"][0])
 
-    def test_retrieve_returns_analysis_for_authorized_user(self):
-        UserCountry.objects.create(user=self.user, country=self.country)
+    def test_list_excludes_other_users_analyses(self):
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-list")
+        response = self.client.get(url)
+        data = response.json()
+        ids = [r["id"] for r in data["results"]]
+        self.assertNotIn(self.other_analysis.id, ids)
+
+    def test_retrieve_returns_own_analysis(self):
         self.client.force_authenticate(user=self.user)
         url = reverse("analysisrun-detail", args=[self.analysis.id])
         response = self.client.get(url)
@@ -1018,16 +1019,14 @@ class AnalysisRunViewSetTests(APITestCase):
         self.assertEqual(data["id"], self.analysis.id)
         self.assertEqual(data["area_name"], "Test Area")
 
-    def test_retrieve_returns_404_for_unauthorized_analysis(self):
-        UserCountry.objects.create(user=self.user, country=self.country)
+    def test_retrieve_returns_404_for_other_users_analysis(self):
         self.client.force_authenticate(user=self.user)
         url = reverse("analysisrun-detail", args=[self.other_analysis.id])
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_list_paginates_at_10_per_page(self):
-        UserCountry.objects.create(user=self.user, country=self.country)
-        for i in range(11):
+        for i in range(10):
             AnalysisRun.objects.create(
                 user=self.user,
                 area_of_interest=self.area,
@@ -1040,12 +1039,11 @@ class AnalysisRunViewSetTests(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
-        self.assertEqual(data["count"], 12)
+        self.assertEqual(data["count"], 11)
         self.assertEqual(len(data["results"]), 10)
         self.assertIsNotNone(data["next"])
 
     def test_list_respects_page_size_query_param(self):
-        UserCountry.objects.create(user=self.user, country=self.country)
         for i in range(5):
             AnalysisRun.objects.create(
                 user=self.user,
@@ -2061,16 +2059,13 @@ class AnalysisRunValidateUrlsTests(APITestCase):
             "https://storage.googleapis.com/bucket/dnbr.tif",
         )
 
-    def test_validate_urls_returns_404_for_unauthorized(self):
-        other_country = Country.objects.create(name="Other", code="OT")
-        other_area = AreaOfInterest.objects.create(
-            name="Other Area",
-            polygon_path="p.json",
-            country=other_country,
+    def test_validate_urls_returns_404_for_other_users_analysis(self):
+        other_user = User.objects.create_user(
+            username="other_val", email="other_val@example.com", password="password"
         )
         other_analysis = AnalysisRun.objects.create(
-            user=self.user,
-            area_of_interest=other_area,
+            user=other_user,
+            area_of_interest=self.area,
             pre_fire_date="2024-01-01",
             post_fire_date="2024-01-15",
         )
@@ -2191,14 +2186,13 @@ class ReportEndpointTests(APITestCase):
         response = self.client.post(url, {"language": "en"}, format="json")
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
 
-    def test_report_returns_404_for_unauthorized(self):
-        other_country = Country.objects.create(name="Other", code="OC")
-        other_area = AreaOfInterest.objects.create(
-            name="Other Area", polygon_path="p2.json", country=other_country
+    def test_report_returns_404_for_other_users_analysis(self):
+        other_user = User.objects.create_user(
+            username="other_rpt", email="other_rpt@example.com", password="password"
         )
         other_analysis = AnalysisRun.objects.create(
-            user=self.user,
-            area_of_interest=other_area,
+            user=other_user,
+            area_of_interest=self.area,
             pre_fire_date="2024-02-01",
             post_fire_date="2024-02-15",
         )

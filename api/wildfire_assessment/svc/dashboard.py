@@ -80,9 +80,12 @@ def get_dashboard_stats(user):
         }
 
     # Recent analyses (for serialization)
-    recent_analyses = all_runs_qs.select_related(
-        "area_of_interest", "area_of_interest__country", "user"
-    )[:10]
+    recent_analyses = (
+        all_runs_qs.select_related(
+            "area_of_interest", "area_of_interest__country", "user"
+        )
+        .prefetch_related("provenance_records")[:10]
+    )
 
     # === SINGLE QUERY for all runs with severity data ===
     runs_with_severity = list(
