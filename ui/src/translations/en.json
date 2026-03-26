@@ -291,6 +291,8 @@
   "areas.updateSuccess": "Area updated successfully!",
   "areas.errorUpdating": "Error updating area",
   "areas.edit": "Edit",
+  "areas.downloadGeojson": "Download GeoJSON",
+  "areas.errorDownloadGeojson": "Error downloading GeoJSON",
   "areas.editArea": "Edit Area of Interest",
   "areas.keepCurrent": "Keep current",
   "areas.geojsonOptionalHint": "Leave empty to keep the current boundaries",

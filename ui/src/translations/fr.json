@@ -291,6 +291,8 @@
   "areas.updateSuccess": "Zone mise à jour avec succès !",
   "areas.errorUpdating": "Erreur lors de la mise à jour de la zone",
   "areas.edit": "Modifier",
+  "areas.downloadGeojson": "Télécharger GeoJSON",
+  "areas.errorDownloadGeojson": "Erreur lors du téléchargement du GeoJSON",
   "areas.editArea": "Modifier la Zone d'Intérêt",
   "areas.keepCurrent": "Garder l'actuel",
   "areas.geojsonOptionalHint": "Laissez vide pour conserver les limites actuelles",

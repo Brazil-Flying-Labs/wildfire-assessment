@@ -291,6 +291,8 @@
   "areas.updateSuccess": "¡Área actualizada correctamente!",
   "areas.errorUpdating": "Error al actualizar el área",
   "areas.edit": "Editar",
+  "areas.downloadGeojson": "Descargar GeoJSON",
+  "areas.errorDownloadGeojson": "Error al descargar GeoJSON",
   "areas.editArea": "Editar Área de Interés",
   "areas.keepCurrent": "Mantener actual",
   "areas.geojsonOptionalHint": "Deje vacío para mantener los límites actuales",

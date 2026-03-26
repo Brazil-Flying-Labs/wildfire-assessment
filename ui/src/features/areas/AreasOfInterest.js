@@ -134,6 +134,35 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBack }) {
     [authorizedFetch, baseUrl, currentPage, loadAreas, searchTerm, t]
   );
 
+  const handleDownloadGeojson = useCallback(
+    async (area) => {
+      try {
+        const response = await authorizedFetch(
+          `${baseUrl}/area_of_interest/${area.id}/geojson/`
+        );
+        if (!response.ok) {
+          throw new Error(t("areas.errorDownloadGeojson"));
+        }
+        const data = await response.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/geo+json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${area.name}.geojson`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("Error downloading GeoJSON:", err);
+        setSubmitError(err.message);
+      }
+    },
+    [authorizedFetch, baseUrl, t]
+  );
+
   const toggleMenu = useCallback((areaId) => {
     setOpenMenuId((prev) => (prev === areaId ? null : areaId));
   }, []);
@@ -273,6 +302,7 @@ function AreasOfInterest({ authorizedFetch, baseUrl, onBack }) {
             toggleMenu={toggleMenu}
             closeMenu={closeMenu}
             openEditModal={openEditModal}
+            onDownloadGeojson={handleDownloadGeojson}
             t={t}
           />
         </div>

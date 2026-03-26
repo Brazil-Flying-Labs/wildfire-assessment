@@ -1022,6 +1022,43 @@ class AnalysisRunViewSetTests(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
+    def test_list_paginates_at_10_per_page(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        for i in range(11):
+            AnalysisRun.objects.create(
+                user=self.user,
+                area_of_interest=self.area,
+                pre_fire_date="2024-03-01",
+                post_fire_date="2024-03-15",
+                total_burned_ha=10.0 + i,
+            )
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-list")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["count"], 12)
+        self.assertEqual(len(data["results"]), 10)
+        self.assertIsNotNone(data["next"])
+
+    def test_list_respects_page_size_query_param(self):
+        UserCountry.objects.create(user=self.user, country=self.country)
+        for i in range(5):
+            AnalysisRun.objects.create(
+                user=self.user,
+                area_of_interest=self.area,
+                pre_fire_date="2024-03-01",
+                post_fire_date="2024-03-15",
+                total_burned_ha=10.0 + i,
+            )
+        self.client.force_authenticate(user=self.user)
+        url = reverse("analysisrun-list")
+        response = self.client.get(url, {"page_size": 3})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["count"], 6)
+        self.assertEqual(len(data["results"]), 3)
+
 
 class DashboardViewTests(APITestCase):
     """Tests for the Dashboard View."""

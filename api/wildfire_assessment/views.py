@@ -78,6 +78,12 @@ class AreaOfInterestPagination(PageNumberPagination):
     max_page_size = 999999999
 
 
+class AnalysisRunPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
 class AreaOfInterestViewSet(viewsets.ModelViewSet):
     """
     ViewSet for AreaOfInterest CRUD operations.
@@ -492,6 +498,7 @@ class AnalysisRunViewSet(mixins.DestroyModelMixin, viewsets.ReadOnlyModelViewSet
 
     serializer_class = AnalysisRunSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = AnalysisRunPagination
 
     def get_queryset(self):
         """Filter queryset to only show analyses the user has access to."""

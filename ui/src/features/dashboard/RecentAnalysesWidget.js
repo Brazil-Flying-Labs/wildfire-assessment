@@ -1,5 +1,6 @@
 import KebabMenu from "../../components/KebabMenu";
 import DeleteConfirmation from "../../components/DeleteConfirmation";
+import Pagination from "../../components/Pagination";
 import { formatDate, formatNumber } from "../../utils/formatting";
 
 function RecentAnalysesWidget({
@@ -13,6 +14,10 @@ function RecentAnalysesWidget({
   openMenuId,
   toggleMenu,
   closeMenu,
+  currentPage,
+  totalPages,
+  onPageChange,
+  analysesLoading,
 }) {
   const deleteIcon = (
     <svg
@@ -45,7 +50,14 @@ function RecentAnalysesWidget({
       : { style: { cursor: "default" } };
 
   return (
-    <div className="card shadow-sm">
+    <div className="card shadow-sm widget-refresh-wrapper">
+      {analysesLoading && (
+        <div className="widget-refresh-overlay">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">{t("common.loading")}</span>
+          </div>
+        </div>
+      )}
       <div className="card-header">
         <h3 className="h5 mb-0">{t("dashboard.recentAnalyses")}</h3>
       </div>
@@ -222,6 +234,13 @@ function RecentAnalysesWidget({
           </>
         )}
       </div>
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+        />
+      )}
     </div>
   );
 }

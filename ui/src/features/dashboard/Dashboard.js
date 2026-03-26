@@ -63,6 +63,13 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const [mapGeneration, setMapGeneration] = useState(0);
   const hasLoadedRef = useRef(false);
 
+  // Paginated analyses state
+  const [analysesList, setAnalysesList] = useState([]);
+  const [analysesPage, setAnalysesPage] = useState(1);
+  const [analysesCount, setAnalysesCount] = useState(0);
+  const [analysesLoading, setAnalysesLoading] = useState(false);
+  const analysesPageSize = 10;
+
   const {
     visibleIds,
     showAddModal,
@@ -76,6 +83,26 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
   const longPressSensor = useSensor(LongPressSensor, { activationConstraint: { delay: 200, tolerance: 5 } });
   const sensors = useSensors(isDesktop ? pointerSensor : longPressSensor);
+
+  const loadAnalyses = useCallback(async (page = 1) => {
+    if (!baseUrl) return;
+    setAnalysesLoading(true);
+    try {
+      const response = await authorizedFetch(
+        `${baseUrl}/analysis_run/?page=${page}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setAnalysesList(data.results || []);
+        setAnalysesCount(data.count || 0);
+        setAnalysesPage(page);
+      }
+    } catch (err) {
+      console.error("Error loading analyses:", err);
+    } finally {
+      setAnalysesLoading(false);
+    }
+  }, [authorizedFetch, baseUrl]);
 
   const loadDashboard = useCallback(async () => {
     if (!baseUrl) return;
@@ -107,15 +134,17 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
 
   useEffect(() => {
     loadDashboard();
-  }, [loadDashboard]);
+    loadAnalyses(1);
+  }, [loadDashboard, loadAnalyses]);
 
   const prevRefreshKeyRef = useRef(refreshKey);
   useEffect(() => {
     if (prevRefreshKeyRef.current !== refreshKey) {
       prevRefreshKeyRef.current = refreshKey;
       loadDashboard();
+      loadAnalyses(1);
     }
-  }, [refreshKey, loadDashboard]);
+  }, [refreshKey, loadDashboard, loadAnalyses]);
 
   const handleDeleteAnalysis = useCallback(async (analysisId) => {
     setDeletingAnalysis(true);
@@ -126,6 +155,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
       if (response.ok || response.status === 204) {
         setDeleteConfirmId(null);
         loadDashboard();
+        loadAnalyses(analysesPage);
       } else {
         alert(t("dashboard.errorDeletingAnalysis"));
       }
@@ -134,7 +164,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
     } finally {
       setDeletingAnalysis(false);
     }
-  }, [authorizedFetch, baseUrl, loadDashboard, t]);
+  }, [authorizedFetch, baseUrl, loadDashboard, loadAnalyses, analysesPage, t]);
 
   const toggleMenu = useCallback((id) => {
     setOpenMenuId((prev) => (prev === id ? null : id));
@@ -232,7 +262,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
     ),
     recent_analyses: () => (
       <RecentAnalysesWidget
-        analyses={stats?.recent_analyses}
+        analyses={analysesList}
         t={t}
         onAnalysisClick={onAnalysisClick}
         deleteConfirmId={deleteConfirmId}
@@ -242,6 +272,10 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
         openMenuId={openMenuId}
         toggleMenu={toggleMenu}
         closeMenu={closeMenu}
+        currentPage={analysesPage}
+        totalPages={Math.ceil(analysesCount / analysesPageSize)}
+        onPageChange={loadAnalyses}
+        analysesLoading={analysesLoading}
       />
     ),
     fire_map: () => (
@@ -255,7 +289,7 @@ function Dashboard({ authorizedFetch, baseUrl, onAnalysisClick, backendProfile, 
     severity_trend: () => (
       <SeverityTrendWidget severityTrend={stats?.severity_trend} />
     ),
-  }), [stats, t, onAnalysisClick, deleteConfirmId, deletingAnalysis, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu, mapGeneration, authorizedFetch, baseUrl]);
+  }), [stats, t, onAnalysisClick, deleteConfirmId, deletingAnalysis, handleDeleteAnalysis, openMenuId, toggleMenu, closeMenu, mapGeneration, authorizedFetch, baseUrl, analysesList, analysesPage, analysesCount, analysesPageSize, loadAnalyses, analysesLoading]);
 
   if (loading) {
     const colClasses = buildColClasses(visibleIds);
