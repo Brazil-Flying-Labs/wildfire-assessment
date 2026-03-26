@@ -1136,9 +1136,9 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
       )}
 
       {showMosaicInfo && (
-        <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={() => setShowMosaicInfo(false)}>
-          <div className="modal-dialog modal-lg modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-content">
+        <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1200 }} onClick={() => setShowMosaicInfo(false)}>
+          <div className="modal-dialog modal-dialog-scrollable modal-dialog-centered" style={{ width: "90%", maxWidth: "600px", margin: "0 auto", maxHeight: "70vh" }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content" style={{ maxHeight: "70vh" }}>
               <div className="modal-header">
                 <h5 className="modal-title">{t("app.mosaicStrategyInfo")}</h5>
                 <button type="button" className="btn-close" onClick={() => setShowMosaicInfo(false)} />
