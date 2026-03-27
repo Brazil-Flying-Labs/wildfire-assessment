@@ -138,6 +138,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "wildfire_assessment.middleware.MalformedURLMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
