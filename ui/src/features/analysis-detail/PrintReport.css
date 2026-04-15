@@ -310,25 +310,39 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* ── Images ── */
+  /* ── Images ──
+     One image per page: each .pr-img-block starts on a fresh page and
+     occupies the full printable area; the image inside is capped at
+     90% width × 80% height (object-fit: contain keeps aspect ratio). */
   .pr-images-section {
     break-before: auto;
   }
 
   .pr-images {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+    display: block;
   }
 
   .pr-img-block {
+    break-before: page;
+    page-break-before: always;
     break-inside: avoid;
+    page-break-inside: avoid;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
+    height: 100vh;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
   }
 
   .pr-img {
-    width: 100% !important;
-    max-height: none !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: 90vw !important;
+    max-height: 80vh !important;
     object-fit: contain;
     border: 1px solid #d0d0d0 !important;
     border-radius: 3px;
@@ -337,7 +351,7 @@
   .pr-img-caption {
     font-size: 9pt;
     color: #555 !important;
-    margin-top: 3px;
+    margin-top: 8px;
     font-weight: 600 !important;
     text-transform: uppercase;
     letter-spacing: 0.03em;
