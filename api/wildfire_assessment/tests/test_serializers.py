@@ -2162,6 +2162,149 @@ class AreaValidationTests(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
 
+class DegenerateMultiPolygonPartTests(TestCase):
+    """Tests for rejection of MultiPolygons with tiny/degenerate parts.
+
+    Digitization artifacts (e.g. a stray 4-vertex sliver with ~3 m² area)
+    dramatically inflate the bounding box and break downstream image
+    generation. We reject such uploads so the user can fix the source file.
+    """
+
+    # The real Gorongosa sliver from the reproducer case — ~3.5 m²
+    GORONGOSA_STRAY = [
+        [34.36994289621235, -19.229362147906397],
+        [34.369958985759034, -19.229383619014765],
+        [34.36994090971726, -19.22939670914272],
+        [34.36994289621235, -19.229362147906397],
+    ]
+    # A normal sized polygon (~12k ha at the equator)
+    REAL_POLYGON_RING = [[0, 0], [0.1, 0], [0.1, 0.1], [0, 0.1], [0, 0]]
+
+    def setUp(self):
+        self.country = Country.objects.create(name="Test Country", code="TC")
+        self.user = User.objects.create_user(
+            username="tester", email="tester@example.com", password="password"
+        )
+        UserCountry.objects.create(user=self.user, country=self.country)
+        self.factory = APIRequestFactory()
+
+    def _make_serializer(self, geojson):
+        request = self.factory.post("/")
+        request.user = self.user
+        return AreaOfInterestCreateSerializer(
+            data={"name": "Test Area", "country": self.country.id, "geojson": geojson},
+            context={"request": request},
+        )
+
+    def test_multipolygon_with_stray_sliver_rejected(self):
+        """MultiPolygon with a real Gorongosa-like stray sliver must fail."""
+        geojson = {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [self.REAL_POLYGON_RING],
+                [self.GORONGOSA_STRAY],
+            ],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+        error_msg = str(serializer.errors["geojson"])
+        # Message must be actionable: identify the stray and suggest a fix
+        self.assertIn("too small", error_msg.lower())
+        self.assertIn("remove", error_msg.lower())
+
+    def test_multipolygon_all_valid_parts_passes(self):
+        """MultiPolygon with two real-sized polygons must still pass."""
+        geojson = {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [self.REAL_POLYGON_RING],
+                [[[1, 1], [1.1, 1], [1.1, 1.1], [1, 1.1], [1, 1]]],
+            ],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_single_polygon_unaffected(self):
+        """A plain Polygon upload must not be touched by MultiPolygon check."""
+        geojson = {
+            "type": "Polygon",
+            "coordinates": [self.REAL_POLYGON_RING],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_feature_with_degenerate_multipolygon_rejected(self):
+        """Feature wrapping a bad MultiPolygon must also be rejected."""
+        geojson = {
+            "type": "Feature",
+            "geometry": {
+                "type": "MultiPolygon",
+                "coordinates": [
+                    [self.REAL_POLYGON_RING],
+                    [self.GORONGOSA_STRAY],
+                ],
+            },
+            "properties": {},
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("geojson", serializer.errors)
+
+    def test_degenerate_error_translated_pt_br(self):
+        """Error message must appear in pt-BR when user prefers Portuguese."""
+        profile = self.user.profile
+        profile.default_language = "pt-BR"
+        profile.save()
+        geojson = {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [self.REAL_POLYGON_RING],
+                [self.GORONGOSA_STRAY],
+            ],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        error_msg = str(serializer.errors["geojson"])
+        # Portuguese phrasing — "pequeno demais" / "remova"
+        self.assertIn("pequeno demais", error_msg)
+        self.assertIn("remova", error_msg.lower())
+
+    def test_degenerate_error_translated_fr(self):
+        """Error message must appear in French when user prefers French."""
+        profile = self.user.profile
+        profile.default_language = "fr"
+        profile.save()
+        geojson = {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [self.REAL_POLYGON_RING],
+                [self.GORONGOSA_STRAY],
+            ],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        error_msg = str(serializer.errors["geojson"])
+        self.assertIn("trop petit", error_msg)
+
+    def test_degenerate_error_translated_es(self):
+        """Error message must appear in es-ES when user prefers Spanish."""
+        profile = self.user.profile
+        profile.default_language = "es-ES"
+        profile.save()
+        geojson = {
+            "type": "MultiPolygon",
+            "coordinates": [
+                [self.REAL_POLYGON_RING],
+                [self.GORONGOSA_STRAY],
+            ],
+        }
+        serializer = self._make_serializer(geojson)
+        self.assertFalse(serializer.is_valid())
+        error_msg = str(serializer.errors["geojson"])
+        self.assertIn("demasiado pequeño", error_msg)
+
+
 class AreaOfInterestUpdateSerializerTests(TestCase):
     def setUp(self):
         self.country = Country.objects.create(name="Test Country", code="TC")

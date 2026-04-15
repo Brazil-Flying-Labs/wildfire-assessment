@@ -31,6 +31,13 @@ User = get_user_model()
 
 MAX_AREA_HA = 110_000
 
+# Minimum geodesic area (m²) for any individual polygon part inside a
+# MultiPolygon. Parts smaller than this are almost always digitization
+# artifacts (stray slivers) that inflate the bounding box and break image
+# generation. A parking space is ~12 m², so 10 m² is well below any
+# legitimate user polygon but easily catches sub-meter slivers.
+MIN_MULTIPOLYGON_PART_AREA_M2 = 10.0
+
 
 def generate_s3_filename(name):
     """Generate a unique S3 filename from a human-readable name."""
@@ -311,9 +318,37 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
                 self._t("error.geometry_empty", context=context)
             )
 
+        # Reject MultiPolygons with stray/degenerate parts (digitization
+        # artifacts that inflate the bounding box and break image generation).
+        if geom_type == "MultiPolygon":
+            self._validate_multipolygon_parts(geom, context)
+
         # RFC 7946: fix winding order (exterior CCW, holes CW)
         if geom_type in ["Polygon", "MultiPolygon"]:
             self._fix_winding_order(geometry)
+
+    def _validate_multipolygon_parts(self, multipolygon, context):
+        """Reject MultiPolygons whose individual parts are degenerately small.
+
+        A stray sub-threshold sliver (e.g. a 4-vertex ~3 m² artifact left over
+        from digitization) inflates the combined bounding box and produces
+        tall, mostly-black images downstream. Rather than silently dropping
+        it, we reject the upload so the user can clean the source file.
+        """
+        geod = Geod(ellps="WGS84")
+        for idx, part in enumerate(multipolygon.geoms):
+            area_m2, _ = geod.geometry_area_perimeter(part)
+            area_m2 = abs(area_m2)
+            if area_m2 < MIN_MULTIPOLYGON_PART_AREA_M2:
+                raise serializers.ValidationError(
+                    self._t(
+                        "error.degenerate_multipolygon_part",
+                        context=context,
+                        index=idx,
+                        area=f"{area_m2:.2f}",
+                        threshold=f"{MIN_MULTIPOLYGON_PART_AREA_M2:.0f}",
+                    )
+                )
 
     def _validate_coordinates(self, coords, context, depth=0):
         """Recursively validate coordinate positions per RFC 7946 Section 3.1.1.
