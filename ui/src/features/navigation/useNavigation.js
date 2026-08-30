@@ -26,8 +26,14 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
   });
   const [scrollToDeliverable, setScrollToDeliverable] = useState(null);
 
-  // Sync initial URL on mount (replace state so URL matches)
+  // Sync initial URL on mount (replace state so URL matches). Auth and
+  // public pages carry parameters in the URL (set-password tokens,
+  // reset tokens), so never rewrite their paths.
   useEffect(() => {
+    const publicPages = ["/set-password", "/reset-password", "/login", "/privacy"];
+    if (publicPages.some((page) => window.location.pathname.startsWith(page))) {
+      return;
+    }
     const path = PAGE_PATHS[currentPage] || "/dashboard";
     if (window.location.pathname !== path) {
       window.history.replaceState(
