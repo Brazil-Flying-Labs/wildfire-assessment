@@ -1,0 +1,41 @@
+# Local Nginx Proxy Manager — reproduces the VPS access shape.
+# Loaded explicitly alongside the dev override:
+#   docker compose -f compose.yml -f compose.override.yml -f compose.npm.yml \
+#     --profile proxy up -d
+# One-time setup:
+#   docker network create proxy_network
+#   /etc/hosts: 127.0.0.1 wildfire.droneai.test api.wildfire.droneai.test
+# Admin UI at http://127.0.0.1:8181 (first login forces a password change).
+# Proxy hosts are created via the NPM API after the first boot (see Fase 7).
+
+services:
+  npm:
+    image: jc21/nginx-proxy-manager:2.12.1
+    profiles: ["proxy"]
+    ports:
+      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8443:443"
+      - "127.0.0.1:8181:81"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      - proxy_network
+
+  api:
+    networks:
+      - proxy_network
+
+  ui:
+    networks:
+      - proxy_network
+    environment:
+      REACT_APP_WILDLIFE_API_URL: http://api.wildfire.droneai.test:8080
+
+volumes:
+  npm_data:
+  npm_letsencrypt:
+
+networks:
+  proxy_network:
+    external: true

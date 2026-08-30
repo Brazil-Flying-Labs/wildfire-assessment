@@ -609,15 +609,27 @@ Tarefas:
 
 - Criar um profile ou Compose auxiliar para Nginx Proxy Manager local
   (ex.: `compose.npm.yml` com `profiles: [proxy]`, ativado com
-  `docker compose --profile proxy up`).
+  `docker compose -f compose.yml -f compose.override.yml -f compose.npm.yml
+  --profile proxy up -d` — o arquivo extra não é carregado implicitamente,
+  então a cadeia `-f` é obrigatória).
 - Usar a mesma imagem existente na VPS como referência:
   `jc21/nginx-proxy-manager:2.12.1`.
+- Diferença local: no dev o serviço `ui` serve na porta 3000
+  (react-scripts), então o Proxy Host local aponta `ui:3000`; na VPS a
+  imagem final de nginx serve na porta 80 e o Proxy Host usa `ui:80`.
 - Criar localmente uma rede externa chamada `proxy_network`, igual à VPS.
 - Usar portas locais não conflitantes para o NPM local (ex.: `8080:80`,
   `8443:443`, `8181:81`) e hosts locais em `/etc/hosts`
   (ex.: `wildfire.droneai.test` e `api.wildfire.droneai.test` → `127.0.0.1`).
 - Testar a integração via HTTP (o NPM local não emite certificados para
   domínios fictícios); HTTPS real só é validado na VPS.
+- Validado em 2026-08-30: UI e API servidas pelos nomes locais
+  (`wildfire.droneai.test` / `api.wildfire.droneai.test`, porta 8080),
+  login/sessão/CSRF/CORS funcionando através do proxy; Proxy Hosts criados
+  via API do NPM (POST `/api/tokens` + `/api/nginx/proxy-hosts`); o
+  `.env` local ganhou `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`
+  e `CORS_ALLOWED_ORIGINS` com os domínios de teste. Acesso direto por
+  portas continua sendo o fluxo padrão de desenvolvimento.
 - Validar headers encaminhados, CORS, cookies de sessão e CSRF.
 - Configurar `SECURE_PROXY_SSL_HEADER` e `USE_X_FORWARDED_HOST` (somente em
   produção, confiando no proxy) e `CSRF_TRUSTED_ORIGINS` com os dois domínios.
