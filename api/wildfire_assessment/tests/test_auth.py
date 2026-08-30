@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.contrib.auth.tokens import default_token_generator
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -62,6 +63,60 @@ class RequestAccessTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json(), {"detail": "detail"})
         self.assertEqual(User.objects.filter(username="taken@example.com").count(), 1)
+
+    @patch("wildfire_assessment.auth_views.send_mail")
+    def test_request_access_notifies_admin_with_admin_link(self, mock_send_mail):
+        with override_settings(ADMIN_NOTIFICATION_EMAIL="admin@example.com"):
+            response = self.client.post(
+                reverse("auth-request-access"),
+                {"first_name": "Jane", "last_name": "Doe", "email": "jane@example.com"},
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_send_mail.assert_called_once()
+        kwargs = mock_send_mail.call_args.kwargs
+        self.assertEqual(kwargs["recipient_list"], ["admin@example.com"])
+        self.assertIn("jane@example.com", kwargs["message"])
+        self.assertIn("/admin/auth/user/?is_active__exact=0", kwargs["message"])
+
+    @patch("wildfire_assessment.auth_views.send_mail")
+    def test_request_access_existing_email_does_not_notify_admin(self, mock_send_mail):
+        User.objects.create_user(
+            username="taken@example.com", email="taken@example.com", password="pw"
+        )
+        with override_settings(ADMIN_NOTIFICATION_EMAIL="admin@example.com"):
+            self.client.post(
+                reverse("auth-request-access"),
+                {"email": "taken@example.com"},
+                format="json",
+            )
+        mock_send_mail.assert_not_called()
+
+    @patch("wildfire_assessment.auth_views.send_mail")
+    def test_request_access_no_admin_email_skips_notification(self, mock_send_mail):
+        with override_settings(ADMIN_NOTIFICATION_EMAIL=""):
+            response = self.client.post(
+                reverse("auth-request-access"),
+                {"first_name": "Jane", "last_name": "Doe", "email": "jane@example.com"},
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_send_mail.assert_not_called()
+
+    @patch(
+        "wildfire_assessment.auth_views.send_mail", side_effect=Exception("smtp down")
+    )
+    def test_request_access_notification_failure_does_not_break_flow(
+        self, mock_send_mail
+    ):
+        with override_settings(ADMIN_NOTIFICATION_EMAIL="admin@example.com"):
+            response = self.client.post(
+                reverse("auth-request-access"),
+                {"first_name": "Jane", "last_name": "Doe", "email": "jane@example.com"},
+                format="json",
+            )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json(), {"detail": "detail"})
 
     def test_request_access_invalid_email_rejected(self):
         response = self.client.post(

@@ -92,6 +92,8 @@ EMAIL_HOST_PASSWORD = _env("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", True)
 EMAIL_USE_SSL = _env_bool("EMAIL_USE_SSL", False)
 DEFAULT_FROM_EMAIL = _env("DEFAULT_FROM_EMAIL", "noreply@localhost")
+# E-mail that receives notifications about new access requests (optional).
+ADMIN_NOTIFICATION_EMAIL = _env("ADMIN_NOTIFICATION_EMAIL", "")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

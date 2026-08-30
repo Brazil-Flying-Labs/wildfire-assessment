@@ -41,6 +41,29 @@ def _generic_success_response(detail_key="detail"):
     return Response({"detail": detail_key})
 
 
+def notify_admin_new_request(request, user):
+    """E-mail the administrator about a new access request.
+
+    Only sent for newly created users; the e-mail carries a direct link
+    to the inactive-users list in the Django Admin.
+    """
+    admin_email = getattr(settings, "ADMIN_NOTIFICATION_EMAIL", "")
+    if not admin_email:
+        return
+    link = request.build_absolute_uri("/admin/auth/user/?is_active__exact=0")
+    send_mail(
+        subject="Wildfire Assessment - New access request",
+        message=(
+            f"A new access request was submitted.\n\n"
+            f"Name: {user.first_name} {user.last_name}\n"
+            f"E-mail: {user.email}\n\n"
+            f"Approve it in the Django Admin:\n{link}"
+        ),
+        from_email=None,
+        recipient_list=[admin_email],
+    )
+
+
 def send_set_password_email(user, first_access):
     """Send the single-use set-password link (first access or reset)."""
     uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
@@ -110,6 +133,12 @@ class RequestAccessView(APIView):
             user.set_unusable_password()
             user.save(update_fields=["password"])
             LOG.info("Access requested for %s (user %s)", email, user.pk)
+            try:
+                notify_admin_new_request(request, user)
+            except Exception:  # notification must never break the flow
+                LOG.exception(
+                    "Failed to notify the administrator about user %s", user.pk
+                )
 
         return _generic_success_response()
 
