@@ -66,4 +66,7 @@ api/.coverage
 
 
 #AI Stuff
-.superpowerssecrets/
+.superpowers
+
+# Secrets (GCP service account key, local .env values) — never commit
+secrets/
