@@ -261,8 +261,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # Redis cache — use db 1 so it does not collide with Celery (db 0).
-# Needed for multi-worker deployments (gunicorn on ECS) where LocMemCache
-# is per-process and AI conversation cache becomes invisible across workers.
+# Needed for multi-worker deployments (gunicorn with several workers) where
+# LocMemCache is per-process and AI conversation cache becomes invisible
+# across workers.
 _REDIS_URL = os.environ.get("CELERY_BROKER_URL", "redis://redis:6379/0")
 _REDIS_CACHE_URL = _REDIS_URL.rsplit("/", 1)[0] + "/1"
 
