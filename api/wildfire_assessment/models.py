@@ -301,6 +301,7 @@ class AIProvider(models.Model):
     PROVIDER_CHOICES = [
         ("gemini", "Google Gemini"),
         ("openai", "OpenAI"),
+        ("deepseek", "DeepSeek"),
     ]
 
     provider = models.CharField(
@@ -311,7 +312,10 @@ class AIProvider(models.Model):
     model_name = models.CharField(
         max_length=100,
         default="gemini-2.0-flash-lite",
-        help_text="Model identifier, e.g. gemini-2.0-flash-lite or gpt-4o-mini",
+        help_text=(
+            "Model identifier, e.g. gemini-2.0-flash-lite, gpt-4o-mini "
+            "or deepseek-chat"
+        ),
     )
     updated_at = models.DateTimeField(auto_now=True)
 

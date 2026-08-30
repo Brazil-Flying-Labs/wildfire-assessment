@@ -1,4 +1,4 @@
-"""Tests for the AI analysis service (provider dispatch + Gemini + OpenAI)."""
+"""Tests for the AI analysis service (provider dispatch + Gemini + OpenAI + DeepSeek)."""
 
 from unittest.mock import MagicMock, patch
 
@@ -77,6 +77,42 @@ class SharedHelperTests(TestCase):
         self.assertIn("Unburned: 100 ha", prompt)
         self.assertIn("Low: 50 ha", prompt)
 
+    def test_build_analysis_prompt_text_only_has_no_imagery_reference(self):
+        prompt = build_analysis_prompt(
+            self.pre_fire_date,
+            self.post_fire_date,
+            self.area_of_interest,
+            self.severity_distribution,
+            include_images=False,
+        )
+        self.assertNotIn("attached", prompt)
+        self.assertNotIn("visual patterns", prompt)
+        self.assertIn("No imagery is provided", prompt)
+        self.assertIn("numerical severity data", prompt)
+
+    def test_build_analysis_prompt_include_images_default(self):
+        prompt = build_analysis_prompt(
+            self.pre_fire_date,
+            self.post_fire_date,
+            self.area_of_interest,
+            self.severity_distribution,
+        )
+        self.assertIn("Satellite imagery is attached", prompt)
+
+    def test_build_report_prompt_text_only_has_no_imagery_reference(self):
+        run = MagicMock()
+        run.area_of_interest.name = "Test Reserve"
+        run.area_of_interest.country.name = "Brazil"
+        run.pre_fire_date = self.pre_fire_date
+        run.post_fire_date = self.post_fire_date
+        run.total_burned_ha = 250.0
+        run.severity_data = self.severity_distribution
+
+        prompt = build_report_prompt(run, include_images=False)
+        self.assertNotIn("attached", prompt)
+        self.assertIn("No imagery is provided", prompt)
+        self.assertIn("Test Reserve", prompt)
+
     def test_build_analysis_prompt_uses_fallback_keys(self):
         severity = {
             "High": {"area": 40.0, "percentage": 20.0},
@@ -146,6 +182,7 @@ class SharedHelperTests(TestCase):
     def test_provider_display_map(self):
         self.assertEqual(PROVIDER_DISPLAY["gemini"], "Google Gemini")
         self.assertEqual(PROVIDER_DISPLAY["openai"], "OpenAI")
+        self.assertEqual(PROVIDER_DISPLAY["deepseek"], "DeepSeek")
 
     def test_get_instructions_spanish(self):
         result = _get_instructions("es-ES")
@@ -524,6 +561,203 @@ class GeminiStreamTests(TestCase):
         self.assertEqual(result, "")
 
 
+class DeepSeekAnalysisTests(TestCase):
+    """Tests for the DeepSeek provider (text-only)."""
+
+    def _fake_stream(self, chunks):
+        for text in chunks:
+            chunk = MagicMock()
+            if text is None:
+                chunk.choices = []
+            else:
+                delta = MagicMock()
+                delta.content = text
+                choice = MagicMock()
+                choice.delta = delta
+                chunk.choices = [choice]
+            yield chunk
+
+    @patch("wildfire_assessment.svc.deepseek_analysis.settings")
+    def test_get_deepseek_client_raises_without_api_key(self, mock_settings):
+        from wildfire_assessment.svc.deepseek_analysis import _get_deepseek_client
+
+        mock_settings.DEEPSEEK_API_KEY = None
+        with self.assertRaises(ValueError):
+            _get_deepseek_client()
+
+    @patch("wildfire_assessment.svc.deepseek_analysis.OpenAI")
+    @patch("wildfire_assessment.svc.deepseek_analysis.settings")
+    def test_get_deepseek_client_uses_base_url(self, mock_settings, mock_openai):
+        from wildfire_assessment.svc.deepseek_analysis import _get_deepseek_client
+
+        mock_settings.DEEPSEEK_API_KEY = "sk-test"
+        client = _get_deepseek_client()
+        mock_openai.assert_called_once_with(
+            api_key="sk-test", base_url="https://api.deepseek.com"
+        )
+        self.assertEqual(client, mock_openai.return_value)
+
+    @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
+    @patch("wildfire_assessment.svc.deepseek_analysis.cache")
+    def test_deepseek_stream_yields_chunks(self, mock_cache, mock_get_client):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_analysis_stream as deepseek_generate_analysis_stream,
+        )
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = self._fake_stream(
+            ["# Analysis", "\nDeepSeek text"]
+        )
+        mock_get_client.return_value = mock_client
+
+        stream, holder = deepseek_generate_analysis_stream(
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            area_of_interest="Test Reserve",
+            severity_distribution={"High": {"area_ha": 10.0, "percent": 5.0}},
+            language="en",
+        )
+        chunks = list(stream)
+        self.assertEqual(chunks, ["# Analysis", "\nDeepSeek text"])
+        self.assertIsNotNone(holder["response_id"])
+        cache_key, cache_value = mock_cache.set.call_args[0]
+        self.assertTrue(cache_key.startswith("ai_chat_"))
+        self.assertEqual(cache_value["provider"], "deepseek")
+        messages = mock_client.chat.completions.create.call_args[1]["messages"]
+        # Text-only: the user message content is a plain string.
+        self.assertIsInstance(messages[1]["content"], str)
+
+    @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
+    @patch("wildfire_assessment.svc.deepseek_analysis.cache")
+    def test_deepseek_stream_ignores_image_urls(self, mock_cache, mock_get_client):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_analysis_stream as deepseek_generate_analysis_stream,
+        )
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = self._fake_stream(["ok"])
+        mock_get_client.return_value = mock_client
+
+        stream, _ = deepseek_generate_analysis_stream(
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            area_of_interest="Test Reserve",
+            severity_distribution={},
+            image_urls=[{"label": "dNBR", "url": "http://example.com/img.jpg"}],
+        )
+        list(stream)
+        messages = mock_client.chat.completions.create.call_args[1]["messages"]
+        self.assertIsInstance(messages[1]["content"], str)
+        self.assertNotIn("image_url", str(messages[1]["content"]))
+
+    @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
+    @patch("wildfire_assessment.svc.deepseek_analysis.cache")
+    def test_deepseek_stream_skips_empty_choices(self, mock_cache, mock_get_client):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_analysis_stream as deepseek_generate_analysis_stream,
+        )
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = self._fake_stream(
+            [None, "real chunk"]
+        )
+        mock_get_client.return_value = mock_client
+
+        stream, _ = deepseek_generate_analysis_stream(
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            area_of_interest="Test Reserve",
+            severity_distribution={},
+        )
+        self.assertEqual(list(stream), ["real chunk"])
+
+    @patch("wildfire_assessment.svc.deepseek_analysis.cache")
+    def test_deepseek_followup_raises_on_missing_conversation(self, mock_cache):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_followup_stream as deepseek_generate_followup_stream,
+        )
+
+        mock_cache.get.return_value = None
+        with self.assertRaises(ValueError):
+            stream, _ = deepseek_generate_followup_stream("missing", "question")
+            list(stream)
+
+    @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
+    @patch("wildfire_assessment.svc.deepseek_analysis.cache")
+    def test_deepseek_followup_yields_chunks(self, mock_cache, mock_get_client):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_followup_stream as deepseek_generate_followup_stream,
+        )
+
+        mock_cache.get.return_value = {
+            "history": [
+                {"role": "system", "content": "sys"},
+                {"role": "user", "content": "user"},
+                {"role": "assistant", "content": "assistant"},
+            ],
+            "model": "deepseek-chat",
+            "language": "en",
+            "provider": "deepseek",
+        }
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = self._fake_stream(
+            ["followup"]
+        )
+        mock_get_client.return_value = mock_client
+
+        stream, holder = deepseek_generate_followup_stream(
+            "conv", "question", language="pt-BR"
+        )
+        self.assertEqual(list(stream), ["followup"])
+        self.assertIsNotNone(holder["response_id"])
+        cache_key, cache_value = mock_cache.set.call_args[0]
+        self.assertEqual(cache_value["provider"], "deepseek")
+        messages = mock_client.chat.completions.create.call_args[1]["messages"]
+        self.assertIn("Brazilian Portuguese", messages[0]["content"])
+
+    @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
+    def test_deepseek_generate_report_returns_text(self, mock_get_client):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_report as deepseek_generate_report,
+        )
+
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = "# DeepSeek Report\nContent"
+        mock_choice = MagicMock()
+        mock_choice.message = mock_message
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        result = deepseek_generate_report(prompt="test prompt", language="en")
+        self.assertEqual(result, "# DeepSeek Report\nContent")
+        mock_client.chat.completions.create.assert_called_once()
+        self.assertFalse(
+            mock_client.chat.completions.create.call_args[1].get("stream", False)
+        )
+
+    @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
+    def test_deepseek_generate_report_empty_response(self, mock_get_client):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_report as deepseek_generate_report,
+        )
+
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_message.content = None
+        mock_choice = MagicMock()
+        mock_choice.message = mock_message
+        mock_response = MagicMock()
+        mock_response.choices = [mock_choice]
+        mock_client.chat.completions.create.return_value = mock_response
+        mock_get_client.return_value = mock_client
+
+        result = deepseek_generate_report(prompt="test")
+        self.assertEqual(result, "")
+
+
 class ProviderDispatchTests(TestCase):
     """Tests for the provider dispatch logic."""
 
@@ -594,6 +828,94 @@ class ProviderDispatchTests(TestCase):
         mock_openai.assert_called_once()
         args = mock_openai.call_args
         self.assertEqual(args.kwargs["model"], "gpt-4o-mini")
+
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common._deepseek_generate_analysis_stream")
+    def test_dispatch_to_deepseek_when_active(self, mock_deepseek, mock_get_provider):
+        mock_provider = MagicMock()
+        mock_provider.provider = "deepseek"
+        mock_provider.model_name = "deepseek-chat"
+        mock_get_provider.return_value = mock_provider
+        mock_deepseek.return_value = (iter([]), {"response_id": None})
+
+        generate_analysis_stream(
+            pre_fire_date=self.pre_fire_date,
+            post_fire_date=self.post_fire_date,
+            area_of_interest=self.area_of_interest,
+            severity_distribution=self.severity_distribution,
+        )
+
+        mock_deepseek.assert_called_once()
+        args = mock_deepseek.call_args
+        self.assertEqual(args.kwargs["model"], "deepseek-chat")
+        self.assertNotIn("image_urls", args.kwargs)
+
+    @patch("wildfire_assessment.svc.ai_common.cache")
+    @patch("wildfire_assessment.svc.ai_common._deepseek_generate_followup_stream")
+    def test_followup_dispatch_uses_cached_provider_deepseek(
+        self, mock_deepseek, mock_cache
+    ):
+        mock_cache.get.return_value = {
+            "provider": "deepseek",
+            "model": "deepseek-chat",
+        }
+        mock_deepseek.return_value = (iter([]), {"response_id": None})
+
+        generate_followup_stream(
+            previous_response_id="conv", question="question", language="en"
+        )
+
+        mock_deepseek.assert_called_once()
+        self.assertEqual(mock_deepseek.call_args.kwargs["model"], "deepseek-chat")
+
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common.cache")
+    @patch("wildfire_assessment.svc.ai_common._deepseek_generate_followup_stream")
+    def test_followup_fallback_to_deepseek_when_no_cache(
+        self, mock_deepseek, mock_cache, mock_get_provider
+    ):
+        mock_cache.get.return_value = None
+        mock_provider = MagicMock()
+        mock_provider.provider = "deepseek"
+        mock_provider.model_name = "deepseek-chat"
+        mock_get_provider.return_value = mock_provider
+        mock_deepseek.return_value = (iter([]), {"response_id": None})
+
+        generate_followup_stream(
+            previous_response_id="conv", question="question", language="en"
+        )
+
+        mock_deepseek.assert_called_once()
+
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common._deepseek_generate_report")
+    @patch("wildfire_assessment.svc.object_storage.get_signed_image_url")
+    def test_generate_report_summary_deepseek_skips_images(
+        self, mock_signed, mock_report, mock_get_provider
+    ):
+        mock_provider = MagicMock()
+        mock_provider.provider = "deepseek"
+        mock_provider.model_name = "deepseek-chat"
+        mock_get_provider.return_value = mock_provider
+        mock_report.return_value = "# DeepSeek Report"
+
+        run = MagicMock()
+        run.area_of_interest.name = "Test Reserve"
+        run.area_of_interest.country.name = "Brazil"
+        run.pre_fire_date = "2024-01-01"
+        run.post_fire_date = "2024-01-15"
+        run.total_burned_ha = 250.0
+        run.severity_data = self.severity_distribution
+        run.report_summary = None
+        run.report_summary_language = None
+
+        text = generate_report_summary(run, language="en")
+        self.assertEqual(text, "# DeepSeek Report")
+        mock_signed.assert_not_called()
+        prompt = mock_report.call_args.kwargs["prompt"]
+        self.assertIn("No imagery is provided", prompt)
+        self.assertEqual(mock_report.call_args.kwargs["model"], "deepseek-chat")
+        run.save.assert_called_once()
 
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_analysis_stream")

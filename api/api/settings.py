@@ -81,6 +81,7 @@ GCS_APP_PREFIX = _env("GCS_APP_PREFIX", "dev")
 AI_ENABLED = _env_bool("AI_ENABLED", False)
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
 OPENAI_API_KEY = _env("OPENAI_API_KEY")
+DEEPSEEK_API_KEY = _env("DEEPSEEK_API_KEY")
 
 # Email (console backend by default; SMTP on the VPS)
 EMAIL_BACKEND = _env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")

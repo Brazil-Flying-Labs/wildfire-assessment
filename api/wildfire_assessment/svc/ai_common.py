@@ -32,6 +32,7 @@ LANGUAGE_MAP = {
 PROVIDER_DISPLAY = {
     "gemini": "Google Gemini",
     "openai": "OpenAI",
+    "deepseek": "DeepSeek",
 }
 
 
@@ -54,8 +55,14 @@ def build_analysis_prompt(
     post_fire_date: str,
     area_of_interest: str,
     severity_distribution: dict,
+    include_images: bool = True,
 ) -> str:
-    """Build the prompt for wildfire analysis."""
+    """Build the prompt for wildfire analysis.
+
+    When ``include_images`` is False (text-only providers such as
+    DeepSeek), the prompt instructs the model to derive its spatial
+    interpretation from the numerical severity data alone.
+    """
     severity_text = ""
     for severity_level, data in severity_distribution.items():
         if isinstance(data, dict):
@@ -64,6 +71,45 @@ def build_analysis_prompt(
             severity_text += f"- {severity_level}: {area} ha ({percent}%)\n"
         else:
             severity_text += f"- {severity_level}: {data}\n"
+
+    if include_images:
+        imagery_note = (
+            "Satellite imagery is attached (RGB composites, dNBR, RBR, dNDVI "
+            "maps). Use the visual evidence from these images together with "
+            "the numerical data above to support your analysis."
+        )
+        severity_section = (
+            "Interpretation of the burn severity distribution, referencing "
+            "visual patterns observed in the attached imagery"
+        )
+        impact_section = (
+            "Potential ecological consequences based on the severity levels "
+            "and spatial patterns visible in the images"
+        )
+        monitoring_section = (
+            "Areas that should be prioritized for post-fire monitoring, "
+            "informed by the spatial distribution of burn severity shown in "
+            "the maps"
+        )
+    else:
+        imagery_note = (
+            "No imagery is provided for this analysis. Base your analysis "
+            "exclusively on the numerical severity data above: derive the "
+            "spatial interpretation from the class ratios, the burned area "
+            "totals, and the dates of the event."
+        )
+        severity_section = (
+            "Interpretation of the burn severity distribution based on the "
+            "numerical severity classes and their proportions"
+        )
+        impact_section = (
+            "Potential ecological consequences based on the severity levels "
+            "and the extent of the burned area"
+        )
+        monitoring_section = (
+            "Areas that should be prioritized for post-fire monitoring, "
+            "informed by the severity class distribution"
+        )
 
     prompt = f"""You are an expert environmental analyst specializing in wildfire damage assessment.
 Analyze the following wildfire data and provide a comprehensive analysis report.
@@ -76,14 +122,14 @@ Analyze the following wildfire data and provide a comprehensive analysis report.
 **DNBR Severity Distribution:**
 {severity_text}
 
-Satellite imagery is attached (RGB composites, dNBR, RBR, dNDVI maps). Use the visual evidence from these images together with the numerical data above to support your analysis.
+{imagery_note}
 
 Please provide:
 1. **Executive Summary**: A brief overview of the fire impact
-2. **Severity Analysis**: Interpretation of the burn severity distribution, referencing visual patterns observed in the attached imagery
-3. **Environmental Impact**: Potential ecological consequences based on the severity levels and spatial patterns visible in the images
+2. **Severity Analysis**: {severity_section}
+3. **Environmental Impact**: {impact_section}
 4. **Recovery Recommendations**: Suggested actions for ecosystem recovery
-5. **Monitoring Priorities**: Areas that should be prioritized for post-fire monitoring, informed by the spatial distribution of burn severity shown in the maps
+5. **Monitoring Priorities**: {monitoring_section}
 
 Use clear, professional language suitable for environmental agencies and land managers.
 Format your response in markdown for readability."""
@@ -125,8 +171,13 @@ def _get_report_instructions(language: str | None = None) -> str:
     return f"{REPORT_SYSTEM_INSTRUCTIONS}\n\nAlways respond in {lang_name}."
 
 
-def build_report_prompt(analysis_run) -> str:
-    """Build the user prompt for the report summary using AnalysisRun data."""
+def build_report_prompt(analysis_run, include_images: bool = True) -> str:
+    """Build the user prompt for the report summary using AnalysisRun data.
+
+    When ``include_images`` is False (text-only providers such as
+    DeepSeek), the prompt instructs the model to base the report on the
+    numerical data alone.
+    """
     severity_text = ""
     for severity_level, data in (analysis_run.severity_data or {}).items():
         if isinstance(data, dict):
@@ -135,6 +186,19 @@ def build_report_prompt(analysis_run) -> str:
             severity_text += f"- {severity_level}: {area} ha ({percent}%)\n"
         else:
             severity_text += f"- {severity_level}: {data}\n"
+
+    if include_images:
+        imagery_note = (
+            "Satellite imagery is attached (RGB composites, dNBR, RBR, dNDVI "
+            "maps). Use the visual evidence from these images together with "
+            "the numerical data above to support your analysis."
+        )
+    else:
+        imagery_note = (
+            "No imagery is provided for this analysis. Base the report "
+            "exclusively on the numerical data above: severity classes and "
+            "their proportions, total burned area, and the dates of the event."
+        )
 
     return (
         f"**Fire Event Details:**\n"
@@ -145,9 +209,7 @@ def build_report_prompt(analysis_run) -> str:
         f"- Total burned area: {analysis_run.total_burned_ha} ha\n\n"
         f"**DNBR Severity Distribution:**\n"
         f"{severity_text}\n"
-        f"Satellite imagery is attached (RGB composites, dNBR, RBR, dNDVI maps). "
-        f"Use the visual evidence from these images together with the numerical "
-        f"data above to support your analysis.\n\n"
+        f"{imagery_note}\n\n"
         f"Format your response in markdown for readability."
     )
 
@@ -169,6 +231,15 @@ from wildfire_assessment.svc.openai_analysis import (
 )
 from wildfire_assessment.svc.openai_analysis import (
     generate_report as _openai_generate_report,
+)
+from wildfire_assessment.svc.deepseek_analysis import (
+    generate_analysis_stream as _deepseek_generate_analysis_stream,
+)
+from wildfire_assessment.svc.deepseek_analysis import (
+    generate_followup_stream as _deepseek_generate_followup_stream,
+)
+from wildfire_assessment.svc.deepseek_analysis import (
+    generate_report as _deepseek_generate_report,
 )
 
 # ---------------------------------------------------------------------------
@@ -202,6 +273,16 @@ def generate_analysis_stream(
             image_urls=image_urls,
             language=language,
             model=model or (provider.model_name if provider else "gpt-4o-mini"),
+        )
+
+    if provider and provider.provider == "deepseek":
+        return _deepseek_generate_analysis_stream(
+            pre_fire_date=pre_fire_date,
+            post_fire_date=post_fire_date,
+            area_of_interest=area_of_interest,
+            severity_distribution=severity_distribution,
+            language=language,
+            model=model or (provider.model_name if provider else "deepseek-chat"),
         )
 
     return _gemini_generate_analysis_stream(
@@ -239,6 +320,14 @@ def generate_followup_stream(
             model=model or (conv_data.get("model") if conv_data else "gpt-4o-mini"),
         )
 
+    if cached_provider == "deepseek":
+        return _deepseek_generate_followup_stream(
+            previous_response_id=previous_response_id,
+            question=question,
+            language=language,
+            model=model or (conv_data.get("model") if conv_data else "deepseek-chat"),
+        )
+
     if cached_provider == "gemini" or conv_data:
         return _gemini_generate_followup_stream(
             previous_response_id=previous_response_id,
@@ -252,6 +341,14 @@ def generate_followup_stream(
     provider = get_active_provider()
     if provider and provider.provider == "openai":
         return _openai_generate_followup_stream(
+            previous_response_id=previous_response_id,
+            question=question,
+            language=language,
+            model=model or provider.model_name,
+        )
+
+    if provider and provider.provider == "deepseek":
+        return _deepseek_generate_followup_stream(
             previous_response_id=previous_response_id,
             question=question,
             language=language,
@@ -275,9 +372,13 @@ def generate_report_summary(analysis_run, language: str = "en") -> str:
     """
     from wildfire_assessment.svc.object_storage import get_signed_image_url
 
-    prompt = build_report_prompt(analysis_run)
+    provider = get_active_provider()
+    is_text_only = bool(provider and provider.provider == "deepseek")
 
-    # Fetch satellite images from storage as base64 data URLs
+    prompt = build_report_prompt(analysis_run, include_images=not is_text_only)
+
+    # Fetch satellite images from storage as base64 data URLs — only for
+    # providers that accept images.
     image_fields = [
         ("dNBR", "dnbr_image"),
         ("RBR", "rbr_image"),
@@ -286,28 +387,35 @@ def generate_report_summary(analysis_run, language: str = "en") -> str:
         ("RGB Post-fire", "rgb_post_fire_image"),
     ]
     image_urls = []
-    for label, field in image_fields:
-        key = getattr(analysis_run, field)
-        if not key:
-            continue
-        try:
-            presigned_url = get_signed_image_url(key)
-            resp = requests.get(presigned_url, timeout=30)
-            resp.raise_for_status()
-            content_type = resp.headers.get("Content-Type", "image/png")
-            b64 = base64.b64encode(resp.content).decode()
-            image_urls.append(
-                {"label": label, "url": f"data:{content_type};base64,{b64}"}
-            )
-        except Exception:
-            LOG.warning("Failed to fetch image %s for report, skipping", label)
+    if not is_text_only:
+        for label, field in image_fields:
+            key = getattr(analysis_run, field)
+            if not key:
+                continue
+            try:
+                presigned_url = get_signed_image_url(key)
+                resp = requests.get(presigned_url, timeout=30)
+                resp.raise_for_status()
+                content_type = resp.headers.get("Content-Type", "image/png")
+                b64 = base64.b64encode(resp.content).decode()
+                image_urls.append(
+                    {"label": label, "url": f"data:{content_type};base64,{b64}"}
+                )
+            except Exception:
+                LOG.warning("Failed to fetch image %s for report, skipping", label)
 
-    provider = get_active_provider()
     if provider and provider.provider == "openai":
         model = provider.model_name if provider else "gpt-4o-mini"
         text = _openai_generate_report(
             prompt=prompt,
             image_urls=image_urls,
+            language=language,
+            model=model,
+        )
+    elif provider and provider.provider == "deepseek":
+        model = provider.model_name if provider else "deepseek-chat"
+        text = _deepseek_generate_report(
+            prompt=prompt,
             language=language,
             model=model,
         )
