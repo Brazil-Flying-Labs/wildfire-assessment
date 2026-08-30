@@ -35,6 +35,7 @@ from wildfire_assessment.svc.analytics import (
     get_user_analysis_counts,
     get_user_stats,
 )
+from wildfire_assessment.auth_views import send_set_password_email
 from wildfire_assessment.svc.object_storage import (
     delete_polygon,
     get_signed_image_url,
@@ -168,6 +169,21 @@ class UserProfileInline(UnfoldStackedInline):
 class UserAdmin(DjangoUserAdmin, UnfoldModelAdmin):
     base_inlines = getattr(DjangoUserAdmin, "inlines", None) or []
     inlines = [*base_inlines, UserCountryInline, UserProfileInline]
+
+    @admin.action(description="Approve and send first-password link")
+    def approve_users(self, request, queryset):
+        """Activate selected users and e-mail the single-use password link."""
+        approved = 0
+        for user in queryset:
+            if user.is_active:
+                continue
+            user.is_active = True
+            user.save(update_fields=["is_active"])
+            send_set_password_email(user, first_access=True)
+            approved += 1
+        self.message_user(request, f"{approved} user(s) approved and notified.")
+
+    actions = ["approve_users"]
 
 
 try:

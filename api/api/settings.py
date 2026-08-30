@@ -68,23 +68,9 @@ DB_USERNAME = _env_required("DB_USERNAME")
 DB_PASSWORD = _env_required("DB_PASSWORD")
 DB_HOST = _env_required("DB_HOST")
 
-# Auth0 (kept until the native authentication migration replaces it)
-SOCIAL_AUTH_AUTH0_DOMAIN = _env("SOCIAL_AUTH_AUTH0_DOMAIN", "your-domain.auth0.com")
-SOCIAL_AUTH_AUTH0_KEY = _env("SOCIAL_AUTH_AUTH0_KEY", "your-client-id")
-SOCIAL_AUTH_AUTH0_SECRET = _env("SOCIAL_AUTH_AUTH0_SECRET", "your-client-secret")
-SOCIAL_AUTH_AUTH0_SCOPE = _env_list("SOCIAL_AUTH_AUTH0_SCOPE", "openid,email,profile")
-SOCIAL_AUTH_TRAILING_SLASH = _env_bool("SOCIAL_AUTH_TRAILING_SLASH", True)
-
-AUTH0_AUDIENCE = _env("AUTH0_API_AUDIENCE", "")
-AUTH0_DOMAIN = SOCIAL_AUTH_AUTH0_DOMAIN
-AUTH0_ISSUER = f"https://{AUTH0_DOMAIN}/"
-AUTH0_JWKS_URL = f"{AUTH0_ISSUER}.well-known/jwks.json"
-AUTH0_EMAIL_CLAIM = _env("AUTH0_EMAIL_CLAIM", "email")
-AUTH0_HTTP_TIMEOUT = float(_env("AUTH0_HTTP_TIMEOUT", "5"))
-AUTH0_MANAGEMENT_CLIENT_ID = _env("AUTH0_MANAGEMENT_CLIENT_ID", "")
-AUTH0_MANAGEMENT_CLIENT_SECRET = _env("AUTH0_MANAGEMENT_CLIENT_SECRET", "")
-AUTH0_MANAGEMENT_AUDIENCE = f"https://{AUTH0_DOMAIN}/api/v2/"
-AUTH0_MANAGEMENT_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
+# Native authentication (session-based)
+UI_BASE_URL = _env("UI_BASE_URL", "http://localhost:3000")
+PASSWORD_RESET_TIMEOUT = 86400  # 24h — first-access and reset links
 
 # Storage (Google Cloud Storage)
 GCS_BUCKET_NAME = _env("GCS_BUCKET_NAME", "wildfire-analyser-outputs")
@@ -122,9 +108,12 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "wildfire_assessment.authentication.Auth0JWTAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    "DEFAULT_THROTTLE_RATES": {
+        "auth": "10/min",  # IP-based rate limit for public auth endpoints
+    },
     "EXCEPTION_HANDLER": "wildfire_assessment.exception_handler.custom_exception_handler",
 }
 
@@ -135,7 +124,7 @@ INSTALLED_APPS = [
     "unfold",
     "unfold.contrib.filters",
     "unfold.contrib.forms",
-    "social_django",
+    "corsheaders",
     "rest_framework",
     "django_extensions",
     "django.contrib.admin",
@@ -153,7 +142,9 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -172,7 +163,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "social_django.context_processors.backends",
             ],
         },
     },
@@ -180,10 +170,36 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "api.wsgi.application"
 
-if not AUTH0_AUDIENCE:
-    LOG.warning(
-        "AUTH0_API_AUDIENCE is not configured. API requests that require Auth0 tokens will fail."
-    )
+# Session cookies: HttpOnly + Lax; Secure in production behind the proxy.
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", False)
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = _env_bool("CSRF_COOKIE_SECURE", False)
+
+# CORS: the UI runs on a different origin (always enabled, allowlist only).
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = _env_list(
+    "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+)
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 # PostgreSQL
 DATABASES = {
@@ -202,22 +218,10 @@ DATABASES = {
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/admin/"
 
-AUTHENTICATION_BACKENDS = {
-    "social_core.backends.auth0.Auth0OAuth2",
+AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
-}
+]
 
-SOCIAL_AUTH_PIPELINE = (
-    "social_core.pipeline.social_auth.social_details",
-    "social_core.pipeline.social_auth.social_uid",
-    "wildfire_assessment.social_pipeline.social_user",
-    "social_core.pipeline.user.get_username",
-    "social_core.pipeline.social_auth.associate_by_email",
-    "social_core.pipeline.user.create_user",
-    "social_core.pipeline.social_auth.associate_user",
-    "social_core.pipeline.social_auth.load_extra_data",
-    "social_core.pipeline.user.user_details",
-)
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -371,6 +375,15 @@ UNFOLD = {
 }
 
 
+CORS_EXPOSE_HEADERS = [
+    "x-ai-provider",
+]
+
+# Trust the reverse proxy (Cloudflare + NPM) only in production.
+if ENV == "prod":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
+
 if ENV in ["local", "dev"]:
     REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = "drf_spectacular.openapi.AutoSchema"
     INSTALLED_APPS += ["drf_spectacular"]
@@ -380,48 +393,7 @@ if ENV in ["local", "dev"]:
         "DESCRIPTION": "Auto generated openApi 3.0 docs",
         "VERSION": "1.0.0",
         "SORT_OPERATION_PARAMETERS": False,
-        "APPEND_COMPONENTS": {
-            "securitySchemes": {
-                "BearerAuth": {
-                    "type": "http",
-                    "scheme": "bearer",
-                    "bearerFormat": "JWT",
-                    "description": "JWT Authorization header using the Bearer scheme. Example: 'Authorization: Bearer <token>'",
-                }
-            }
-        },
-        "SECURITY": [{"BearerAuth": []}],
+        "SECURITY": [],
     }
-
-    # DJANGO CORS HEADERS
-    INSTALLED_APPS += ["corsheaders"]
-
-    MIDDLEWARE.insert(2, "corsheaders.middleware.CorsMiddleware")
-    CORS_ALLOW_CREDENTIALS = True
-    CORS_ALLOW_ALL_ORIGINS = True
-    CORS_ALLOW_METHODS = [
-        "DELETE",
-        "GET",
-        "OPTIONS",
-        "PATCH",
-        "POST",
-        "PUT",
-    ]
-
-    CORS_ALLOW_HEADERS = [
-        "accept",
-        "accept-encoding",
-        "authorization",
-        "content-type",
-        "dnt",
-        "origin",
-        "user-agent",
-        "x-csrftoken",
-        "x-requested-with",
-    ]
-
-    CORS_EXPOSE_HEADERS = [
-        "x-ai-provider",
-    ]
 
     os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"  # only use in development

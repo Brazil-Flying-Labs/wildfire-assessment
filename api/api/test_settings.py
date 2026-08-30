@@ -15,6 +15,9 @@ os.environ["AI_ENABLED"] = "true"
 # Import all settings from main settings
 from api.settings import *  # noqa
 
+# Auth throttling must not interfere across tests (same client IP)
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {"auth": "1000/min"}
+
 # Override database to use SQLite for tests
 DATABASES = {
     "default": {

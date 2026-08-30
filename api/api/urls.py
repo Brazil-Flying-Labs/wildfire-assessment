@@ -30,6 +30,14 @@ from wildfire_assessment.admin import (
     analytics_dashboard_view,
     user_activity_report_view,
 )
+from wildfire_assessment.auth_views import (
+    CsrfTokenView,
+    LoginView,
+    LogoutView,
+    PasswordResetRequestView,
+    RequestAccessView,
+    SetPasswordView,
+)
 from wildfire_assessment.views import (
     AIAnalysisFollowUpView,
     AIAnalysisView,
@@ -48,6 +56,20 @@ router.register(r"notifications", NotificationViewSet, basename="notification")
 
 urlpatterns = [
     path("", health_status, name="health-status"),
+    path("auth/csrf/", CsrfTokenView.as_view(), name="auth-csrf"),
+    path("auth/login/", LoginView.as_view(), name="auth-login"),
+    path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
+    path(
+        "auth/request-access/",
+        RequestAccessView.as_view(),
+        name="auth-request-access",
+    ),
+    path("auth/set-password/", SetPasswordView.as_view(), name="auth-set-password"),
+    path(
+        "auth/reset-password/",
+        PasswordResetRequestView.as_view(),
+        name="auth-reset-password",
+    ),
     path("me/", UserMeView.as_view(), name="user-me"),
     path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("analysis/", AIAnalysisView.as_view(), name="ai-analysis"),
@@ -57,7 +79,6 @@ urlpatterns = [
         name="ai-analysis-followup",
     ),
     path("", include(router.urls)),
-    path("", include("social_django.urls", namespace="social")),
     path(
         "admin/analytics/",
         admin.site.admin_view(analytics_dashboard_view),
