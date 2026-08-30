@@ -29,9 +29,9 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
   });
   const initializedRef = useRef(false);
 
-  // Get Auth0 name parts for prefill fallback
-  const getAuth0NameParts = useCallback(() => {
-    // Try given_name/family_name first (from Auth0 profile)
+  // Get name parts for prefill fallback
+  const getNameParts = useCallback(() => {
+    // Try given_name/family_name first
     if (user?.given_name || user?.family_name) {
       return {
         firstName: user.given_name || "",
@@ -59,12 +59,12 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
       const backendFirstName = backendProfile.first_name || "";
       const backendLastName = backendProfile.last_name || "";
       
-      // If backend has no name, prefill with Auth0 name
+      // If backend has no name, prefill from the session user
       if (!backendFirstName && !backendLastName) {
-        const auth0Names = getAuth0NameParts();
+        const nameParts = getNameParts();
         setFormData({
-          firstName: auth0Names.firstName,
-          lastName: auth0Names.lastName,
+          firstName: nameParts.firstName,
+          lastName: nameParts.lastName,
         });
       } else {
         setFormData({
@@ -74,7 +74,7 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
       }
       setLoading(false);
     }
-  }, [backendProfile, getAuth0NameParts]);
+  }, [backendProfile, getNameParts]);
 
   const handleInputChange = useCallback((e) => {
     const { name, value } = e.target;

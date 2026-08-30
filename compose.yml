@@ -20,6 +20,14 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: api.settings
       DB_HOST: postgres
+      GEE_PRIVATE_KEY_FILE: /run/secrets/gcp-service-account.json
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-service-account.json
+    secrets:
+      - source: gcp-service-account.json
+        target: gcp-service-account.json
+        uid: "10001"
+        gid: "10001"
+        mode: 0440
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,6 +56,14 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: api.settings
       DB_HOST: postgres
+      GEE_PRIVATE_KEY_FILE: /run/secrets/gcp-service-account.json
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/gcp-service-account.json
+    secrets:
+      - source: gcp-service-account.json
+        target: gcp-service-account.json
+        uid: "10001"
+        gid: "10001"
+        mode: 0440
     depends_on:
       postgres:
         condition: service_healthy
@@ -100,3 +116,7 @@ volumes:
 
 networks:
   backend:
+
+secrets:
+  gcp-service-account.json:
+    file: ./secrets/gcp-service-account.json

@@ -26,9 +26,6 @@ services:
       args:
         REACT_APP_WILDLIFE_API_URL: ${REACT_APP_WILDLIFE_API_URL:-https://api.wildfire.droneai.com.br}
         REACT_APP_APP_ENVIRONMENT: ${REACT_APP_APP_ENVIRONMENT:-production}
-        REACT_APP_AUTH0_DOMAIN: ${REACT_APP_AUTH0_DOMAIN:-}
-        REACT_APP_AUTH0_CLIENT_ID: ${REACT_APP_AUTH0_CLIENT_ID:-}
-        REACT_APP_AUTH0_AUDIENCE: ${REACT_APP_AUTH0_AUDIENCE:-}
     restart: unless-stopped
     networks:
       - backend

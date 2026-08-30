@@ -21,6 +21,8 @@ services:
       - ./api:/api
 
   ui:
+    build:
+      target: builder
     command: sh -c "npm install && npm start"
     ports:
       - "127.0.0.1:3000:3000"
