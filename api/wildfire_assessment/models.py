@@ -158,7 +158,7 @@ class AnalysisRun(models.Model):
         max_digits=15, decimal_places=3, null=True, blank=True
     )
 
-    # S3 image keys from fire assessment visual deliverables
+    # GCS image keys from fire assessment visual deliverables
     rgb_pre_fire_image = models.CharField(max_length=255, null=True, blank=True)
     rgb_post_fire_image = models.CharField(max_length=255, null=True, blank=True)
     dndvi_image = models.CharField(max_length=255, null=True, blank=True)

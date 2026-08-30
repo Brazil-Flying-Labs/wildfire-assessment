@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def backfill_area_ha(apps, schema_editor):
     from pyproj import Geod
     from shapely.geometry import shape
-    from wildfire_assessment.svc.aws import download_polygon_from_s3
+    from wildfire_assessment.svc.object_storage import download_polygon
 
     geod = Geod(ellps="WGS84")
     AreaOfInterest = apps.get_model("wildfire_assessment", "AreaOfInterest")
@@ -17,7 +17,7 @@ def backfill_area_ha(apps, schema_editor):
     updated = []
     for area in areas:
         try:
-            raw = download_polygon_from_s3(area.polygon_path)
+            raw = download_polygon(area.polygon_path)
             geojson = json.loads(raw)
             geojson_type = geojson.get("type")
             total_area_m2 = 0

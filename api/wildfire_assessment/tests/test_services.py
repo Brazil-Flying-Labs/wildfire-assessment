@@ -5,6 +5,7 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
@@ -20,7 +21,7 @@ from wildfire_assessment.models import (
 )
 from wildfire_assessment.svc import analytics
 from wildfire_assessment.svc import area_of_interest as aoi_service
-from wildfire_assessment.svc import aws
+from wildfire_assessment.svc import object_storage
 from wildfire_assessment.svc import dashboard as dashboard_service
 from wildfire_assessment.svc import notification as notification_service
 from wildfire_assessment.svc import processor
@@ -40,7 +41,7 @@ class ProcessorTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -86,7 +87,7 @@ class ProcessorTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -121,7 +122,7 @@ class ProcessorTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -168,7 +169,7 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -216,7 +217,7 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -277,7 +278,7 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -348,7 +349,7 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -383,7 +384,7 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -421,7 +422,7 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -471,7 +472,7 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -540,44 +541,13 @@ class ProcessorTests(TestCase):
         self.assertEqual(pfa_kwargs.get("roi_only_bg_color"), "white")
 
 
-class AwsUtilsTests(TestCase):
+class ProcessorScientificTests(TestCase):
     def setUp(self):
         self.pre_fire_date = "2024-01-01"
         self.post_fire_date = "2024-01-15"
         self.polygon_path = "test-polygon.geojson"
         self.email = "test@example.com"
         self.reserve_name = "Test Reserve"
-
-    @patch("wildfire_assessment.svc.aws.boto3.Session")
-    def test_get_boto3_session_success(self, mock_session):
-        session = MagicMock()
-        mock_session.return_value = session
-        self.assertEqual(aws.get_boto3_session(), session)
-
-    @patch("wildfire_assessment.svc.aws.boto3.Session")
-    def test_get_boto3_session_profile_not_found(self, mock_session):
-        mock_session.side_effect = aws.ProfileNotFound(profile="default")
-        with self.assertRaises(ValueError):
-            aws.get_boto3_session()
-
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_get_secret_manager_secret(self, mock_session):
-        client = MagicMock()
-        client.get_secret_value.return_value = {"SecretString": "secret"}
-        mock_session.return_value.client.return_value = client
-        secret = aws.get_aws_secret_manager_secret("my-secret")
-        self.assertEqual(secret, "secret")
-
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_get_secret_manager_secret_failure(self, mock_session):
-        client = MagicMock()
-        client.get_secret_value.side_effect = aws.ClientError(
-            error_response={"Error": {"Code": "404", "Message": "NotFound"}},
-            operation_name="GetSecretValue",
-        )
-        mock_session.return_value.client.return_value = client
-        with self.assertRaises(ValueError):
-            aws.get_aws_secret_manager_secret("missing")
 
     def test_get_gee_private_key_json_reads_file(self):
         """Reads the service-account JSON from the configured file."""
@@ -617,7 +587,7 @@ class AwsUtilsTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -677,7 +647,7 @@ class AwsUtilsTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -721,7 +691,7 @@ class AwsUtilsTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -789,7 +759,7 @@ class AwsUtilsTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -852,7 +822,7 @@ class AwsUtilsTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -893,7 +863,7 @@ class AwsUtilsTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -972,7 +942,7 @@ class ProcessorCacheInvalidationTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -1020,7 +990,7 @@ class ProcessorCacheInvalidationTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -1096,7 +1066,7 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -1135,7 +1105,7 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -1174,7 +1144,7 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -1210,7 +1180,7 @@ class ProcessorErrorPersistenceTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -1241,7 +1211,7 @@ class ProcessorErrorPersistenceTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -1265,7 +1235,7 @@ class ProcessorErrorPersistenceTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -1563,7 +1533,7 @@ class AreaOfInterestServiceTests(TestCase):
 
     # -- image storage ---------------------------------------------------------
 
-    @patch("wildfire_assessment.svc.area_of_interest.upload_image_to_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.upload_image")
     @patch("wildfire_assessment.svc.area_of_interest.requests.get")
     def test_save_analysis_run_downloads_and_stores_images(self, mock_get, mock_upload):
         mock_response = MagicMock()
@@ -1600,7 +1570,7 @@ class AreaOfInterestServiceTests(TestCase):
         self.assertIsNone(run.rgb_pre_fire_image)
         self.assertIsNone(run.rbr_image)
 
-    @patch("wildfire_assessment.svc.area_of_interest.upload_image_to_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.upload_image")
     @patch("wildfire_assessment.svc.area_of_interest.requests.get")
     def test_save_analysis_run_image_download_failure(self, mock_get, mock_upload):
         mock_get.side_effect = Exception("Network error")
@@ -1677,14 +1647,14 @@ class AreaOfInterestServiceTests(TestCase):
 
     # -- delete_polygon_file with S3 ------------------------------------------
 
-    @patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.delete_polygon")
     def test_delete_polygon_file_calls_s3(self, mock_delete):
         mock_delete.return_value = True
         result = aoi_service.delete_polygon_file("test.geojson")
         self.assertTrue(result)
         mock_delete.assert_called_once_with("test.geojson")
 
-    @patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.delete_polygon")
     def test_delete_polygon_file_s3_failure(self, mock_delete):
         mock_delete.return_value = False
         result = aoi_service.delete_polygon_file("test.geojson")
@@ -1702,21 +1672,21 @@ class AreaOfInterestServiceTests(TestCase):
         result = aoi_service.get_area_geojson(None)
         self.assertIsNone(result)
 
-    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon")
     def test_get_area_geojson_success(self, mock_download):
         """Test successful geojson download and parsing."""
         mock_download.return_value = '{"type": "Polygon", "coordinates": []}'
         result = aoi_service.get_area_geojson("test.geojson")
         self.assertEqual(result, {"type": "Polygon", "coordinates": []})
 
-    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon")
     def test_get_area_geojson_s3_failure(self, mock_download):
         """Test that S3 download failure returns None."""
         mock_download.side_effect = Exception("S3 error")
         result = aoi_service.get_area_geojson("test.geojson")
         self.assertIsNone(result)
 
-    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon")
     def test_get_area_geojson_invalid_json(self, mock_download):
         """Test that invalid JSON returns None."""
         mock_download.return_value = "not valid json"
@@ -1724,129 +1694,128 @@ class AreaOfInterestServiceTests(TestCase):
         self.assertIsNone(result)
 
 
-class S3PolygonTests(TestCase):
-    """Tests for S3 polygon upload/download/delete functions."""
+class ObjectStorageTests(TestCase):
+    """Tests for the GCS object storage layer."""
 
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_upload_polygon_to_s3(self, mock_session):
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_upload_polygon(self, mock_client_cls):
         client = MagicMock()
-        mock_session.return_value.client.return_value = client
+        mock_client_cls.return_value = client
+        blob = client.bucket.return_value.blob.return_value
         geojson = {"type": "Polygon", "coordinates": []}
 
-        aws.upload_polygon_to_s3("test.geojson", geojson)
+        object_storage.upload_polygon("test.geojson", geojson)
 
-        client.put_object.assert_called_once()
-        call_kwargs = client.put_object.call_args.kwargs
-        self.assertEqual(call_kwargs["Key"], "polygons/test.geojson")
-        self.assertEqual(call_kwargs["ContentType"], "application/json")
+        client.bucket.assert_called_once_with(settings.GCS_APP_BUCKET_NAME)
+        client.bucket.return_value.blob.assert_called_once_with(
+            f"{settings.GCS_APP_PREFIX}/polygons/test.geojson"
+        )
+        blob.upload_from_string.assert_called_once_with(
+            '{"type": "Polygon", "coordinates": []}', content_type="application/json"
+        )
 
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_upload_polygon_to_s3_with_string_data(self, mock_session):
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_upload_polygon_with_string_data(self, mock_client_cls):
         client = MagicMock()
-        mock_session.return_value.client.return_value = client
+        mock_client_cls.return_value = client
+        blob = client.bucket.return_value.blob.return_value
 
-        aws.upload_polygon_to_s3("test.geojson", '{"type": "Polygon"}')
+        object_storage.upload_polygon("test.geojson", '{"type": "Polygon"}')
 
-        client.put_object.assert_called_once()
-        call_kwargs = client.put_object.call_args.kwargs
-        self.assertEqual(call_kwargs["Body"], '{"type": "Polygon"}')
+        blob.upload_from_string.assert_called_once_with(
+            '{"type": "Polygon"}', content_type="application/json"
+        )
 
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_download_polygon_from_s3(self, mock_session):
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_download_polygon(self, mock_client_cls):
         client = MagicMock()
-        mock_session.return_value.client.return_value = client
-        body_mock = MagicMock()
-        body_mock.read.return_value = b'{"type": "Polygon"}'
-        client.get_object.return_value = {"Body": body_mock}
+        mock_client_cls.return_value = client
+        blob = client.bucket.return_value.blob.return_value
+        blob.download_as_text.return_value = '{"type": "Polygon"}'
 
-        content = aws.download_polygon_from_s3("test.geojson")
+        content = object_storage.download_polygon("test.geojson")
 
         self.assertEqual(content, '{"type": "Polygon"}')
-        client.get_object.assert_called_once()
-        call_kwargs = client.get_object.call_args.kwargs
-        self.assertEqual(call_kwargs["Key"], "polygons/test.geojson")
+        client.bucket.return_value.blob.assert_called_once_with(
+            f"{settings.GCS_APP_PREFIX}/polygons/test.geojson"
+        )
 
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_delete_polygon_from_s3_success(self, mock_session):
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_delete_polygon_success(self, mock_client_cls):
         client = MagicMock()
-        mock_session.return_value.client.return_value = client
+        mock_client_cls.return_value = client
+        blob = client.bucket.return_value.blob.return_value
 
-        result = aws.delete_polygon_from_s3("test.geojson")
+        result = object_storage.delete_polygon("test.geojson")
 
         self.assertTrue(result)
-        client.delete_object.assert_called_once()
-        call_kwargs = client.delete_object.call_args.kwargs
-        self.assertEqual(call_kwargs["Key"], "polygons/test.geojson")
+        blob.delete.assert_called_once()
+        client.bucket.return_value.blob.assert_called_once_with(
+            f"{settings.GCS_APP_PREFIX}/polygons/test.geojson"
+        )
 
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_delete_polygon_from_s3_failure(self, mock_session):
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_delete_polygon_failure(self, mock_client_cls):
         client = MagicMock()
-        client.delete_object.side_effect = Exception("S3 error")
-        mock_session.return_value.client.return_value = client
+        client.bucket.return_value.blob.return_value.delete.side_effect = Exception(
+            "GCS error"
+        )
+        mock_client_cls.return_value = client
 
-        result = aws.delete_polygon_from_s3("test.geojson")
+        result = object_storage.delete_polygon("test.geojson")
 
         self.assertFalse(result)
 
-
-class S3ImageTests(TestCase):
-    """Tests for S3 image upload and pre-signed URL functions."""
-
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_upload_image_to_s3(self, mock_session):
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_upload_image(self, mock_client_cls):
         client = MagicMock()
-        mock_session.return_value.client.return_value = client
+        mock_client_cls.return_value = client
+        blob = client.bucket.return_value.blob.return_value
 
-        aws.upload_image_to_s3("run123/pre_fire_rgb.jpg", b"\xff\xd8image")
+        object_storage.upload_image("run123/pre_fire_rgb.jpg", b"\xff\xd8image")
 
-        client.put_object.assert_called_once()
-        call_kwargs = client.put_object.call_args.kwargs
-        self.assertEqual(call_kwargs["Key"], "images/run123/pre_fire_rgb.jpg")
-        self.assertEqual(call_kwargs["ContentType"], "image/jpeg")
-        self.assertEqual(call_kwargs["Body"], b"\xff\xd8image")
-
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_get_presigned_image_url(self, mock_session):
-        client = MagicMock()
-        client.generate_presigned_url.return_value = "https://s3.example.com/signed"
-        mock_session.return_value.client.return_value = client
-
-        url = aws.get_presigned_image_url("run123/pre_fire_rgb.jpg")
-
-        self.assertEqual(url, "https://s3.example.com/signed")
-        client.generate_presigned_url.assert_called_once_with(
-            "get_object",
-            Params={
-                "Bucket": mock_session.return_value.client.return_value
-                and aws.settings.S3_BUCKET_NAME,
-                "Key": "images/run123/pre_fire_rgb.jpg",
-            },
-            ExpiresIn=3600,
+        client.bucket.return_value.blob.assert_called_once_with(
+            f"{settings.GCS_APP_PREFIX}/images/run123/pre_fire_rgb.jpg"
+        )
+        blob.upload_from_string.assert_called_once_with(
+            b"\xff\xd8image", content_type="image/jpeg"
         )
 
-
-class S3ImageDeleteTests(TestCase):
-    """Tests for delete_image_from_s3."""
-
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_delete_image_from_s3_success(self, mock_session):
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_get_signed_image_url(self, mock_client_cls):
         client = MagicMock()
-        mock_session.return_value.client.return_value = client
+        mock_client_cls.return_value = client
+        blob = client.bucket.return_value.blob.return_value
+        blob.generate_signed_url.return_value = "https://storage.example.com/signed"
 
-        result = aws.delete_image_from_s3("run123/pre_fire_rgb.jpg")
+        url = object_storage.get_signed_image_url("run123/pre_fire_rgb.jpg")
+
+        self.assertEqual(url, "https://storage.example.com/signed")
+        client.bucket.return_value.blob.assert_called_once_with(
+            f"{settings.GCS_APP_PREFIX}/images/run123/pre_fire_rgb.jpg"
+        )
+        blob.generate_signed_url.assert_called_once_with(version="v4", expiration=3600)
+
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_delete_image_success(self, mock_client_cls):
+        client = MagicMock()
+        mock_client_cls.return_value = client
+        blob = client.bucket.return_value.blob.return_value
+
+        result = object_storage.delete_image("run123/pre_fire_rgb.jpg")
 
         self.assertTrue(result)
-        client.delete_object.assert_called_once()
-        call_kwargs = client.delete_object.call_args.kwargs
-        self.assertEqual(call_kwargs["Key"], "images/run123/pre_fire_rgb.jpg")
+        blob.delete.assert_called_once()
 
-    @patch("wildfire_assessment.svc.aws.get_boto3_session")
-    def test_delete_image_from_s3_failure(self, mock_session):
+    @patch("wildfire_assessment.svc.object_storage.storage.Client")
+    def test_delete_image_failure(self, mock_client_cls):
         client = MagicMock()
-        client.delete_object.side_effect = Exception("S3 error")
-        mock_session.return_value.client.return_value = client
+        client.bucket.return_value.blob.return_value.delete.side_effect = Exception(
+            "GCS error"
+        )
+        mock_client_cls.return_value = client
 
-        result = aws.delete_image_from_s3("run123/pre_fire_rgb.jpg")
+        result = object_storage.delete_image("run123/pre_fire_rgb.jpg")
 
         self.assertFalse(result)
 
@@ -1863,7 +1832,7 @@ class UserServiceTests(TestCase):
             name="UserSvcArea", polygon_path="a.geojson", country=self.country
         )
 
-    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    @patch("wildfire_assessment.svc.user.delete_image")
     def test_delete_user_account_removes_user(self, mock_del):
         mock_del.return_value = True
         from wildfire_assessment.svc.user import delete_user_account
@@ -1871,7 +1840,7 @@ class UserServiceTests(TestCase):
         delete_user_account(self.user)
         self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
 
-    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    @patch("wildfire_assessment.svc.user.delete_image")
     def test_delete_user_account_cascades_profile(self, mock_del):
         mock_del.return_value = True
         UserProfile.objects.get_or_create(user=self.user)
@@ -1880,7 +1849,7 @@ class UserServiceTests(TestCase):
         delete_user_account(self.user)
         self.assertFalse(UserProfile.objects.filter(user_id=self.user.pk).exists())
 
-    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    @patch("wildfire_assessment.svc.user.delete_image")
     def test_delete_user_account_cascades_notifications(self, mock_del):
         mock_del.return_value = True
         Notification.objects.create(user=self.user, message="test")
@@ -1889,7 +1858,7 @@ class UserServiceTests(TestCase):
         delete_user_account(self.user)
         self.assertFalse(Notification.objects.filter(user_id=self.user.pk).exists())
 
-    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    @patch("wildfire_assessment.svc.user.delete_image")
     def test_delete_user_account_cleans_images(self, mock_del):
         mock_del.return_value = True
         AnalysisRun.objects.create(
@@ -1907,7 +1876,7 @@ class UserServiceTests(TestCase):
         mock_del.assert_any_call("img1.jpg")
         mock_del.assert_any_call("img2.jpg")
 
-    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    @patch("wildfire_assessment.svc.user.delete_image")
     def test_delete_user_account_no_runs(self, mock_del):
         """Deletes cleanly when user has no analysis runs."""
         from wildfire_assessment.svc.user import delete_user_account
@@ -1916,7 +1885,7 @@ class UserServiceTests(TestCase):
         mock_del.assert_not_called()
         self.assertFalse(User.objects.filter(pk=self.user.pk).exists())
 
-    @patch("wildfire_assessment.svc.user.delete_image_from_s3")
+    @patch("wildfire_assessment.svc.user.delete_image")
     def test_delete_user_account_s3_failure_does_not_block(self, mock_del):
         """S3 failure does not prevent user deletion."""
         mock_del.return_value = False
@@ -2824,7 +2793,7 @@ class ProcessorProvenanceTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )
@@ -2862,7 +2831,7 @@ class ProcessorProvenanceTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
-    @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.processor.download_polygon")
     @patch(
         "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
     )

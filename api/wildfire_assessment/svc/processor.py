@@ -8,6 +8,7 @@ from datetime import timedelta
 import ee
 from celery import shared_task
 from celery.result import AsyncResult
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.db.models import Q
@@ -16,7 +17,7 @@ from dotenv import load_dotenv
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAssessment
 from wildfire_assessment.models import AnalysisRun, Notification, UserProfile
-from wildfire_assessment.svc.aws import download_polygon_from_s3
+from wildfire_assessment.svc.object_storage import download_polygon
 from wildfire_assessment.svc.dashboard import invalidate_dashboard_cache
 from wildfire_assessment.svc.notification import send_push_notification
 from wildfire_assessment.translations import get_email_translation
@@ -60,8 +61,8 @@ def process_fire_assessment(
     Returns:
         dict: A dictionary with URLs to the generated deliverables and area statistics.
     """
-    # Download polygon from S3 to a temp file for PostFireAssessment
-    geojson_content = download_polygon_from_s3(polygon_path)
+    # Download polygon from GCS to a temp file for PostFireAssessment
+    geojson_content = download_polygon(polygon_path)
     tmp = tempfile.NamedTemporaryFile(suffix=".geojson", delete=False)
     try:
         tmp.write(geojson_content.encode("utf-8"))
@@ -212,8 +213,8 @@ def process_scientific_deliverable(
         except AnalysisRun.DoesNotExist:
             pass
 
-    # Download polygon from S3 to a temp file for PostFireAssessment
-    geojson_content = download_polygon_from_s3(polygon_path)
+    # Download polygon from GCS to a temp file for PostFireAssessment
+    geojson_content = download_polygon(polygon_path)
     tmp = tempfile.NamedTemporaryFile(suffix=".geojson", delete=False)
     try:
         tmp.write(geojson_content.encode("utf-8"))
@@ -225,7 +226,7 @@ def process_scientific_deliverable(
             pre_fire_date,
             post_fire_date,
             deliverables=[deliverable],
-            gcs_bucket="wildfire-analyser-outputs",
+            gcs_bucket=settings.GCS_BUCKET_NAME,
             verbose=False,
             **advanced_kwargs,
         )

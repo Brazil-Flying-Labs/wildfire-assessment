@@ -33,7 +33,6 @@ if os.environ.get("OTEL_SDK_DISABLED") != "true":
         pass
 
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("botocore").setLevel(logging.WARNING)
 
 LOG = logging.getLogger(__name__)
 
@@ -101,8 +100,10 @@ AUTH0_MANAGEMENT_CLIENT_SECRET = _env("AUTH0_MANAGEMENT_CLIENT_SECRET", "")
 AUTH0_MANAGEMENT_AUDIENCE = f"https://{AUTH0_DOMAIN}/api/v2/"
 AUTH0_MANAGEMENT_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
 
-# Storage (S3 until the GCS migration replaces it)
-S3_BUCKET_NAME = _env("S3_BUCKET_NAME", "your-s3-bucket-name")
+# Storage (Google Cloud Storage)
+GCS_BUCKET_NAME = _env("GCS_BUCKET_NAME", "wildfire-analyser-outputs")
+GCS_APP_BUCKET_NAME = _env("GCS_APP_BUCKET_NAME", "wildfire-assessment-assets")
+GCS_APP_PREFIX = _env("GCS_APP_PREFIX", "dev")
 
 # AI providers (optional; the app starts without them)
 GEMINI_API_KEY = _env("GEMINI_API_KEY")

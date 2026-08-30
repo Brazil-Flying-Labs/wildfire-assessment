@@ -11,10 +11,10 @@ from wildfire_assessment.models import (
     AnalysisRunProvenance,
     AreaOfInterest,
 )
-from wildfire_assessment.svc.aws import (
-    delete_polygon_from_s3,
-    download_polygon_from_s3,
-    upload_image_to_s3,
+from wildfire_assessment.svc.object_storage import (
+    delete_polygon,
+    download_polygon,
+    upload_image,
 )
 
 LOG = logging.getLogger(__name__)
@@ -58,22 +58,22 @@ def user_can_access_area(user, area):
 
 
 def delete_polygon_file(polygon_path):
-    """Delete a polygon GeoJSON file from S3."""
+    """Delete a polygon GeoJSON file from storage."""
     if not polygon_path:
         return False
 
-    return delete_polygon_from_s3(polygon_path)
+    return delete_polygon(polygon_path)
 
 
 def _download_and_store_image(url, run_id, name):
-    """Download an image from a URL and upload it to S3. Returns the S3 key or None."""
+    """Download an image from a URL and upload it to object storage. Returns the object key or None."""
     if not url:
         return None
     try:
         resp = requests.get(url, timeout=30)
         resp.raise_for_status()
         key = f"{run_id}/{name}.jpg"
-        upload_image_to_s3(key, resp.content)
+        upload_image(key, resp.content)
         return key
     except Exception:
         LOG.warning("Failed to download/store image %s for run %s", name, run_id)
@@ -119,9 +119,9 @@ def save_analysis_run(
         "rbr_image": ("rbr_visual_jpg", "rbr"),
     }
     image_keys = {}
-    for field, (result_key, s3_name) in image_fields.items():
+    for field, (result_key, image_name) in image_fields.items():
         url = assessment_result.get(result_key)
-        image_keys[field] = _download_and_store_image(url, run_id, s3_name)
+        image_keys[field] = _download_and_store_image(url, run_id, image_name)
 
     run = AnalysisRun.objects.create(
         user=user,
@@ -226,7 +226,7 @@ def get_area_geojson(polygon_path):
         return None
 
     try:
-        raw = download_polygon_from_s3(polygon_path)
+        raw = download_polygon(polygon_path)
         return json.loads(raw)
     except Exception:
         LOG.warning("Failed to download polygon: %s", polygon_path)

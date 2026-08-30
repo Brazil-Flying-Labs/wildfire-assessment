@@ -8,14 +8,14 @@ logger = logging.getLogger(__name__)
 
 def backfill_centroids(apps, schema_editor):
     from shapely.geometry import shape
-    from wildfire_assessment.svc.aws import download_polygon_from_s3
+    from wildfire_assessment.svc.object_storage import download_polygon
 
     AreaOfInterest = apps.get_model("wildfire_assessment", "AreaOfInterest")
     areas = AreaOfInterest.objects.filter(centroid_lat__isnull=True)
     updated = []
     for area in areas:
         try:
-            raw = download_polygon_from_s3(area.polygon_path)
+            raw = download_polygon(area.polygon_path)
             geojson = json.loads(raw)
             if geojson.get("type") == "Feature":
                 geom = shape(geojson["geometry"])

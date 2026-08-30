@@ -58,7 +58,7 @@ class AreaOfInterestAdminFormTests(TestCase):
     def setUp(self):
         self.country = Country.objects.create(name="Admin Country", code="AC")
 
-    @patch("wildfire_assessment.admin.upload_polygon_to_s3")
+    @patch("wildfire_assessment.admin.upload_polygon")
     def test_form_save_with_geojson_file(self, mock_upload):
         geojson_content = b'{"type": "Polygon", "coordinates": []}'
         uploaded_file = SimpleUploadedFile(
@@ -87,8 +87,8 @@ class AreaOfInterestAdminFormTests(TestCase):
         instance = form.save()
         self.assertEqual(instance.polygon_path, "existing.geojson")
 
-    @patch("wildfire_assessment.admin.delete_polygon_from_s3")
-    @patch("wildfire_assessment.admin.upload_polygon_to_s3")
+    @patch("wildfire_assessment.admin.delete_polygon")
+    @patch("wildfire_assessment.admin.upload_polygon")
     def test_form_save_replaces_existing_polygon(self, mock_upload, mock_delete):
         area = AreaOfInterest.objects.create(
             name="Replace Area",
@@ -244,7 +244,7 @@ class AnalysisRunAdminTests(TestCase):
             dndvi_image="abc123/dndvi.jpg",
         )
 
-    @patch("wildfire_assessment.admin.get_presigned_image_url")
+    @patch("wildfire_assessment.admin.get_signed_image_url")
     def test_image_previews_renders_images(self, mock_presign):
         mock_presign.side_effect = lambda key: f"https://s3.example.com/{key}"
         admin_instance = AnalysisRunAdmin(AnalysisRun, admin.site)
@@ -381,7 +381,7 @@ class AreaOfInterestAdminFormValidationTests(TestCase):
         )
         self.assertTrue(form.is_valid(), form.errors)
 
-    @patch("wildfire_assessment.admin.upload_polygon_to_s3")
+    @patch("wildfire_assessment.admin.upload_polygon")
     def test_clean_geojson_file_valid_feature_collection(self, _mock_upload):
         geojson = json.dumps(
             {

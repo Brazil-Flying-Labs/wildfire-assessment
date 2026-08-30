@@ -468,7 +468,7 @@ class WildfireAssessmentTests(APITestCase):
         data = response.json()
         self.assertEqual(data["count"], 0)
 
-    @patch("wildfire_assessment.serializers.upload_polygon_to_s3")
+    @patch("wildfire_assessment.serializers.upload_polygon")
     def test_create_area_of_interest_success(self, mock_upload):
         UserCountry.objects.create(user=self.user, country=self.country)
         self.client.force_authenticate(user=self.user)
@@ -557,7 +557,7 @@ class WildfireAssessmentTests(APITestCase):
         self.client.force_authenticate(user=self.user)
 
         with patch(
-            "wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3"
+            "wildfire_assessment.svc.area_of_interest.delete_polygon"
         ) as mock_delete:
             mock_delete.return_value = True
             url = reverse("areaofinterest-detail", args=[self.reserve.id])
@@ -571,7 +571,7 @@ class WildfireAssessmentTests(APITestCase):
 
         # Simulate S3 deletion failure
         with patch(
-            "wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3"
+            "wildfire_assessment.svc.area_of_interest.delete_polygon"
         ) as mock_delete:
             mock_delete.return_value = False
             url = reverse("areaofinterest-detail", args=[self.reserve.id])
@@ -596,7 +596,7 @@ class WildfireAssessmentTests(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
             self.assertIn("permission", response.json()["error"])
 
-    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon")
     def test_geojson_endpoint_success(self, mock_download):
         """Test geojson endpoint returns GeoJSON data."""
         UserCountry.objects.create(user=self.user, country=self.country)
@@ -611,7 +611,7 @@ class WildfireAssessmentTests(APITestCase):
         self.assertEqual(data["type"], "Polygon")
         self.assertIn("coordinates", data)
 
-    @patch("wildfire_assessment.svc.area_of_interest.download_polygon_from_s3")
+    @patch("wildfire_assessment.svc.area_of_interest.download_polygon")
     def test_geojson_endpoint_download_failure(self, mock_download):
         """Test geojson endpoint returns 404 on download failure."""
         UserCountry.objects.create(user=self.user, country=self.country)
@@ -1221,7 +1221,7 @@ class DashboardCacheTests(APITestCase):
                 ],
             },
         }
-        with patch("wildfire_assessment.serializers.upload_polygon_to_s3"):
+        with patch("wildfire_assessment.serializers.upload_polygon"):
             create_url = reverse("areaofinterest-list")
             self.client.post(
                 create_url,
@@ -1246,7 +1246,7 @@ class DashboardCacheTests(APITestCase):
         self.assertIsNotNone(cache.get(cache_key))
 
         # Delete the area (triggers cache invalidation in view)
-        with patch("wildfire_assessment.svc.area_of_interest.delete_polygon_from_s3"):
+        with patch("wildfire_assessment.svc.area_of_interest.delete_polygon"):
             delete_url = reverse("areaofinterest-detail", args=[self.area.id])
             self.client.delete(delete_url)
 

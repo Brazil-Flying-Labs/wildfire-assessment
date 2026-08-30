@@ -24,7 +24,7 @@ from wildfire_assessment.models import (
 )
 from wildfire_assessment.serializers import (
     check_duplicate_area_name,
-    generate_s3_filename,
+    generate_polygon_filename,
 )
 from wildfire_assessment.svc.analytics import (
     get_analytics_summary,
@@ -35,10 +35,10 @@ from wildfire_assessment.svc.analytics import (
     get_user_analysis_counts,
     get_user_stats,
 )
-from wildfire_assessment.svc.aws import (
-    delete_polygon_from_s3,
-    get_presigned_image_url,
-    upload_polygon_to_s3,
+from wildfire_assessment.svc.object_storage import (
+    delete_polygon,
+    get_signed_image_url,
+    upload_polygon,
 )
 
 
@@ -116,13 +116,13 @@ class AreaOfInterestAdminForm(forms.ModelForm):
             content = geojson_file.read().decode("utf-8")
             json.loads(content)
 
-            filename = generate_s3_filename(instance.name)
+            filename = generate_polygon_filename(instance.name)
 
-            # Delete old polygon from S3 if replacing
+            # Delete old polygon from storage if replacing
             if instance.polygon_path:
-                delete_polygon_from_s3(instance.polygon_path)
+                delete_polygon(instance.polygon_path)
 
-            upload_polygon_to_s3(filename, content)
+            upload_polygon(filename, content)
             instance.polygon_path = filename
 
         if commit:
@@ -252,7 +252,7 @@ class AnalysisRunAdmin(UnfoldModelAdmin):
         parts = []
         for label, key in images:
             if key:
-                url = get_presigned_image_url(key)
+                url = get_signed_image_url(key)
                 parts.append(
                     format_html(
                         '<div style="display:inline-block;margin:8px;text-align:center;">'

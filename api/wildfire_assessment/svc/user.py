@@ -3,7 +3,7 @@
 import logging
 
 from wildfire_assessment.models import AnalysisRun
-from wildfire_assessment.svc.aws import delete_image_from_s3
+from wildfire_assessment.svc.object_storage import delete_image
 
 LOG = logging.getLogger(__name__)
 
@@ -17,9 +17,9 @@ IMAGE_FIELDS = [
 
 
 def delete_user_account(user):
-    """Delete a user account and clean up all associated S3 images.
+    """Delete a user account and clean up all associated stored images.
 
-    S3 image deletion is best-effort (logged on failure).
+    Image deletion is best-effort (logged on failure).
     Django CASCADE handles UserProfile, UserCountry, AnalysisRun,
     Notification, and UserSocialAuth records.
     """
@@ -28,6 +28,6 @@ def delete_user_account(user):
         for field in IMAGE_FIELDS:
             key = getattr(run, field)
             if key:
-                delete_image_from_s3(key)
+                delete_image(key)
 
     user.delete()

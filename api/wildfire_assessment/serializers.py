@@ -17,10 +17,10 @@ from wildfire_assessment.models import (
     Notification,
     UserProfile,
 )
-from wildfire_assessment.svc.aws import (
-    delete_polygon_from_s3,
-    get_presigned_image_url,
-    upload_polygon_to_s3,
+from wildfire_assessment.svc.object_storage import (
+    delete_polygon,
+    get_signed_image_url,
+    upload_polygon,
 )
 from wildfire_assessment.svc.dashboard import invalidate_dashboard_cache
 from wildfire_assessment.translations import get_error_translation, get_user_language
@@ -39,8 +39,8 @@ MAX_AREA_HA = 110_000
 MIN_MULTIPOLYGON_PART_AREA_M2 = 10.0
 
 
-def generate_s3_filename(name):
-    """Generate a unique S3 filename from a human-readable name."""
+def generate_polygon_filename(name):
+    """Generate a unique polygon filename from a human-readable name."""
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
     return f"{safe_name}_{uuid.uuid4().hex[:8]}.geojson"
 
@@ -521,9 +521,9 @@ class AreaOfInterestCreateSerializer(AreaSerializerMixin, serializers.ModelSeria
 
     def create(self, validated_data):
         geojson_data = validated_data.pop("geojson")
-        filename = generate_s3_filename(validated_data.get("name"))
+        filename = generate_polygon_filename(validated_data.get("name"))
 
-        upload_polygon_to_s3(filename, geojson_data)
+        upload_polygon(filename, geojson_data)
 
         validated_data["polygon_path"] = filename
         validated_data["area_ha"] = compute_area_ha(geojson_data)
@@ -560,12 +560,12 @@ class AreaOfInterestUpdateSerializer(AreaSerializerMixin, serializers.ModelSeria
 
         if geojson_data:
             name = validated_data.get("name", instance.name)
-            filename = generate_s3_filename(name)
+            filename = generate_polygon_filename(name)
 
             if instance.polygon_path:
-                delete_polygon_from_s3(instance.polygon_path)
+                delete_polygon(instance.polygon_path)
 
-            upload_polygon_to_s3(filename, geojson_data)
+            upload_polygon(filename, geojson_data)
             validated_data["polygon_path"] = filename
             validated_data["area_ha"] = compute_area_ha(geojson_data)
 
@@ -814,7 +814,7 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
         key = getattr(obj, field)
         if not key:
             return None
-        return get_presigned_image_url(key)
+        return get_signed_image_url(key)
 
     def get_rgb_pre_fire_url(self, obj):
         return self._get_image_url(obj, "rgb_pre_fire_image")

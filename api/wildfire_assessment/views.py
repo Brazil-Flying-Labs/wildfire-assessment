@@ -477,7 +477,7 @@ class AreaOfInterestViewSet(viewsets.ModelViewSet):
         """
         Return the GeoJSON geometry for an AreaOfInterest.
 
-        This endpoint downloads the polygon from S3 and returns it as GeoJSON.
+        This endpoint downloads the polygon from storage and returns it as GeoJSON.
         """
         instance = self.get_object()
         geojson_data = get_area_geojson(instance.polygon_path)

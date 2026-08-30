@@ -733,7 +733,7 @@ class ProviderDispatchTests(TestCase):
         mock_gemini.assert_called_once()
 
     @patch("wildfire_assessment.svc.ai_common.requests")
-    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.object_storage.get_signed_image_url")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     def test_generate_report_summary_gemini(
@@ -771,7 +771,7 @@ class ProviderDispatchTests(TestCase):
         self.assertEqual(run.report_summary_language, "en")
 
     @patch("wildfire_assessment.svc.ai_common.requests")
-    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.object_storage.get_signed_image_url")
     @patch("wildfire_assessment.svc.ai_common._openai_generate_report")
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     def test_generate_report_summary_openai(
@@ -809,7 +809,7 @@ class ProviderDispatchTests(TestCase):
         self.assertEqual(run.report_summary_language, "pt-BR")
 
     @patch("wildfire_assessment.svc.ai_common.requests")
-    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.object_storage.get_signed_image_url")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     def test_generate_report_summary_fetches_images(
@@ -855,7 +855,7 @@ class ProviderDispatchTests(TestCase):
         self.assertEqual(len(image_urls), 2)
 
     @patch("wildfire_assessment.svc.ai_common.requests")
-    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.object_storage.get_signed_image_url")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     def test_generate_report_summary_no_provider_defaults_to_gemini(
@@ -887,7 +887,7 @@ class ProviderDispatchTests(TestCase):
         mock_gemini_report.assert_called_once()
 
     @patch("wildfire_assessment.svc.ai_common.requests")
-    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.object_storage.get_signed_image_url")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     def test_generate_report_summary_null_language_cached(
@@ -924,7 +924,7 @@ class ProviderDispatchTests(TestCase):
         self.assertEqual(result, "# New Report")
 
     @patch("wildfire_assessment.svc.ai_common.requests")
-    @patch("wildfire_assessment.svc.aws.get_presigned_image_url")
+    @patch("wildfire_assessment.svc.object_storage.get_signed_image_url")
     @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     def test_generate_report_summary_image_fetch_failure_skips(

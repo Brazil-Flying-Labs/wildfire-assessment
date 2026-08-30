@@ -270,14 +270,14 @@ def generate_report_summary(analysis_run, language: str = "en") -> str:
     """
     Generate a non-streaming report summary using the active AI provider.
 
-    Fetches satellite images from S3, builds the prompt, dispatches to the
+    Fetches satellite images from storage, builds the prompt, dispatches to the
     active provider, saves the result to the DB, and returns the markdown.
     """
-    from wildfire_assessment.svc.aws import get_presigned_image_url
+    from wildfire_assessment.svc.object_storage import get_signed_image_url
 
     prompt = build_report_prompt(analysis_run)
 
-    # Fetch satellite images from S3 as base64 data URLs
+    # Fetch satellite images from storage as base64 data URLs
     image_fields = [
         ("dNBR", "dnbr_image"),
         ("RBR", "rbr_image"),
@@ -291,7 +291,7 @@ def generate_report_summary(analysis_run, language: str = "en") -> str:
         if not key:
             continue
         try:
-            presigned_url = get_presigned_image_url(key)
+            presigned_url = get_signed_image_url(key)
             resp = requests.get(presigned_url, timeout=30)
             resp.raise_for_status()
             content_type = resp.headers.get("Content-Type", "image/png")
