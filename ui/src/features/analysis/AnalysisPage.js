@@ -28,7 +28,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
   const [analysisResult, setAnalysisResult] = useState(null);
   const [analysisState, setAnalysisState] = useState({ loading: false, error: null });
   const [analysisStep, setAnalysisStep] = useState(0);
-  const [roiOnly, setRoiOnly] = useState(true);
+  const [roiOnly, setRoiOnly] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [cloudThreshold, setCloudThreshold] = useState(100);
   const [daysBeforeAfter, setDaysBeforeAfter] = useState(30);
