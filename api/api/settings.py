@@ -11,12 +11,12 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
-import json
 import logging
 import os
 from pathlib import Path
 
 from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
 
 # Auto-configure OpenTelemetry if the SDK is installed and not disabled.
 # This ensures instrumentation works even when the process is forked
@@ -32,61 +32,101 @@ if os.environ.get("OTEL_SDK_DISABLED") != "true":
     except ImportError:
         pass
 
-from wildfire_assessment.svc.aws import get_aws_secret_manager_secret
-
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("botocore").setLevel(logging.WARNING)
 
 LOG = logging.getLogger(__name__)
 
+
+def _env(name, default=None):
+    """Read an optional environment variable."""
+    return os.environ.get(name, default)
+
+
+def _env_bool(name, default=False):
+    """Read an environment variable as a boolean."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_list(name, default=""):
+    """Read a comma-separated environment variable as a list."""
+    raw = os.environ.get(name, default)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _env_required(name):
+    """Read a required environment variable, raising a clear error when unset."""
+    value = os.environ.get(name)
+    if not value:
+        raise ImproperlyConfigured(
+            f"Environment variable {name} is required but not set. "
+            "See .env.example for the expected configuration."
+        )
+    return value
+
+
 # Check the environment
 ENV = os.environ.get("ENV", "local")
-USE_LOCAL_SECRET = os.environ.get("SKIP_AWS_SECRETS") == "1"
 
+# Core settings
+SECRET_KEY = _env_required("DJANGO_SECRET_KEY")
+DEBUG = _env_bool("DJANGO_DEBUG", False)
+ALLOWED_HOSTS = _env_list("DJANGO_ALLOWED_HOSTS", "localhost")
+CSRF_TRUSTED_ORIGINS = _env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 
-if USE_LOCAL_SECRET:
-    secret = {
-        "SOCIAL_AUTH_AUTH0_DOMAIN": "your-domain.auth0.com",
-        "SOCIAL_AUTH_AUTH0_KEY": "your-client-id",
-        "SOCIAL_AUTH_AUTH0_SECRET": "your-client-secret",
-        "SOCIAL_AUTH_AUTH0_SCOPE": "openid,email,profile",
-        "S3_BUCKET_NAME": "your-s3-bucket-name",
-        "DJANGO_ALLOWED_HOSTS": "localhost",
-        "DJANGO_SECRET_KEY": "your-secret-key",
-        "DJANGO_DEBUG": "True",
-        "DJANGO_CSRF_TRUSTED_ORIGINS": "http://localhost",
-        "DB_USERNAME": "postgres",
-        "DB_PASSWORD": "supersecretpassword",
-        "DB_NAME": "app",
-        "DB_HOST": "db",
-        "AUTH0_API_AUDIENCE": "your-auth0-api-audience",
-        "AUTH0_EMAIL_CLAIM": "email",
-        "AUTH0_HTTP_TIMEOUT": "5",
-        "AUTH0_MANAGEMENT_CLIENT_ID": "your-auth0-management-client-id",
-        "AUTH0_MANAGEMENT_CLIENT_SECRET": "your-auth0-management-client-secret",
-        "AUTH0_MANAGEMENT_AUDIENCE": "https://your-domain.auth0.com/api/v2/",
-        "AUTH0_MANAGEMENT_TOKEN_URL": "https://your-domain.auth0.com/oauth/token",
-        "S3_BUCKET_NAME": "your-s3-bucket-name",
-        "SOCIAL_AUTH_TRAILING_SLASH": True,
-        "OPENAI_API_KEY": "your-openai-api-key",
-        "GRAFANA_CLOUD_OTLP_ENDPOINT": "",
-        "GRAFANA_CLOUD_INSTANCE_ID": "",
-        "GRAFANA_CLOUD_API_KEY": "",
-    }
-else:
-    secret = json.loads(get_aws_secret_manager_secret(ENV))
+# Database
+DB_NAME = _env_required("DB_NAME")
+DB_USERNAME = _env_required("DB_USERNAME")
+DB_PASSWORD = _env_required("DB_PASSWORD")
+DB_HOST = _env_required("DB_HOST")
 
-GEMINI_API_KEY = secret.get("GEMINI_API_KEY")
-OPENAI_API_KEY = secret.get("OPENAI_API_KEY")
-GRAFANA_CLOUD_OTLP_ENDPOINT = secret.get("GRAFANA_CLOUD_OTLP_ENDPOINT", "")
-GRAFANA_CLOUD_INSTANCE_ID = secret.get("GRAFANA_CLOUD_INSTANCE_ID", "")
-GRAFANA_CLOUD_API_KEY = secret.get("GRAFANA_CLOUD_API_KEY", "")
+# Auth0 (kept until the native authentication migration replaces it)
+SOCIAL_AUTH_AUTH0_DOMAIN = _env("SOCIAL_AUTH_AUTH0_DOMAIN", "your-domain.auth0.com")
+SOCIAL_AUTH_AUTH0_KEY = _env("SOCIAL_AUTH_AUTH0_KEY", "your-client-id")
+SOCIAL_AUTH_AUTH0_SECRET = _env("SOCIAL_AUTH_AUTH0_SECRET", "your-client-secret")
+SOCIAL_AUTH_AUTH0_SCOPE = _env_list("SOCIAL_AUTH_AUTH0_SCOPE", "openid,email,profile")
+SOCIAL_AUTH_TRAILING_SLASH = _env_bool("SOCIAL_AUTH_TRAILING_SLASH", True)
+
+AUTH0_AUDIENCE = _env("AUTH0_API_AUDIENCE", "")
+AUTH0_DOMAIN = SOCIAL_AUTH_AUTH0_DOMAIN
+AUTH0_ISSUER = f"https://{AUTH0_DOMAIN}/"
+AUTH0_JWKS_URL = f"{AUTH0_ISSUER}.well-known/jwks.json"
+AUTH0_EMAIL_CLAIM = _env("AUTH0_EMAIL_CLAIM", "email")
+AUTH0_HTTP_TIMEOUT = float(_env("AUTH0_HTTP_TIMEOUT", "5"))
+AUTH0_MANAGEMENT_CLIENT_ID = _env("AUTH0_MANAGEMENT_CLIENT_ID", "")
+AUTH0_MANAGEMENT_CLIENT_SECRET = _env("AUTH0_MANAGEMENT_CLIENT_SECRET", "")
+AUTH0_MANAGEMENT_AUDIENCE = f"https://{AUTH0_DOMAIN}/api/v2/"
+AUTH0_MANAGEMENT_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
+
+# Storage (S3 until the GCS migration replaces it)
+S3_BUCKET_NAME = _env("S3_BUCKET_NAME", "your-s3-bucket-name")
+
+# AI providers (optional; the app starts without them)
+GEMINI_API_KEY = _env("GEMINI_API_KEY")
+OPENAI_API_KEY = _env("OPENAI_API_KEY")
+
+# Observability (Grafana Cloud, removed in the V1 cleanup phase)
+GRAFANA_CLOUD_OTLP_ENDPOINT = _env("GRAFANA_CLOUD_OTLP_ENDPOINT", "")
+GRAFANA_CLOUD_INSTANCE_ID = _env("GRAFANA_CLOUD_INSTANCE_ID", "")
+GRAFANA_CLOUD_API_KEY = _env("GRAFANA_CLOUD_API_KEY", "")
+
+# Email (console backend by default; SMTP on the VPS)
+EMAIL_BACKEND = _env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = _env("EMAIL_HOST", "")
+EMAIL_PORT = int(_env("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = _env("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = _env("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = _env_bool("EMAIL_USE_TLS", True)
+EMAIL_USE_SSL = _env_bool("EMAIL_USE_SSL", False)
+DEFAULT_FROM_EMAIL = _env("DEFAULT_FROM_EMAIL", "noreply@localhost")
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 STATIC_URL = "static/"
-
 
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 STATICFILES_STORAGE = "whitenoise.storage.StaticFilesStorage"
@@ -104,18 +144,6 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "EXCEPTION_HANDLER": "wildfire_assessment.exception_handler.custom_exception_handler",
 }
-
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-$ts=wt!%wmah^0-1aub!)o9*b60nqwe!$d(2%g4c4df^@nzirb"
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -169,43 +197,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "api.wsgi.application"
 
-SOCIAL_AUTH_TRAILING_SLASH = secret[
-    "SOCIAL_AUTH_TRAILING_SLASH"
-]  # Remove trailing slash from routes
-SOCIAL_AUTH_AUTH0_DOMAIN = secret["SOCIAL_AUTH_AUTH0_DOMAIN"]
-SOCIAL_AUTH_AUTH0_KEY = secret["SOCIAL_AUTH_AUTH0_KEY"]
-SOCIAL_AUTH_AUTH0_SECRET = secret["SOCIAL_AUTH_AUTH0_SECRET"]
-SOCIAL_AUTH_AUTH0_SCOPE = secret["SOCIAL_AUTH_AUTH0_SCOPE"].split(",")
-
-AUTH0_AUDIENCE = secret.get("AUTH0_API_AUDIENCE")
-AUTH0_DOMAIN = SOCIAL_AUTH_AUTH0_DOMAIN
-AUTH0_ISSUER = f"https://{AUTH0_DOMAIN}/"
-AUTH0_JWKS_URL = f"{AUTH0_ISSUER}.well-known/jwks.json"
-AUTH0_EMAIL_CLAIM = secret.get("AUTH0_EMAIL_CLAIM")
-AUTH0_HTTP_TIMEOUT = float(secret.get("AUTH0_HTTP_TIMEOUT"))
-AUTH0_MANAGEMENT_CLIENT_ID = secret.get("AUTH0_MANAGEMENT_CLIENT_ID")
-AUTH0_MANAGEMENT_CLIENT_SECRET = secret.get("AUTH0_MANAGEMENT_CLIENT_SECRET")
-AUTH0_MANAGEMENT_AUDIENCE = f"https://{AUTH0_DOMAIN}/api/v2/"
-AUTH0_MANAGEMENT_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
-
-S3_BUCKET_NAME = secret["S3_BUCKET_NAME"]
-
 if not AUTH0_AUDIENCE:
     LOG.warning(
         "AUTH0_API_AUDIENCE is not configured. API requests that require Auth0 tokens will fail."
     )
-
-ALLOWED_HOSTS = secret["DJANGO_ALLOWED_HOSTS"].split(",")
-SECRET_KEY = secret["DJANGO_SECRET_KEY"]
-DEBUG = secret["DJANGO_DEBUG"]
-CSRF_TRUSTED_ORIGINS = secret["DJANGO_CSRF_TRUSTED_ORIGINS"].split(
-    ","
-)  # updated in Secrets Manager
-DB_USERNAME = secret["DB_USERNAME"]
-DB_PASSWORD = secret["DB_PASSWORD"]
-DB_NAME = secret["DB_NAME"]
-DB_HOST = secret["DB_HOST"]
-
 
 # PostgreSQL
 DATABASES = {
@@ -270,11 +265,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
-STATIC_URL = "static/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

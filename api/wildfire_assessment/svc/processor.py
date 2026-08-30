@@ -9,25 +9,20 @@ import ee
 from celery import shared_task
 from celery.result import AsyncResult
 from django.contrib.auth import get_user_model
+from django.core.mail import send_mail
 from django.db.models import Q
 from django.utils.timezone import now
 from dotenv import load_dotenv
 from wildfire_analyser.fire_assessment.deliverables import Deliverable
 from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAssessment
 from wildfire_assessment.models import AnalysisRun, Notification, UserProfile
-from wildfire_assessment.svc.aws import (
-    download_polygon_from_s3,
-    get_aws_secret_manager_secret,
-)
+from wildfire_assessment.svc.aws import download_polygon_from_s3
 from wildfire_assessment.svc.dashboard import invalidate_dashboard_cache
 from wildfire_assessment.svc.notification import send_push_notification
 from wildfire_assessment.translations import get_email_translation
-from wildfire_assessment.utils import send_gmail_email
 
 logger = logging.getLogger(__name__)
 load_dotenv()
-
-ENV = os.environ.get("ENV", "local")
 
 VALID_MOSAIC_STRATEGIES = {
     "best_date_mosaic",
@@ -315,12 +310,11 @@ def process_scientific_deliverable(
                 url=deliverable_url,
             )
 
-            send_gmail_email(
-                username="Brazil@flyinglabs.org",
-                password=json.loads(get_aws_secret_manager_secret(ENV))["GMAIL_PWD"],
-                to_address=email,
+            send_mail(
                 subject=subject,
-                body=body,
+                message=body,
+                from_email=None,
+                recipient_list=[email],
             )
 
             if user_id:
@@ -407,32 +401,14 @@ def cleanup_stale_deliverables():
 
 def get_gee_private_key_json() -> str:
     """
-    Recovers the GEE private key JSON from AWS Secrets Manager and formats it properly.
+    Reads the GEE service-account JSON from the file configured by
+    ``GEE_PRIVATE_KEY_FILE`` and returns its raw content.
 
     Returns:
         str: Chave privada do GEE em formato JSON
     """
-    secret = json.loads(get_aws_secret_manager_secret(ENV))
-
-    GEE_PRIVATE_KEY_JSON = secret["GEE_PRIVATE_KEY_JSON"]
-
-    if isinstance(GEE_PRIVATE_KEY_JSON, str):
-        if GEE_PRIVATE_KEY_JSON.startswith("'") and GEE_PRIVATE_KEY_JSON.endswith("'"):
-            GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON[1:-1]
-        GEE_PRIVATE_KEY_JSON = GEE_PRIVATE_KEY_JSON.replace('\\"', '"').replace(
-            "\\\\", "\\"
-        )
-
-        # When stored as a nested JSON string in Secrets Manager, literal
-        # control characters (e.g. newlines in the RSA private key) survive
-        # the outer json.loads() but break the downstream json.loads() that
-        # parses the GEE service-account JSON.  Re-parse leniently and
-        # re-serialize so every control character is properly escaped.
-        try:
-            json.loads(GEE_PRIVATE_KEY_JSON)
-        except json.JSONDecodeError:
-            GEE_PRIVATE_KEY_JSON = json.dumps(
-                json.loads(GEE_PRIVATE_KEY_JSON, strict=False)
-            )
-
-    return GEE_PRIVATE_KEY_JSON
+    key_file = os.environ.get("GEE_PRIVATE_KEY_FILE")
+    if not key_file:
+        raise ValueError("GEE_PRIVATE_KEY_FILE environment variable is not set")
+    with open(key_file, encoding="utf-8") as file_handle:
+        return file_handle.read()

@@ -1,4 +1,6 @@
 import json
+import os
+import tempfile
 from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -39,7 +41,9 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_fire_assessment_uses_visual_urls_when_available(
         self,
         mock_secret,
@@ -47,7 +51,6 @@ class ProcessorTests(TestCase):
         mock_assessment,
         mock_unlink,
     ):
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -84,11 +87,12 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_fire_assessment_passes_roi_only_false(
         self, mock_secret, mock_download, mock_assessment, mock_unlink
     ):
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -118,11 +122,12 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_fire_assessment_passes_advanced_settings(
         self, mock_secret, mock_download, mock_assessment, mock_unlink
     ):
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -159,12 +164,14 @@ class ProcessorTests(TestCase):
         self.assertEqual(call_kwargs["roi_only_bg_color"], "white")
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_notifies_user(
         self,
         mock_secret,
@@ -175,9 +182,6 @@ class ProcessorTests(TestCase):
         mock_send_email,
         mock_unlink,
     ):
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -204,16 +208,18 @@ class ProcessorTests(TestCase):
         mock_send_email.assert_called_once()
         mock_unlink.assert_called_once()
         called_kwargs = mock_send_email.call_args.kwargs
-        self.assertEqual(called_kwargs["to_address"], self.email)
-        self.assertIn(self.reserve_name, called_kwargs["body"])
+        self.assertEqual(called_kwargs["recipient_list"], [self.email])
+        self.assertIn(self.reserve_name, called_kwargs["message"])
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_uses_user_language_preference(
         self,
         mock_secret,
@@ -235,9 +241,6 @@ class ProcessorTests(TestCase):
         profile.default_language = "pt-BR"
         profile.save()
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -267,15 +270,17 @@ class ProcessorTests(TestCase):
             "Wildfire Analyser - Produto Científico Pronto",
         )
         # Body should be in Portuguese
-        self.assertIn("está pronto para download", called_kwargs["body"])
+        self.assertIn("está pronto para download", called_kwargs["message"])
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     @patch("wildfire_assessment.svc.processor.UserProfile")
     def test_process_scientific_deliverable_falls_back_on_user_lookup_error(
         self,
@@ -292,9 +297,6 @@ class ProcessorTests(TestCase):
         # Make UserProfile.objects.filter raise an exception
         mock_profile_model.objects.filter.side_effect = Exception("Database error")
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -324,13 +326,12 @@ class ProcessorTests(TestCase):
         )
 
     @patch("wildfire_assessment.svc.processor.Deliverable")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_invalid_deliverable(
         self, mock_secret, mock_enum
     ):
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_enum.__getitem__.side_effect = KeyError
 
         with self.assertRaises(ValueError):
@@ -348,7 +349,9 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_missing_statuses(
         self,
         mock_secret,
@@ -358,9 +361,6 @@ class ProcessorTests(TestCase):
         _mock_sleep,
         mock_unlink,
     ):
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -384,7 +384,9 @@ class ProcessorTests(TestCase):
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_failed_status(
         self,
         mock_secret,
@@ -394,7 +396,6 @@ class ProcessorTests(TestCase):
         _mock_sleep,
         mock_unlink,
     ):
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -416,12 +417,14 @@ class ProcessorTests(TestCase):
             )
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_deliverable_keys(
         self,
         mock_secret,
@@ -432,9 +435,6 @@ class ProcessorTests(TestCase):
         mock_send,
         mock_unlink,
     ):
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         for deliverable in [
             Deliverable.RGB_PRE_FIRE,
@@ -467,12 +467,14 @@ class ProcessorTests(TestCase):
             mock_send.assert_called()
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_scientific_deliverable_reads_advanced_settings_from_run(
         self,
         mock_secret,
@@ -503,9 +505,6 @@ class ProcessorTests(TestCase):
             roi_only_bg_color="white",
         )
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -580,47 +579,48 @@ class AwsUtilsTests(TestCase):
         with self.assertRaises(ValueError):
             aws.get_aws_secret_manager_secret("missing")
 
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
-    def test_get_gee_private_key_json_stripping(self, mock_secret):
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "'{\\\"key\\\":123}'"}
-        )
-        key = processor.get_gee_private_key_json()
-        self.assertFalse(key.startswith("'"))
-        self.assertEqual(json.loads(key)["key"], 123)
+    def test_get_gee_private_key_json_reads_file(self):
+        """Reads the service-account JSON from the configured file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+            tmp.write('{"key": 123}')
+            tmp_path = tmp.name
+        try:
+            with patch.dict(
+                os.environ, {"GEE_PRIVATE_KEY_FILE": tmp_path}, clear=False
+            ):
+                self.assertEqual(processor.get_gee_private_key_json(), '{"key": 123}')
+        finally:
+            os.unlink(tmp_path)
 
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
-    def test_get_gee_private_key_json_control_characters(self, mock_secret):
-        """Literal newlines in the private key are re-escaped for valid JSON."""
-        # Simulate what happens when Secrets Manager stores the GEE JSON as a
-        # nested string: the inner \\n becomes literal \n after outer json.loads().
-        inner = '{"type":"service_account","private_key":"-----BEGIN-----\\nKEY\\n-----END-----\\n"}'
-        parsed_inner = json.loads(inner)  # private_key now has literal \n
-        raw_with_newlines = json.dumps(parsed_inner)  # properly escaped
-        # Break it by replacing \\n with real newlines (simulating the bug)
-        broken = raw_with_newlines.replace("\\n", "\n")
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": broken})
-        result = processor.get_gee_private_key_json()
-        parsed = json.loads(result)
-        self.assertEqual(parsed["type"], "service_account")
-        self.assertIn("BEGIN", parsed["private_key"])
+    def test_get_gee_private_key_json_missing_env(self):
+        """Raises ValueError when GEE_PRIVATE_KEY_FILE is not set."""
+        with patch.dict(os.environ, {"GEE_PRIVATE_KEY_FILE": ""}, clear=False):
+            with self.assertRaises(ValueError):
+                processor.get_gee_private_key_json()
 
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
-    def test_get_gee_private_key_json_dict_value(self, mock_secret):
-        """Test when GEE_PRIVATE_KEY_JSON is already a dict (not a string)."""
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": {"key": "value"}}
-        )
-        result = processor.get_gee_private_key_json()
-        self.assertEqual(result, {"key": "value"})
+    def test_get_gee_private_key_json_preserves_raw_content(self):
+        """File content is returned verbatim, including newlines."""
+        raw = '{"type":"service_account","private_key":"-----BEGIN-----\nKEY\n-----END-----"}'
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
+            tmp.write(raw)
+            tmp_path = tmp.name
+        try:
+            with patch.dict(
+                os.environ, {"GEE_PRIVATE_KEY_FILE": tmp_path}, clear=False
+            ):
+                self.assertEqual(processor.get_gee_private_key_json(), raw)
+        finally:
+            os.unlink(tmp_path)
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_updates_analysis_run(
         self,
         mock_secret,
@@ -647,9 +647,6 @@ class AwsUtilsTests(TestCase):
             scientific_dnbr_task_id="old-task-id",
         )
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -676,12 +673,14 @@ class AwsUtilsTests(TestCase):
         self.assertIsNone(analysis_run.scientific_dnbr_task_id)
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_db_update_failure(
         self,
         mock_secret,
@@ -693,9 +692,6 @@ class AwsUtilsTests(TestCase):
         mock_unlink,
     ):
         """Test that DB update failure is handled gracefully."""
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -721,12 +717,14 @@ class AwsUtilsTests(TestCase):
         self.assertEqual(result_status, "COMPLETED")
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_creates_notification(
         self,
         mock_secret,
@@ -753,9 +751,6 @@ class AwsUtilsTests(TestCase):
             post_fire_date="2024-01-15",
         )
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -790,12 +785,14 @@ class AwsUtilsTests(TestCase):
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.send_push_notification")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_sends_push_notification(
         self,
         mock_secret,
@@ -822,9 +819,6 @@ class AwsUtilsTests(TestCase):
             post_fire_date="2024-01-15",
         )
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -854,12 +848,14 @@ class AwsUtilsTests(TestCase):
         )
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_no_notification_without_run_id(
         self,
         mock_secret,
@@ -871,9 +867,6 @@ class AwsUtilsTests(TestCase):
         mock_unlink,
     ):
         """No notification is created when analysis_run_id is not provided."""
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -896,12 +889,14 @@ class AwsUtilsTests(TestCase):
         self.assertEqual(Notification.objects.count(), 0)
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_scientific_deliverable_notification_creation_failure(
         self,
         mock_secret,
@@ -918,9 +913,6 @@ class AwsUtilsTests(TestCase):
             username="failnotif", email=self.email, password="pw"
         )
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -976,12 +968,14 @@ class ProcessorCacheInvalidationTests(TestCase):
         cache.clear()
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_successful_deliverable_invalidates_dashboard_cache(
         self,
         mock_secret,
@@ -998,9 +992,6 @@ class ProcessorCacheInvalidationTests(TestCase):
         cache.set(f"dashboard_{self.user.id}", {"cached": True}, timeout=60)
         self.assertIsNotNone(cache.get(f"dashboard_{self.user.id}"))
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -1025,12 +1016,14 @@ class ProcessorCacheInvalidationTests(TestCase):
         self.assertIsNone(cache.get(f"dashboard_{self.user.id}"))
 
     @patch("wildfire_assessment.svc.processor.os.unlink")
-    @patch("wildfire_assessment.svc.processor.send_gmail_email")
+    @patch("wildfire_assessment.svc.processor.send_mail")
     @patch("wildfire_assessment.svc.processor.time.sleep", return_value=None)
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_successful_deliverable_without_user_id_does_not_invalidate(
         self,
         mock_secret,
@@ -1046,9 +1039,6 @@ class ProcessorCacheInvalidationTests(TestCase):
 
         cache.set(f"dashboard_{self.user.id}", {"cached": True}, timeout=60)
 
-        mock_secret.return_value = json.dumps(
-            {"GEE_PRIVATE_KEY_JSON": "{}", "GMAIL_PWD": "pwd"}
-        )
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -1107,7 +1097,9 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_gee_failure_persists_error(
         self,
         mock_secret,
@@ -1118,7 +1110,6 @@ class ProcessorErrorPersistenceTests(TestCase):
         mock_unlink,
     ):
         """GEE FAILED state persists error and clears task_id."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -1145,7 +1136,9 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_gee_cancelled_state_persists_error(
         self,
         mock_secret,
@@ -1156,7 +1149,6 @@ class ProcessorErrorPersistenceTests(TestCase):
         mock_unlink,
     ):
         """GEE CANCELLED state persists error and clears task_id."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -1183,7 +1175,9 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.ee")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_unexpected_gee_state_persists_error(
         self,
         mock_secret,
@@ -1194,7 +1188,6 @@ class ProcessorErrorPersistenceTests(TestCase):
         mock_unlink,
     ):
         """Unexpected GEE state persists error and clears task_id."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {
@@ -1218,7 +1211,9 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_generic_exception_persists_error(
         self,
         mock_secret,
@@ -1227,7 +1222,6 @@ class ProcessorErrorPersistenceTests(TestCase):
         mock_unlink,
     ):
         """Generic exception during run() persists error and clears task_id."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.side_effect = RuntimeError("PostFireAssessment crash")
@@ -1248,7 +1242,9 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_error_without_analysis_run_id_does_not_fail(
         self,
         mock_secret,
@@ -1257,7 +1253,6 @@ class ProcessorErrorPersistenceTests(TestCase):
         mock_unlink,
     ):
         """Error without analysis_run_id should not try to persist."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.side_effect = RuntimeError("boom")
@@ -1271,7 +1266,9 @@ class ProcessorErrorPersistenceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_error_persistence_db_failure_still_raises(
         self,
         mock_secret,
@@ -1280,7 +1277,6 @@ class ProcessorErrorPersistenceTests(TestCase):
         mock_unlink,
     ):
         """If DB update in error handler fails, original exception is still raised."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.side_effect = RuntimeError("original error")
@@ -2758,9 +2754,9 @@ class SaveAnalysisRunProvenanceTests(TestCase):
         result = {
             "severity_map": "{}",
             "provenance": {
-                    "pre_fire": {"images": []},
-                    "post_fire": {"images": []},
-                },
+                "pre_fire": {"images": []},
+                "post_fire": {"images": []},
+            },
         }
         run = aoi_service.save_analysis_run(
             self.user, self.area, "2024-01-01", "2024-01-15", result
@@ -2829,12 +2825,13 @@ class ProcessorProvenanceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_fire_assessment_includes_provenance(
         self, mock_secret, mock_download, mock_assessment, mock_unlink
     ):
         """When runner.run() returns provenance, it is passed through."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         provenance_data = {
             "pre_fire": {"images": [{"id": "S1", "date": "2023-01-01"}]},
@@ -2866,12 +2863,13 @@ class ProcessorProvenanceTests(TestCase):
     @patch("wildfire_assessment.svc.processor.os.unlink")
     @patch("wildfire_assessment.svc.processor.PostFireAssessment")
     @patch("wildfire_assessment.svc.processor.download_polygon_from_s3")
-    @patch("wildfire_assessment.svc.processor.get_aws_secret_manager_secret")
+    @patch(
+        "wildfire_assessment.svc.processor.get_gee_private_key_json", return_value="{}"
+    )
     def test_process_fire_assessment_missing_provenance(
         self, mock_secret, mock_download, mock_assessment, mock_unlink
     ):
         """When runner.run() has no provenance key, result has empty dict."""
-        mock_secret.return_value = json.dumps({"GEE_PRIVATE_KEY_JSON": "{}"})
         mock_download.return_value = '{"type": "Polygon"}'
         assessment_instance = MagicMock()
         assessment_instance.run.return_value = {

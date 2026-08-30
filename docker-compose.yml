@@ -19,7 +19,6 @@ services:
     env_file:
       - .env
     environment:
-      SKIP_AWS_SECRETS: ${SKIP_AWS_SECRETS:-0}
       DJANGO_SETTINGS_MODULE: api.settings
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -47,7 +46,6 @@ services:
     env_file:
       - .env
     environment:
-      SKIP_AWS_SECRETS: ${SKIP_AWS_SECRETS:-0}
     restart: on-failure
     depends_on:
       db:
@@ -82,7 +80,6 @@ services:
     env_file:
       - .env
     environment:
-      SKIP_AWS_SECRETS: ${SKIP_AWS_SECRETS:-0}
       DJANGO_SETTINGS_MODULE: api.settings
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
@@ -111,7 +108,6 @@ services:
     env_file:
       - .env
     environment:
-      SKIP_AWS_SECRETS: ${SKIP_AWS_SECRETS:-0}
       DJANGO_SETTINGS_MODULE: api.settings
       OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
       OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf

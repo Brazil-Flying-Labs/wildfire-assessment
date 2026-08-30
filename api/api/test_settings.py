@@ -4,8 +4,12 @@ Test settings - uses SQLite for fast local testing.
 
 import os
 
-# Force skip AWS secrets for tests
-os.environ["SKIP_AWS_SECRETS"] = "1"
+# Required environment variables read by api.settings
+os.environ["DJANGO_SECRET_KEY"] = "test-secret-key"
+os.environ["DB_NAME"] = "app"
+os.environ["DB_USERNAME"] = "postgres"
+os.environ["DB_PASSWORD"] = "postgres"
+os.environ["DB_HOST"] = "db"
 
 # Disable OpenTelemetry so test logs are not shipped to Grafana
 os.environ["OTEL_SDK_DISABLED"] = "true"
