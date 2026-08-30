@@ -924,11 +924,15 @@ DEEPSEEK_API_KEY=<chave>
 
 Antes da fase de integração/produção, obter:
 
-- Projeto e service account GCP que substituirão a credencial perdida.
-- Confirmação de acesso desse service account ao Earth Engine.
-- Confirmar a disponibilidade global de `wildfire-assessment-assets` e a localização
-  do bucket científico existente antes de criar o novo bucket.
-- Usuário, senha e remetente da conta SMTP dedicada.
+- ~~Projeto e service account GCP que substituirão a credencial perdida.~~ —
+  resolvido (projeto `post-fire-assessment` intacto, chave reemitida).
+- ~~Confirmação de acesso desse service account ao Earth Engine.~~ — resolvido.
+- ~~Confirmar a disponibilidade global de `wildfire-assessment-assets`~~ —
+  resolvido (bucket criado em 2026-08-30).
+- ~~Usuário, senha e remetente da conta SMTP dedicada.~~ — resolvido em
+  2026-08-30: conta `wildfire@droneai.com.br` (autenticação STARTTLS 587
+  validada). Credenciais no arquivo de produção local
+  `~/.wildfire-deploy/env.prod` (não versionado).
 
 ### Como obter a credencial GCP/GEE (atualizado: o GCP está intacto)
 
