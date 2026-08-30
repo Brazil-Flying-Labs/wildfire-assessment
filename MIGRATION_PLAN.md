@@ -759,9 +759,13 @@ Cloudflare, decisão sobre o diretório de clone.
 4. **Subir**:
    `sudo docker compose -f compose.yml -f compose.prod.yml up -d --build`
    (a cadeia `-f` desativa o override de dev).
-5. **Migrate + superusuário** (o entrypoint já roda o migrate; o
-   superusuário é criado manualmente):
-   `sudo docker compose -f ... exec api python manage.py createsuperuser`.
+5. **Migrate + superusuário + seed** (o entrypoint já roda o migrate; o
+   superusuário é criado manualmente; as UCs de SP são semeadas pelo
+   comando, que baixa do DataGEO, unifica as partes e sobe ao GCS —
+   idempotente, pula nomes existentes e unidades acima de 110.000 ha):
+   `sudo docker compose -f ... exec api python manage.py createsuperuser`
+   `sudo docker compose -f ... exec api python manage.py register_ucs`
+   O provider de IA ativo (DeepSeek) é definido pela migration 0003.
 6. **Rede do proxy**: confirmar que api e ui entraram na `proxy_network`
    (`sudo docker network inspect proxy_network`).
 7. **Proxy Hosts no NPM** (API, mesmo procedimento do local):
