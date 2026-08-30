@@ -1,6 +1,10 @@
 """Tests for the register_ucs management command (UC seeding)."""
 
-from unittest.mock import MagicMock, patch
+import json
+import shutil
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -33,80 +37,57 @@ HUGE_BOX = [
 ]
 
 
-def feature(name, geometry, properties=None):
-    props = {"Unidade": name}
-    props.update(properties or {})
-    return {"type": "Feature", "properties": props, "geometry": geometry}
-
-
-def layer_response(features):
-    response = MagicMock()
-    response.json.return_value = {
+def uc_file(name, coordinates, geometry_type="Polygon"):
+    if geometry_type == "Polygon":
+        geometry = {"type": "Polygon", "coordinates": coordinates}
+    else:
+        geometry = {"type": "MultiPolygon", "coordinates": coordinates}
+    return {
         "type": "FeatureCollection",
-        "features": features,
+        "features": [
+            {"type": "Feature", "properties": {"name": name}, "geometry": geometry}
+        ],
     }
-    return response
-
-
-PI_FEATURES = [
-    feature(
-        "Parque Estadual Test",
-        {"type": "Polygon", "coordinates": [SMALL_SQUARE]},
-    ),
-    feature(
-        "Sem Nome",
-        {"type": "Polygon", "coordinates": [SMALL_SQUARE_2]},
-        {"Unidade": None},
-    ),
-    feature("Sem Geometria", None),
-]
-
-US_FEATURES = [
-    feature(
-        "Estação Ecológica Test",
-        {
-            "type": "MultiPolygon",
-            "coordinates": [[SMALL_SQUARE], [SMALL_SQUARE_2]],
-        },
-    ),
-    feature(
-        "APA Gigante Test",
-        {"type": "Polygon", "coordinates": [HUGE_BOX]},
-    ),
-]
 
 
 class RegisterUcsCommandTests(TestCase):
-    def _mock_session(self, pi_features=None, us_features=None):
-        session = MagicMock()
-        responses = [
-            layer_response(pi_features if pi_features is not None else PI_FEATURES),
-            layer_response(us_features if us_features is not None else US_FEATURES),
-        ]
-        session.get.side_effect = responses
-        return session
+    def setUp(self):
+        self.data_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.data_dir)
+
+    def _write(self, filename, payload):
+        path = self.data_dir / filename
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return path
+
+    def _run(self):
+        with patch(
+            "wildfire_assessment.management.commands.register_ucs.upload_polygon"
+        ) as mock_upload:
+            call_command("register_ucs", data_dir=str(self.data_dir))
+        return mock_upload
 
     def test_command_registers_units_and_skips_oversized(self):
-        session = self._mock_session()
-        with (
-            patch(
-                "wildfire_assessment.management.commands.register_ucs.requests.Session",
-                return_value=session,
+        self._write(
+            "parque_test.geojson", uc_file("Parque Estadual Test", [SMALL_SQUARE])
+        )
+        self._write(
+            "estacao_test.geojson",
+            uc_file(
+                "Estação Ecológica Test",
+                [[SMALL_SQUARE], [SMALL_SQUARE_2]],
+                geometry_type="MultiPolygon",
             ),
-            patch(
-                "wildfire_assessment.management.commands.register_ucs.upload_polygon"
-            ) as mock_upload,
-        ):
-            call_command("register_ucs")
+        )
+        self._write("apa_gigante.geojson", uc_file("APA Gigante Test", [HUGE_BOX]))
+
+        mock_upload = self._run()
 
         brazil = Country.objects.get(code="BR")
         names = set(
             AreaOfInterest.objects.filter(country=brazil).values_list("name", flat=True)
         )
-        self.assertEqual(
-            names,
-            {"Parque Estadual Test", "Estação Ecológica Test"},
-        )
+        self.assertEqual(names, {"Parque Estadual Test", "Estação Ecológica Test"})
         self.assertEqual(mock_upload.call_count, 2)
         area = AreaOfInterest.objects.get(name="Parque Estadual Test")
         self.assertIsNotNone(area.polygon_path)
@@ -121,36 +102,34 @@ class RegisterUcsCommandTests(TestCase):
             country=brazil,
             polygon_path="existing.geojson",
         )
-        session = self._mock_session()
-        with (
-            patch(
-                "wildfire_assessment.management.commands.register_ucs.requests.Session",
-                return_value=session,
-            ),
-            patch(
-                "wildfire_assessment.management.commands.register_ucs.upload_polygon"
-            ) as mock_upload,
-        ):
-            call_command("register_ucs")
+        self._write(
+            "parque_test.geojson", uc_file("Parque Estadual Test", [SMALL_SQUARE])
+        )
+        self._write(
+            "estacao_test.geojson", uc_file("Estação Ecológica Test", [SMALL_SQUARE_2])
+        )
 
-        # Only the new UC is uploaded; the existing one keeps its old path.
+        mock_upload = self._run()
+
         self.assertEqual(mock_upload.call_count, 1)
         existing = AreaOfInterest.objects.get(name="Parque Estadual Test")
         self.assertEqual(existing.polygon_path, "existing.geojson")
 
-    def test_command_download_failure_raises(self):
-        session = MagicMock()
-        session.get.side_effect = [
-            layer_response([]),
-            MagicMock(
-                raise_for_status=MagicMock(
-                    side_effect=__import__("requests").RequestException("boom")
-                )
-            ),
-        ]
-        with patch(
-            "wildfire_assessment.management.commands.register_ucs.requests.Session",
-            return_value=session,
-        ):
-            with self.assertRaises(CommandError):
-                call_command("register_ucs")
+    def test_command_skips_invalid_and_nameless_files(self):
+        self._write("broken.geojson", "{not json")
+        self._write(
+            "nameless.geojson",
+            uc_file("", [SMALL_SQUARE]),
+        )
+        self._write("ok.geojson", uc_file("Parque Estadual Test", [SMALL_SQUARE]))
+
+        mock_upload = self._run()
+
+        self.assertEqual(mock_upload.call_count, 1)
+        self.assertTrue(
+            AreaOfInterest.objects.filter(name="Parque Estadual Test").exists()
+        )
+
+    def test_command_missing_data_dir_raises(self):
+        with self.assertRaises(CommandError):
+            call_command("register_ucs", data_dir=str(self.data_dir / "nope"))
