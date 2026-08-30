@@ -39,14 +39,17 @@ RUN apt-get update && \
 # Copy installed Python packages from builder
 COPY --from=builder /install /usr/local
 
-RUN mkdir -p api polygons svc
+# Non-root application user (dev override may run as root for hot reload)
+RUN useradd --create-home --uid 10001 appuser
 
 COPY api api
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh && chown -R appuser:appuser /api
 
 WORKDIR /api
 
-EXPOSE 10000
+USER appuser
+
+EXPOSE 8000
 
 CMD [ "/entrypoint.sh" ]
