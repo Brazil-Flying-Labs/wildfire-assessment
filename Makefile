@@ -53,7 +53,7 @@ reset: ## Reconfigure local environment then run the project
 	$(MAKE) up
 
 test: ## Run backend and frontend tests inside running containers
-	docker compose exec api bash -lc "cd /api && OTEL_SDK_DISABLED=true coverage run --source=wildfire_assessment manage.py test && coverage report && coverage html"
+	docker compose exec api bash -lc "cd /api && coverage run --source=wildfire_assessment manage.py test && coverage report && coverage html"
 
 do_clean_wildfire_docker:
 	echo "${ORANGE} Forcely stoping all wildfire containers...${RESET}";

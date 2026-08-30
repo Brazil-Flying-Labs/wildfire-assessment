@@ -105,7 +105,6 @@ class UserProfile(models.Model):
         help_text="Ordered list of visible dashboard widget IDs",
     )
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
-    expo_push_token = models.CharField(max_length=100, null=True, blank=True)
 
     def __str__(self):
         return f"{self.user} - {self.default_language}"

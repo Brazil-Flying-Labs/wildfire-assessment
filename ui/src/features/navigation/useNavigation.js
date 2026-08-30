@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { faro } from "../../config/faroConfig";
-import { posthog } from "../../config/posthogConfig";
 
 const PAGE_PATHS = {
   dashboard: "/dashboard",
@@ -65,8 +63,6 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
     } else {
       window.history.pushState(state, "", path);
     }
-    if (faro) faro.api.setView({ name: page });
-    if (posthog) posthog.capture("$pageview", { page });
   }, []);
 
   const handleAnalysisClick = useCallback((analysisId, deliverableName) => {
@@ -78,8 +74,6 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
       "",
       PAGE_PATHS["analysis-detail"]
     );
-    if (faro) faro.api.setView({ name: "analysis-detail" });
-    if (posthog) posthog.capture("$pageview", { page: "analysis-detail" });
   }, []);
 
   const goBack = useCallback(() => {
@@ -99,15 +93,11 @@ export default function useNavigation({ onNavigateTo, onPopState } = {}) {
           "",
           PAGE_PATHS[page] || "/dashboard"
         );
-        if (faro) faro.api.setView({ name: page });
-        if (posthog) posthog.capture("$pageview", { page });
-        return;
+                return;
       }
       setCurrentPage(state.page || "dashboard");
       setSelectedAnalysisId(state.analysisId || null);
       if (onPopStateRef.current) onPopStateRef.current();
-      if (faro) faro.api.setView({ name: state.page || "dashboard" });
-      if (posthog) posthog.capture("$pageview", { page: state.page || "dashboard" });
     };
 
     window.addEventListener("popstate", handlePopState);

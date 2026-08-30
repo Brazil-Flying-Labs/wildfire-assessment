@@ -19,7 +19,6 @@ from wildfire_analyser.fire_assessment.post_fire_assessment import PostFireAsses
 from wildfire_assessment.models import AnalysisRun, Notification, UserProfile
 from wildfire_assessment.svc.object_storage import download_polygon
 from wildfire_assessment.svc.dashboard import invalidate_dashboard_cache
-from wildfire_assessment.svc.notification import send_push_notification
 from wildfire_assessment.translations import get_email_translation
 
 logger = logging.getLogger(__name__)
@@ -281,12 +280,6 @@ def process_scientific_deliverable(
                             notification_type="deliverable_ready",
                             deliverable_name=deliverable_key,
                             message=notification_message,
-                        )
-                        send_push_notification(
-                            user_id=user_id,
-                            title="Deliverable Ready",
-                            body=notification_message,
-                            data={"analysis_run_id": analysis_run_id},
                         )
                 except Exception:
                     logger.warning(

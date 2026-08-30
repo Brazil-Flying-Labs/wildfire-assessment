@@ -3,6 +3,7 @@ import uuid
 
 import ee
 from celery.result import AsyncResult
+from django.conf import settings
 from django.core.cache import cache
 from django.http import JsonResponse, StreamingHttpResponse
 from drf_spectacular.types import OpenApiTypes
@@ -741,6 +742,13 @@ class AIAnalysisView(APIView):
         - area_of_interest: Name of the area/reserve
         - severity_distribution: Dict with severity levels and their areas/percentages
         """
+        if not settings.AI_ENABLED:
+            language = get_user_language(request)
+            return Response(
+                {"error": get_error_translation(language, "error.ai_disabled")},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
         serializer = AnalysisRequestSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -770,6 +778,13 @@ class AIAnalysisFollowUpView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        if not settings.AI_ENABLED:
+            language = get_user_language(request)
+            return Response(
+                {"error": get_error_translation(language, "error.ai_disabled")},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
         serializer = AnalysisFollowUpSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

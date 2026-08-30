@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth0 } from "@auth0/auth0-react";
-import { faro } from "./config/faroConfig";
-import { posthog } from "./config/posthogConfig";
 import "./App.css";
 import Breadcrumbs from "./components/Breadcrumbs";
 import AnalysisDetail from "./features/analysis-detail/AnalysisDetail";
@@ -17,7 +15,7 @@ import useNavigation from "./features/navigation/useNavigation";
 import useNotifications from "./hooks/useNotifications";
 import useProfile from "./hooks/useProfile";
 import { useLanguage } from "./context/LanguageContext";
-import { UI_VERSION, APP_ENVIRONMENT } from "./constants/config";
+import { UI_VERSION } from "./constants/config";
 
 function App() {
   const { t, language, setLanguage } = useLanguage();
@@ -173,26 +171,7 @@ function App() {
     }
   }, [backendProfile, isOnLandingPage]);
 
-  // Set Faro user metadata for observability correlation
-  useEffect(() => {
-    if (!faro || !authReady || !user) return;
-    faro.api.setUser({
-      id: user.sub || "",
-      email: user.email || "",
-      username: user.name || user.nickname || "",
-    });
-  }, [authReady, user]);
 
-  // Identify user in PostHog for analytics
-  useEffect(() => {
-    if (!posthog || !authReady || !user) return;
-    posthog.register({ environment: APP_ENVIRONMENT });
-    posthog.identify(user.sub, {
-      email: user.email,
-      name: user.name || user.nickname,
-      environment: APP_ENVIRONMENT,
-    });
-  }, [authReady, user]);
 
   // Prefer backend profile name, fallback to Auth0 name
   const displayName = useMemo(() => {

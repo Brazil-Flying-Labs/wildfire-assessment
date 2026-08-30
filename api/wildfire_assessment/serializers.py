@@ -591,7 +591,6 @@ class UserMeSerializer(serializers.ModelSerializer):
     authorized_countries = serializers.SerializerMethodField()
     terms_accepted_at = serializers.SerializerMethodField()
     terms_last_updated = serializers.SerializerMethodField()
-    expo_push_token = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -605,7 +604,6 @@ class UserMeSerializer(serializers.ModelSerializer):
             "authorized_countries",
             "terms_accepted_at",
             "terms_last_updated",
-            "expo_push_token",
         ]
         read_only_fields = [
             "email",
@@ -655,16 +653,6 @@ class UserMeSerializer(serializers.ModelSerializer):
         """Return the date the Terms of Service were last modified."""
         return settings.TERMS_LAST_UPDATED
 
-    def get_expo_push_token(self, obj):
-        """Return the Expo push notification token, or None."""
-        try:
-            profile = obj.profile
-            if profile:
-                return getattr(profile, "expo_push_token", None) or None
-        except UserProfile.DoesNotExist:  # pragma: no cover
-            pass  # pragma: no cover
-        return None  # pragma: no cover
-
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
 
@@ -673,7 +661,6 @@ class UserMeSerializer(serializers.ModelSerializer):
         theme = initial.get("theme")
         dashboard_widgets = initial.get("dashboard_widgets")
         accept_terms = initial.get("accept_terms")
-        expo_push_token = initial.get("expo_push_token")
 
         # Update first_name and last_name if provided
         if "first_name" in validated_data:
@@ -701,10 +688,6 @@ class UserMeSerializer(serializers.ModelSerializer):
         if accept_terms:
             profile.terms_accepted_at = timezone.now()
             update_fields.append("terms_accepted_at")
-
-        if expo_push_token is not None:
-            profile.expo_push_token = expo_push_token or None
-            update_fields.append("expo_push_token")
 
         if update_fields:
             profile.save(update_fields=update_fields)

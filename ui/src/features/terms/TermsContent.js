@@ -53,7 +53,7 @@ const content = {
             "Not sold or shared for commercial purposes",
           ],
           "We do not transmit personal data (such as names, email addresses, or account identifiers) to analytics or monitoring services.",
-          "Technical telemetry is processed through trusted service providers, including PostHog and Grafana Cloud, solely for operational monitoring purposes.",
+          "Technical telemetry is limited to server logs retained solely for operational monitoring purposes.",
         ],
       },
       {
@@ -197,7 +197,7 @@ const content = {
             "N\u00e3o vendida ou compartilhada para fins comerciais",
           ],
           "N\u00e3o transmitimos dados pessoais (como nomes, endere\u00e7os de e-mail ou identificadores de conta) para servi\u00e7os de an\u00e1lise ou monitoramento.",
-          "A telemetria t\u00e9cnica \u00e9 processada por provedores de servi\u00e7o confi\u00e1veis, incluindo PostHog e Grafana Cloud, exclusivamente para fins de monitoramento operacional.",
+          "A telemetria t\u00e9cnica limita-se a logs de servidor mantidos exclusivamente para fins de monitoramento operacional.",
         ],
       },
       {
@@ -341,7 +341,7 @@ const content = {
             "Non vendue ni partag\u00e9e \u00e0 des fins commerciales",
           ],
           "Nous ne transmettons pas de donn\u00e9es personnelles (telles que noms, adresses e-mail ou identifiants de compte) aux services d'analyse ou de surveillance.",
-          "La t\u00e9l\u00e9m\u00e9trie technique est trait\u00e9e par des fournisseurs de services de confiance, notamment PostHog et Grafana Cloud, uniquement \u00e0 des fins de surveillance op\u00e9rationnelle.",
+          "La t\u00e9l\u00e9m\u00e9trie technique se limite aux journaux de serveur conserv\u00e9s uniquement \u00e0 des fins de surveillance op\u00e9rationnelle.",
         ],
       },
       {

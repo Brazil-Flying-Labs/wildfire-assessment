@@ -40,4 +40,3 @@ All third-party services and platforms used by the Wildfire Insight Intelligence
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| **Gmail SMTP** | [Google Admin](https://admin.google.com/) | Transactional email delivery for notification alerts (via `smtp.gmail.com:465`) |

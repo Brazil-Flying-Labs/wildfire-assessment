@@ -1,13 +1,11 @@
 """Service layer for Notification queries and mutations."""
 
-import json
 import logging
-import urllib.request
 from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
-from wildfire_assessment.models import Notification, UserProfile
+from wildfire_assessment.models import Notification
 
 logger = logging.getLogger(__name__)
 
@@ -55,42 +53,6 @@ def delete_old_read_notifications():
         created_at__lt=cutoff,
     ).delete()
     return deleted
-
-
-EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send"
-
-
-def send_push_notification(user_id, title, body, data=None):
-    """Send an Expo push notification to the user's registered device.
-
-    Fails silently — push errors must never break the caller.
-    """
-    try:
-        profile = UserProfile.objects.filter(user_id=user_id).first()
-        if not profile or not profile.expo_push_token:
-            return
-
-        payload = {
-            "to": profile.expo_push_token,
-            "sound": "default",
-            "title": title,
-            "body": body,
-        }
-        if data:
-            payload["data"] = data
-
-        req = urllib.request.Request(
-            EXPO_PUSH_URL,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        urllib.request.urlopen(req, timeout=10)
-    except Exception:
-        logger.warning(
-            "Failed to send push notification to user %s",
-            user_id,
-        )
 
 
 @shared_task

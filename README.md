@@ -45,17 +45,6 @@ AUTH0_MANAGEMENT_AUDIENCE=https://<your-auth0-domain>/api/v2/
 
 If you expose the email through a custom JWT claim instead, set `AUTH0_EMAIL_CLAIM` with the claim name so the backend does not need to call the Management API.
 
-## Gmail SMTP setup
-
-Google no longer allows username/password logins from "less secure apps". To let the backend send emails through Gmail you must use an [app password](https://support.google.com/accounts/answer/185833). Use a dedicated account (or service account) and follow these steps:
-
-- Enable 2-Step Verification on the Gmail account.
-- Visit Google Account → Security → App passwords and create a new password for the "Mail" app.
-- Copy the 16-character app password and store it in your `.env` file or secret manager;
-- Restart the backend so it loads the new credentials.
-
-Trying to authenticate with the normal account password will lead to `SMTPAuthenticationError (535)` even if the password is correct.
-
 # Usage
 
 Run `make reset` the first time to setup your environment, Subsequent use can be `make up`. (If you add any new requirement to requirements.txt, a `make reset` will be required).

@@ -10,9 +10,7 @@ os.environ["DB_NAME"] = "app"
 os.environ["DB_USERNAME"] = "postgres"
 os.environ["DB_PASSWORD"] = "postgres"
 os.environ["DB_HOST"] = "db"
-
-# Disable OpenTelemetry so test logs are not shipped to Grafana
-os.environ["OTEL_SDK_DISABLED"] = "true"
+os.environ["AI_ENABLED"] = "true"
 
 # Import all settings from main settings
 from api.settings import *  # noqa

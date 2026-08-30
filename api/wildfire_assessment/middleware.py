@@ -7,12 +7,12 @@ logger = logging.getLogger("django.security")
 
 
 class MalformedURLMiddleware:
-    """Reject requests with malformed URLs before they reach OTel instrumentation.
+    """Reject requests with malformed URLs before they reach the rest of the stack.
 
     Scanners/bots send garbage URLs (e.g. Struts OGNL injection payloads) that
-    cause Python 3.13's stricter urlparse to raise ValueError, which crashes the
-    OpenTelemetry middleware and produces noisy 500 errors. This middleware catches
-    those early and returns a clean 400.
+    cause Python 3.13's stricter urlparse to raise ValueError, which crashes
+    middlewares further down the chain and produces noisy 500 errors. This
+    middleware catches those early and returns a clean 400.
     """
 
     def __init__(self, get_response):

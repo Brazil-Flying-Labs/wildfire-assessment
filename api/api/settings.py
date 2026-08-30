@@ -18,20 +18,6 @@ from pathlib import Path
 from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
 
-# Auto-configure OpenTelemetry if the SDK is installed and not disabled.
-# This ensures instrumentation works even when the process is forked
-# (e.g. runserver_plus auto-reloader, debugpy).
-if os.environ.get("OTEL_SDK_DISABLED") != "true":
-    try:
-        from opentelemetry import trace
-
-        if type(trace.get_tracer_provider()).__name__ == "ProxyTracerProvider":
-            from opentelemetry.instrumentation.auto_instrumentation import initialize
-
-            initialize()
-    except ImportError:
-        pass
-
 logging.basicConfig(level=logging.INFO)
 
 LOG = logging.getLogger(__name__)
@@ -106,13 +92,9 @@ GCS_APP_BUCKET_NAME = _env("GCS_APP_BUCKET_NAME", "wildfire-assessment-assets")
 GCS_APP_PREFIX = _env("GCS_APP_PREFIX", "dev")
 
 # AI providers (optional; the app starts without them)
+AI_ENABLED = _env_bool("AI_ENABLED", False)
 GEMINI_API_KEY = _env("GEMINI_API_KEY")
 OPENAI_API_KEY = _env("OPENAI_API_KEY")
-
-# Observability (Grafana Cloud, removed in the V1 cleanup phase)
-GRAFANA_CLOUD_OTLP_ENDPOINT = _env("GRAFANA_CLOUD_OTLP_ENDPOINT", "")
-GRAFANA_CLOUD_INSTANCE_ID = _env("GRAFANA_CLOUD_INSTANCE_ID", "")
-GRAFANA_CLOUD_API_KEY = _env("GRAFANA_CLOUD_API_KEY", "")
 
 # Email (console backend by default; SMTP on the VPS)
 EMAIL_BACKEND = _env("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
@@ -313,7 +295,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 # Terms of Service — bump this date to force all users to re-accept.
-TERMS_LAST_UPDATED = "2026-02-25"
+TERMS_LAST_UPDATED = "2026-08-30"
 
 # django-unfold admin theme
 UNFOLD = {

@@ -11,7 +11,7 @@ services:
       - "8081:8000"
       - "4011:3011"
     command: >
-      sh -c "python manage.py migrate && opentelemetry-instrument python manage.py runserver_plus 0.0.0.0:8000 --cert-file /api/cert.crt --key-file /api/cert.key"
+      sh -c "python manage.py migrate && python manage.py runserver_plus 0.0.0.0:8000 --cert-file /api/cert.crt --key-file /api/cert.key"
     volumes:
       - ./api:/api
       - ./polygons:/polygons
@@ -20,13 +20,6 @@ services:
       - .env
     environment:
       DJANGO_SETTINGS_MODULE: api.settings
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
-      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
-      OTEL_LOGS_EXPORTER: otlp
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_TRACES_SAMPLER: always_on
-      OTEL_RESOURCE_ATTRIBUTES: service.name=wildfire-api,service.namespace=wildfire-assessment,deployment.environment=local
     restart: on-failure
     depends_on:
       db:
@@ -76,18 +69,11 @@ services:
     image: wildfire-api:dev
     user: root
     command: >
-      sh -c "opentelemetry-instrument celery -A wildfire_assessment worker --loglevel=info"
+      sh -c "celery -A wildfire_assessment worker --loglevel=info"
     env_file:
       - .env
     environment:
       DJANGO_SETTINGS_MODULE: api.settings
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
-      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
-      OTEL_LOGS_EXPORTER: otlp
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_TRACES_SAMPLER: always_on
-      OTEL_RESOURCE_ATTRIBUTES: service.name=wildfire-celery-worker,service.namespace=wildfire-assessment,deployment.environment=local
     volumes:
       - ./api:/api
       - ./svc:/svc
@@ -109,15 +95,8 @@ services:
       - .env
     environment:
       DJANGO_SETTINGS_MODULE: api.settings
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://grafana-alloy:4318
-      OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
-      OTEL_PYTHON_LOGGING_AUTO_INSTRUMENTATION_ENABLED: "true"
-      OTEL_LOGS_EXPORTER: otlp
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_TRACES_SAMPLER: always_on
-      OTEL_RESOURCE_ATTRIBUTES: service.name=wildfire-celery-beat,service.namespace=wildfire-assessment,deployment.environment=local
     command: >
-      sh -c "opentelemetry-instrument celery -A wildfire_assessment beat --loglevel=info"
+      sh -c "celery -A wildfire_assessment beat --loglevel=info"
     depends_on:
       db:
         condition: service_healthy
@@ -134,16 +113,3 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  grafana-alloy:
-    container_name: wildfire-alloy
-    image: grafana/alloy:v1.8.0
-    ports:
-      - "4317:4317"
-      - "4318:4318"
-      - "12345:12345"
-    volumes:
-      - ./alloy/config.alloy:/etc/alloy/config.alloy
-    env_file:
-      - .env
-    command: ["run", "--server.http.listen-addr=0.0.0.0:12345", "/etc/alloy/config.alloy"]
-    restart: on-failure

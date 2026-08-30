@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.cache import cache
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -683,43 +684,6 @@ class UserMeViewTests(APITestCase):
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.default_language, "pt-BR")
 
-    def test_me_get_includes_push_token(self):
-        UserProfile.objects.update_or_create(
-            user=self.user,
-            defaults={"expo_push_token": "ExponentPushToken[test]"},
-        )
-        # Re-fetch user to avoid stale cached profile relation
-        user = User.objects.get(pk=self.user.pk)
-        self.client.force_authenticate(user=user)
-        response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()["expo_push_token"], "ExponentPushToken[test]")
-
-    def test_me_patch_updates_push_token(self):
-        self.client.force_authenticate(user=self.user)
-        response = self.client.patch(
-            self.url,
-            {"expo_push_token": "ExponentPushToken[new]"},
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.expo_push_token, "ExponentPushToken[new]")
-
-    def test_me_patch_clears_push_token(self):
-        profile, _ = UserProfile.objects.get_or_create(user=self.user)
-        profile.expo_push_token = "ExponentPushToken[old]"
-        profile.save()
-        self.client.force_authenticate(user=self.user)
-        response = self.client.patch(
-            self.url,
-            {"expo_push_token": ""},
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.user.profile.refresh_from_db()
-        self.assertIsNone(self.user.profile.expo_push_token)
-
     def test_me_delete_requires_authentication(self):
         response = self.client.delete(self.url)
         self.assertIn(
@@ -776,6 +740,13 @@ class AIAnalysisViewTests(APITestCase):
         }
         response = self.client.post(self.url, incomplete_payload, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @override_settings(AI_ENABLED=False)
+    def test_analysis_disabled_returns_503(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertIn("error", response.json())
 
     @patch("wildfire_assessment.views.generate_analysis_stream")
     def test_analysis_returns_streaming_response(self, mock_generate):
@@ -863,6 +834,13 @@ class AIAnalysisFollowUpViewTests(APITestCase):
             "previous_response_id": "resp_123",
             "question": "What about recovery?",
         }
+
+    @override_settings(AI_ENABLED=False)
+    def test_followup_disabled_returns_503(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(self.url, self.valid_payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        self.assertIn("error", response.json())
 
     def test_followup_requires_authentication(self):
         response = self.client.post(self.url, self.valid_payload, format="json")
