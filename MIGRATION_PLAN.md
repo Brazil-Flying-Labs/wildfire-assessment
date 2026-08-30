@@ -729,6 +729,46 @@ Critério de aceite:
 - Análise completa GEE/GCS funciona na VPS.
 - Containers reiniciam corretamente após reboot da VPS.
 
+### 9.1 Roteiro de execução (passo a passo)
+
+Pré-requisitos do responsável: conta SMTP dedicada, registros A no
+Cloudflare, decisão sobre o diretório de clone.
+
+1. **Levar o código até a VPS** (uma das opções):
+   - Push do branch + `git clone` na VPS (preferido, requer autorização de
+     push); ou
+   - `rsync`/`scp` do worktree para
+     `/home/marcelo/deploy/wildfire-assessment/` (sem push).
+2. **Credencial GCP**: copiar `secrets/gcp-service-account.json` para a VPS
+   e ajustar o dono para o usuário do container (o Docker preserva a
+   permissão do arquivo de origem; o `appuser` é 10001):
+   `sudo chown 10001:10001 secrets/gcp-service-account.json && chmod 400 ...`
+3. **`.env` de produção** (base: `.env.example`), com:
+   `DJANGO_DEBUG=false`, `ENV=prod`, `DJANGO_ALLOWED_HOSTS=api.wildfire.droneai.com.br`,
+   `DJANGO_CSRF_TRUSTED_ORIGINS=https://wildfire.droneai.com.br,https://api.wildfire.droneai.com.br`,
+   `CORS_ALLOWED_ORIGINS=https://wildfire.droneai.com.br`,
+   `DB_*` novas, `EMAIL_BACKEND=smtp`, `EMAIL_HOST=mail.droneai.com.br`,
+   `EMAIL_PORT=587`, `EMAIL_USE_TLS=true`, credenciais SMTP dedicadas,
+   `DEFAULT_FROM_EMAIL`, `AI_ENABLED=true`, `DEEPSEEK_API_KEY=<chave>`,
+   `GCS_APP_PREFIX=prod`, `UI_BASE_URL=https://wildfire.droneai.com.br`.
+4. **Subir**:
+   `sudo docker compose -f compose.yml -f compose.prod.yml up -d --build`
+   (a cadeia `-f` desativa o override de dev).
+5. **Migrate + superusuário** (o entrypoint já roda o migrate; o
+   superusuário é criado manualmente):
+   `sudo docker compose -f ... exec api python manage.py createsuperuser`.
+6. **Rede do proxy**: confirmar que api e ui entraram na `proxy_network`
+   (`sudo docker network inspect proxy_network`).
+7. **Proxy Hosts no NPM** (API, mesmo procedimento do local):
+   token → `POST /api/nginx/proxy-hosts` para `wildfire.droneai.com.br` →
+   `ui:80` e `api.wildfire.droneai.com.br` → `api:8000`; solicitar
+   certificados Let's Encrypt para os dois nomes; habilitar Force SSL.
+8. **Cloudflare**: registros `A` `wildfire` e `api.wildfire` →
+   `62.171.139.124`, proxy habilitado, SSL/TLS `Full (strict)`.
+9. **Smoke test na VPS** (espelha a Fase 6): health, solicitar acesso,
+   aprovação, login, criar AOI, análise GEE, entregável científico,
+   e-mail real, report AI (DeepSeek), restart dos containers.
+
 ## 7. Observabilidade mínima da V1
 
 Implementar somente:
