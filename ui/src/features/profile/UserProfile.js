@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BackButton from "../../components/BackButton";
 import { useLanguage, SUPPORTED_LANGUAGES } from "../../context/LanguageContext";
-import useCookieConsent from "../../hooks/useCookieConsent";
 import DeleteAccountModal from "./DeleteAccountModal";
 
 const LANGUAGE_LABELS = {
@@ -17,7 +16,6 @@ const THEME_LABELS = {
 
 function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfileUpdate, onThemeChange, onBack, logout }) {
   const { t, language, setLanguage } = useLanguage();
-  const { consent, resetConsent } = useCookieConsent();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [loading, setLoading] = useState(!backendProfile);
   const [saving, setSaving] = useState(false);
@@ -268,23 +266,6 @@ function UserProfile({ authorizedFetch, baseUrl, user, backendProfile, onProfile
               )}
             </button>
           </form>
-        </div>
-      </div>
-
-      <div className="card shadow-sm mt-4">
-        <div className="card-body">
-          <h5 className="card-title mb-3">{t("profile.cookieSettings")}</h5>
-          <div className={`mb-3 ${consent === "accepted" ? "text-success" : "text-danger"}`}>
-            {consent === "accepted" ? t("profile.cookieConsenting") : t("profile.cookieNotConsenting")}
-          </div>
-          <button
-            type="button"
-            className="btn btn-outline-secondary btn-sm"
-            onClick={resetConsent}
-          >
-            {consent === "accepted" ? t("profile.revokeCookieConsent") : t("profile.manageCookiePreferences")}
-          </button>
-          <div className="form-text mt-2">{t("profile.cookieSettingsHint")}</div>
         </div>
       </div>
 

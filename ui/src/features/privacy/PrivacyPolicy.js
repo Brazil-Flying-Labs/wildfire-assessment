@@ -53,8 +53,6 @@ function PrivacyPolicy({ onBack }) {
             <p className="privacy-text">{t("privacy.section1Text2")}</p>
             <h3 className="privacy-subtitle">{t("privacy.section1Subtitle3")}</h3>
             <p className="privacy-text">{t("privacy.section1Text3")}</p>
-            <h3 className="privacy-subtitle">{t("privacy.section1Subtitle4")}</h3>
-            <p className="privacy-text">{t("privacy.section1Text4")}</p>
             <h3 className="privacy-subtitle">{t("privacy.section1Subtitle5")}</h3>
             <p className="privacy-text">{t("privacy.section1Text5")}</p>
             <h3 className="privacy-subtitle">{t("privacy.section1Subtitle6")}</h3>

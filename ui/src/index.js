@@ -5,7 +5,6 @@ import App from './App';
 import PrivacyPolicy from './features/privacy/PrivacyPolicy';
 import reportWebVitals from './reportWebVitals';
 import { LanguageProvider } from './context/LanguageContext';
-import CookieConsentBanner from './components/CookieConsentBanner';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
@@ -22,7 +21,6 @@ root.render(
   <React.StrictMode>
     <LanguageProvider>
       <AppWithProviders />
-      <CookieConsentBanner />
     </LanguageProvider>
   </React.StrictMode>
 );
