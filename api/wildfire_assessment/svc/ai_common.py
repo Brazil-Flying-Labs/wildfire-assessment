@@ -168,7 +168,7 @@ REPORT_SYSTEM_INSTRUCTIONS = (
 
 def _get_report_instructions(language: str | None = None) -> str:
     lang_name = LANGUAGE_MAP.get(language or "en", "English")
-    return f"{REPORT_SYSTEM_INSTRUCTIONS}\n\nAlways respond in {lang_name}."
+    return f"Always respond in {lang_name}.\n\n{REPORT_SYSTEM_INSTRUCTIONS}"
 
 
 def build_report_prompt(analysis_run, include_images: bool = True) -> str:
