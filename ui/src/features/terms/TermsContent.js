@@ -1,6 +1,6 @@
 import { useLanguage } from "../../context/LanguageContext";
 
-const TERMS_DATE = "2026-02-25";
+const TERMS_DATE = "2026-08-30";
 
 const content = {
   en: {
@@ -16,7 +16,6 @@ const content = {
           [
             "Analyze burn severity",
             "Generate scientific outputs",
-            "Access AI-assisted analytical reports",
             "Monitor environmental recovery over time",
           ],
           "Access may be limited to specific countries or regions, depending on authorization.",
@@ -26,7 +25,7 @@ const content = {
         title: "2. Access and Accounts",
         blocks: [
           [
-            "Access requires authentication via Auth0.",
+            "Access requires authentication with the e-mail address and password you choose after your account is approved.",
             "Account activation is subject to administrator approval.",
             "Access permissions may be granted on a per-country basis.",
             "You are responsible for maintaining the confidentiality of your login credentials.",
@@ -36,30 +35,16 @@ const content = {
         ],
       },
       {
-        title: "3. Usage Analytics and Technical Monitoring",
+        title: "3. Technical Monitoring",
         blocks: [
-          "To ensure reliability, security, and continuous improvement, the Platform collects limited technical telemetry data, including:",
-          [
-            "Page views and navigation flow",
-            "Interaction events (e.g., button clicks, form submissions)",
-            "Browser type, device type, and screen resolution",
-            "Performance metrics and error logs",
-          ],
-          "This telemetry is:",
-          [
-            "Used exclusively for system monitoring, debugging, performance optimization, and usability improvements",
-            "Aggregated and anonymized",
-            "Not used for profiling or marketing",
-            "Not sold or shared for commercial purposes",
-          ],
-          "We do not transmit personal data (such as names, email addresses, or account identifiers) to analytics or monitoring services.",
-          "Technical telemetry is limited to server logs retained solely for operational monitoring purposes.",
+          "The Platform does not use third-party analytics or telemetry services. We do not collect page views, navigation data, interaction events, or device information.",
+          "Technical monitoring is limited to server logs retained solely for operational purposes such as security, debugging, and reliability.",
         ],
       },
       {
         title: "4. Data Storage and Security",
         blocks: [
-          "Platform data is hosted on secure cloud infrastructure (Amazon Web Services) with:",
+          "Platform data is hosted on a dedicated virtual server in a European data center (Contabo) and on Google Cloud Platform storage, with:",
           [
             "Encryption in transit (TLS)",
             "Encryption at rest",
@@ -96,7 +81,7 @@ const content = {
             "Object to certain processing activities",
           ],
           "To exercise your rights or submit privacy-related inquiries, please contact:",
-          "privacy@brazilflyinglabs.org.br",
+          "humanos@brazilflyinglabs.org.br",
           "We respond within legally required timeframes.",
         ],
       },
@@ -142,7 +127,7 @@ const content = {
           "Continued use after updates indicates acceptance of the revised Terms.",
           "For questions regarding these Terms or data protection matters, please contact:",
           "Brazil Flying Labs",
-          "privacy@brazilflyinglabs.org.br",
+          "humanos@brazilflyinglabs.org.br",
         ],
       },
     ],
@@ -160,7 +145,6 @@ const content = {
           [
             "Analisem a severidade de queimadas",
             "Gerem produtos cient\u00edficos",
-            "Acessem relat\u00f3rios anal\u00edticos assistidos por IA",
             "Monitorem a recupera\u00e7\u00e3o ambiental ao longo do tempo",
           ],
           "O acesso pode ser limitado a pa\u00edses ou regi\u00f5es espec\u00edficos, dependendo da autoriza\u00e7\u00e3o.",
@@ -170,7 +154,7 @@ const content = {
         title: "2. Acesso e Contas",
         blocks: [
           [
-            "O acesso requer autentica\u00e7\u00e3o via Auth0.",
+            "O acesso requer autentica\u00e7\u00e3o com o e-mail e a senha que voc\u00ea define ap\u00f3s a aprova\u00e7\u00e3o da sua conta.",
             "A ativa\u00e7\u00e3o da conta est\u00e1 sujeita \u00e0 aprova\u00e7\u00e3o do administrador.",
             "As permiss\u00f5es de acesso podem ser concedidas por pa\u00eds.",
             "Voc\u00ea \u00e9 respons\u00e1vel por manter a confidencialidade das suas credenciais de login.",
@@ -180,30 +164,16 @@ const content = {
         ],
       },
       {
-        title: "3. An\u00e1lise de Uso e Monitoramento T\u00e9cnico",
+        title: "3. Monitoramento T\u00e9cnico",
         blocks: [
-          "Para garantir confiabilidade, seguran\u00e7a e melhoria cont\u00ednua, a Plataforma coleta dados de telemetria t\u00e9cnica limitados, incluindo:",
-          [
-            "Visualiza\u00e7\u00f5es de p\u00e1ginas e fluxo de navega\u00e7\u00e3o",
-            "Eventos de intera\u00e7\u00e3o (ex.: cliques em bot\u00f5es, envio de formul\u00e1rios)",
-            "Tipo de navegador, tipo de dispositivo e resolu\u00e7\u00e3o de tela",
-            "M\u00e9tricas de desempenho e logs de erros",
-          ],
-          "Esta telemetria \u00e9:",
-          [
-            "Utilizada exclusivamente para monitoramento do sistema, depura\u00e7\u00e3o, otimiza\u00e7\u00e3o de desempenho e melhorias de usabilidade",
-            "Agregada e anonimizada",
-            "N\u00e3o utilizada para cria\u00e7\u00e3o de perfis ou marketing",
-            "N\u00e3o vendida ou compartilhada para fins comerciais",
-          ],
-          "N\u00e3o transmitimos dados pessoais (como nomes, endere\u00e7os de e-mail ou identificadores de conta) para servi\u00e7os de an\u00e1lise ou monitoramento.",
-          "A telemetria t\u00e9cnica limita-se a logs de servidor mantidos exclusivamente para fins de monitoramento operacional.",
+          "A Plataforma n\u00e3o utiliza servi\u00e7os de an\u00e1lise ou telemetria de terceiros. N\u00e3o coletamos visualiza\u00e7\u00f5es de p\u00e1ginas, dados de navega\u00e7\u00e3o, eventos de intera\u00e7\u00e3o ou informa\u00e7\u00f5es de dispositivo.",
+          "O monitoramento t\u00e9cnico limita-se a logs de servidor mantidos exclusivamente para fins operacionais, como seguran\u00e7a, depura\u00e7\u00e3o e confiabilidade.",
         ],
       },
       {
         title: "4. Armazenamento e Seguran\u00e7a de Dados",
         blocks: [
-          "Os dados da Plataforma s\u00e3o hospedados em infraestrutura de nuvem segura (Amazon Web Services) com:",
+          "Os dados da Plataforma s\u00e3o hospedados em um servidor virtual dedicado em um data center europeu (Contabo) e no armazenamento do Google Cloud Platform, com:",
           [
             "Criptografia em tr\u00e2nsito (TLS)",
             "Criptografia em repouso",
@@ -240,7 +210,7 @@ const content = {
             "Opor-se a determinadas atividades de processamento",
           ],
           "Para exercer seus direitos ou enviar consultas relacionadas \u00e0 privacidade, entre em contato:",
-          "privacy@brazilflyinglabs.org.br",
+          "humanos@brazilflyinglabs.org.br",
           "Respondemos dentro dos prazos legalmente exigidos.",
         ],
       },
@@ -286,7 +256,7 @@ const content = {
           "O uso cont\u00ednuo ap\u00f3s as atualiza\u00e7\u00f5es indica aceita\u00e7\u00e3o dos Termos revisados.",
           "Para perguntas sobre estes Termos ou quest\u00f5es de prote\u00e7\u00e3o de dados, entre em contato:",
           "Brazil Flying Labs",
-          "privacy@brazilflyinglabs.org.br",
+          "humanos@brazilflyinglabs.org.br",
         ],
       },
     ],
@@ -304,7 +274,6 @@ const content = {
           [
             "Analyser la gravit\u00e9 des br\u00fblures",
             "G\u00e9n\u00e9rer des productions scientifiques",
-            "Acc\u00e9der \u00e0 des rapports analytiques assist\u00e9s par IA",
             "Surveiller la r\u00e9cup\u00e9ration environnementale au fil du temps",
           ],
           "L'acc\u00e8s peut \u00eatre limit\u00e9 \u00e0 des pays ou r\u00e9gions sp\u00e9cifiques, selon l'autorisation.",
@@ -314,7 +283,7 @@ const content = {
         title: "2. Acc\u00e8s et Comptes",
         blocks: [
           [
-            "L'acc\u00e8s n\u00e9cessite une authentification via Auth0.",
+            "L'acc\u00e8s n\u00e9cessite une authentification avec l'adresse e-mail et le mot de passe que vous d\u00e9finissez apr\u00e8s l'approbation de votre compte.",
             "L'activation du compte est soumise \u00e0 l'approbation de l'administrateur.",
             "Les permissions d'acc\u00e8s peuvent \u00eatre accord\u00e9es par pays.",
             "Vous \u00eates responsable de la confidentialit\u00e9 de vos identifiants de connexion.",
@@ -324,30 +293,16 @@ const content = {
         ],
       },
       {
-        title: "3. Analyses d'Utilisation et Surveillance Technique",
+        title: "3. Surveillance Technique",
         blocks: [
-          "Pour garantir la fiabilit\u00e9, la s\u00e9curit\u00e9 et l'am\u00e9lioration continue, la Plateforme collecte des donn\u00e9es de t\u00e9l\u00e9m\u00e9trie technique limit\u00e9es, notamment :",
-          [
-            "Pages consult\u00e9es et flux de navigation",
-            "\u00c9v\u00e9nements d'interaction (ex. : clics sur boutons, soumissions de formulaires)",
-            "Type de navigateur, type d'appareil et r\u00e9solution d'\u00e9cran",
-            "M\u00e9triques de performance et journaux d'erreurs",
-          ],
-          "Cette t\u00e9l\u00e9m\u00e9trie est :",
-          [
-            "Utilis\u00e9e exclusivement pour la surveillance du syst\u00e8me, le d\u00e9bogage, l'optimisation des performances et les am\u00e9liorations de convivialit\u00e9",
-            "Agr\u00e9g\u00e9e et anonymis\u00e9e",
-            "Non utilis\u00e9e pour le profilage ou le marketing",
-            "Non vendue ni partag\u00e9e \u00e0 des fins commerciales",
-          ],
-          "Nous ne transmettons pas de donn\u00e9es personnelles (telles que noms, adresses e-mail ou identifiants de compte) aux services d'analyse ou de surveillance.",
-          "La t\u00e9l\u00e9m\u00e9trie technique se limite aux journaux de serveur conserv\u00e9s uniquement \u00e0 des fins de surveillance op\u00e9rationnelle.",
+          "La Plateforme n'utilise aucun service d'analyse ou de t\u00e9l\u00e9m\u00e9trie tiers. Nous ne collectons pas de pages consult\u00e9es, de donn\u00e9es de navigation, d'\u00e9v\u00e9nements d'interaction ou d'informations sur l'appareil.",
+          "La surveillance technique se limite aux journaux de serveur conserv\u00e9s uniquement \u00e0 des fins op\u00e9rationnelles, telles que la s\u00e9curit\u00e9, le d\u00e9bogage et la fiabilit\u00e9.",
         ],
       },
       {
         title: "4. Stockage et S\u00e9curit\u00e9 des Donn\u00e9es",
         blocks: [
-          "Les donn\u00e9es de la Plateforme sont h\u00e9berg\u00e9es sur une infrastructure cloud s\u00e9curis\u00e9e (Amazon Web Services) avec :",
+          "Les donn\u00e9es de la Plateforme sont h\u00e9berg\u00e9es sur un serveur virtuel d\u00e9di\u00e9 dans un centre de donn\u00e9es europ\u00e9en (Contabo) et sur le stockage Google Cloud Platform, avec :",
           [
             "Chiffrement en transit (TLS)",
             "Chiffrement au repos",
@@ -384,7 +339,7 @@ const content = {
             "Vous opposer \u00e0 certaines activit\u00e9s de traitement",
           ],
           "Pour exercer vos droits ou soumettre des demandes relatives \u00e0 la confidentialit\u00e9, veuillez contacter :",
-          "privacy@brazilflyinglabs.org.br",
+          "humanos@brazilflyinglabs.org.br",
           "Nous r\u00e9pondons dans les d\u00e9lais l\u00e9galement requis.",
         ],
       },
@@ -430,7 +385,7 @@ const content = {
           "L'utilisation continue apr\u00e8s les mises \u00e0 jour indique l'acceptation des Conditions r\u00e9vis\u00e9es.",
           "Pour toute question concernant ces Conditions ou les questions de protection des donn\u00e9es, veuillez contacter :",
           "Brazil Flying Labs",
-          "privacy@brazilflyinglabs.org.br",
+          "humanos@brazilflyinglabs.org.br",
         ],
       },
     ],
