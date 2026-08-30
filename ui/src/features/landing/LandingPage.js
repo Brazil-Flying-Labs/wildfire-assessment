@@ -1,15 +1,42 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import "./LandingPage.css";
 import { useLanguage } from "../../context/LanguageContext";
 import LanguageSelector from "../../LanguageSelector";
 
-function LandingPage({ onLogin, isAuthenticated }) {
+function LandingPage({ onLogin, isAuthenticated, baseUrl, fetchJson }) {
   const { t } = useLanguage();
   const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo.png`, []);
   const glowHero = useMemo(() => `${process.env.PUBLIC_URL}/glow-hero.svg`, []);
   const glowSection = useMemo(() => `${process.env.PUBLIC_URL}/glow-section.svg`, []);
   const screenshotSrc = useMemo(() => `${process.env.PUBLIC_URL}/front-end-screenshot.png`, []);
   const contactEmail = "humanos@brazilflyinglabs.org.br";
+  const [requestFirstName, setRequestFirstName] = useState("");
+  const [requestLastName, setRequestLastName] = useState("");
+  const [requestEmail, setRequestEmail] = useState("");
+  const [requestSent, setRequestSent] = useState(false);
+  const [requestBusy, setRequestBusy] = useState(false);
+
+  const submitAccessRequest = async (event) => {
+    event.preventDefault();
+    if (requestBusy || !baseUrl) return;
+    setRequestBusy(true);
+    try {
+      await fetchJson(`${baseUrl}/auth/request-access/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: requestFirstName,
+          last_name: requestLastName,
+          email: requestEmail,
+        }),
+      });
+      setRequestSent(true);
+    } catch (error) {
+      console.error("Failed to send access request:", error);
+    } finally {
+      setRequestBusy(false);
+    }
+  };
 
   return (
     <div className="landing-root d-flex flex-column min-vh-100">
@@ -211,6 +238,66 @@ function LandingPage({ onLogin, isAuthenticated }) {
               {t("landing.pilotPlatform")}
             </a>
           </div>
+        </div>
+      </section>
+
+      {/* ── Request access ── */}
+      <section className="py-5">
+        <div className="container" style={{ maxWidth: 560 }}>
+          <h3 className="text-center mb-2">{t("auth.requestAccessTitle")}</h3>
+          <p className="text-muted text-center mb-4">
+            {t("auth.requestAccessSubtitle")}
+          </p>
+          {requestSent ? (
+            <div className="alert alert-success" role="alert">
+              {t("auth.requestAccessSuccess")}
+            </div>
+          ) : (
+            <form onSubmit={submitAccessRequest} className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label">{t("auth.firstName")}</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={requestFirstName}
+                  onChange={(e) => setRequestFirstName(e.target.value)}
+                  required
+                  autoComplete="given-name"
+                />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label">{t("auth.lastName")}</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={requestLastName}
+                  onChange={(e) => setRequestLastName(e.target.value)}
+                  required
+                  autoComplete="family-name"
+                />
+              </div>
+              <div className="col-12">
+                <label className="form-label">{t("auth.email")}</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={requestEmail}
+                  onChange={(e) => setRequestEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+              <div className="col-12 text-center">
+                <button
+                  type="submit"
+                  className="landing-btn-primary"
+                  disabled={requestBusy}
+                >
+                  {t("auth.requestAccessButton")}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </section>
 

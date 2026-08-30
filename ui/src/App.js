@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAuth0 } from "@auth0/auth0-react";
 import "./App.css";
 import Breadcrumbs from "./components/Breadcrumbs";
 import AnalysisDetail from "./features/analysis-detail/AnalysisDetail";
@@ -16,19 +15,36 @@ import useNotifications from "./hooks/useNotifications";
 import useProfile from "./hooks/useProfile";
 import { useLanguage } from "./context/LanguageContext";
 import { UI_VERSION } from "./constants/config";
+import {
+  LoginPage,
+  ResetPasswordPage,
+  SetPasswordPage,
+} from "./features/auth/AuthPages";
+
+function getCookie(name) {
+  for (const part of document.cookie.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return decodeURIComponent(rest.join("="));
+  }
+  return null;
+}
 
 function App() {
   const { t, language, setLanguage } = useLanguage();
-  const authAudience = process.env.REACT_APP_AUTH0_AUDIENCE || "";
-  const {
-    isAuthenticated,
-    isLoading: authLoading,
-    loginWithRedirect,
-    logout,
-    user,
-    getAccessTokenSilently,
-    error: authError,
-  } = useAuth0();
+
+  // Native session state — the backend /me/ endpoint is the source of truth.
+  const [sessionUser, setSessionUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authView, setAuthView] = useState(() => {
+    if (window.location.pathname.startsWith("/set-password")) {
+      return "set-password";
+    }
+    if (window.location.pathname.startsWith("/reset-password")) {
+      return "reset-password";
+    }
+    if (window.location.pathname === "/login") return "login";
+    return "landing";
+  });
 
   const baseUrl = useMemo(() => {
     const url = process.env.REACT_APP_WILDLIFE_API_URL;
@@ -36,18 +52,26 @@ function App() {
     return url.endsWith("/") ? url.slice(0, -1) : url;
   }, []);
   const logoSrc = useMemo(() => `${process.env.PUBLIC_URL}/logo.png`, []);
-  const authReady = !authLoading && isAuthenticated;
+  const authReady = !authLoading && !!sessionUser;
+
+  // Plain fetch with credentials and the CSRF token on unsafe methods.
+  const fetchJson = useCallback(
+    async (url, options = {}) => {
+      const method = (options.method || "GET").toUpperCase();
+      const headers = { ...(options.headers || {}) };
+      if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+        headers["X-CSRFToken"] = getCookie("csrftoken");
+      }
+      return fetch(url, { ...options, headers, credentials: "include" });
+    },
+    []
+  );
 
   // Sidebar UI state
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isSidebarPinned, setIsSidebarPinned] = useState(false);
   const [sidebarCollapsing, setSidebarCollapsing] = useState(false);
   const [showLandingPage, setShowLandingPageState] = useState(() => {
-    // Skip landing page when returning from Auth0 callback
-    const params = new URLSearchParams(window.location.search);
-    if (params.has("code") && params.has("state")) {
-      return false;
-    }
     // On page refresh, check history state to preserve current page
     const state = window.history.state;
     if (state && state.landing === false) {
@@ -76,42 +100,58 @@ function App() {
     });
   }, []);
 
-  const login = useCallback(() => {
-    const theme = document.documentElement.getAttribute("data-theme") || "dark";
-    loginWithRedirect({
-      authorizationParams: { ui_locales: language, color_scheme: theme },
-    });
-  }, [loginWithRedirect, language]);
-
   const authorizedFetch = useCallback(
     async (url, options = {}) => {
-      let token;
-      try {
-        token = await getAccessTokenSilently({
-          authorizationParams: { audience: authAudience },
-        });
-      } catch (error) {
-        const message =
-          error?.error_description || error?.message || "Unknown auth error";
-        const isExpiredSession =
-          error?.error === "login_required" ||
-          error?.error === "invalid_grant" ||
-          /missing refresh token/i.test(message);
-        if (isExpiredSession) {
-          console.warn("Session expired, redirecting to login:", message);
-          logout({ logoutParams: { returnTo: window.location.origin } });
-          return new Promise(() => {}); // never resolves — page will redirect
-        }
-        console.error("Failed to retrieve access token:", message);
-        throw error;
+      const response = await fetchJson(url, options);
+      if (response.status === 401) {
+        console.warn("Session expired, returning to the landing page");
+        setSessionUser(null);
       }
-
-      const headers = { ...(options.headers || {}) };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      return fetch(url, { ...options, headers });
+      return response;
     },
-    [authAudience, getAccessTokenSilently, logout]
+    [fetchJson]
   );
+
+  // Check the session on boot: set the CSRF cookie, then ask /me/.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await fetchJson(`${baseUrl}/auth/csrf/`);
+        const response = await fetchJson(`${baseUrl}/me/`);
+        if (cancelled) return;
+        if (response.ok) {
+          setSessionUser(await response.json());
+        }
+      } catch (error) {
+        console.error("Session check failed:", error);
+      } finally {
+        if (!cancelled) setAuthLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [baseUrl, fetchJson]);
+
+  const handleLoginSuccess = useCallback(async () => {
+    try {
+      const response = await fetchJson(`${baseUrl}/me/`);
+      if (response.ok) setSessionUser(await response.json());
+    } catch (error) {
+      console.error("Failed to load the profile after login:", error);
+    }
+  }, [baseUrl, fetchJson]);
+
+  const logout = useCallback(async () => {
+    try {
+      await fetchJson(`${baseUrl}/auth/logout/`, { method: "POST" });
+    } catch (error) {
+      console.warn("Logout request failed:", error);
+    } finally {
+      setSessionUser(null);
+    }
+  }, [baseUrl, fetchJson]);
 
   // Navigation
   const {
@@ -173,7 +213,20 @@ function App() {
 
 
 
-  // Prefer backend profile name, fallback to Auth0 name
+  // Session user mapped to the shape the app components expect.
+  const user = useMemo(() => {
+    if (!sessionUser) return null;
+    const firstName = sessionUser.first_name || "";
+    const lastName = sessionUser.last_name || "";
+    return {
+      email: sessionUser.email,
+      given_name: firstName,
+      family_name: lastName,
+      name: [firstName, lastName].filter(Boolean).join(" ") || sessionUser.email,
+    };
+  }, [sessionUser]);
+
+  // Prefer backend profile name, fallback to the session user name
   const displayName = useMemo(() => {
     const firstName = backendProfile?.first_name?.trim();
     const lastName = backendProfile?.last_name?.trim();
@@ -182,21 +235,6 @@ function App() {
     }
     return user?.name || user?.email || "User";
   }, [backendProfile, user]);
-
-  if (authError) {
-    return (
-      <div className="app-root d-flex align-items-center justify-content-center min-vh-100">
-        <div className="alert alert-danger m-4" role="alert">
-          {authError.message || t("app.authFailed")}
-          <div className="mt-3">
-            <button type="button" className="btn btn-primary" onClick={login}>
-              {t("common.tryAgain")}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (authLoading) {
     return (
@@ -211,7 +249,37 @@ function App() {
   }
 
   if (!authReady) {
-    return <div className="page-fade-in"><LandingPage onLogin={login} /></div>;
+    if (authView === "set-password") {
+      return <SetPasswordPage baseUrl={baseUrl} fetchJson={fetchJson} />;
+    }
+    if (authView === "reset-password") {
+      return (
+        <ResetPasswordPage
+          baseUrl={baseUrl}
+          fetchJson={fetchJson}
+          onBackToLanding={() => setAuthView("landing")}
+        />
+      );
+    }
+    if (authView === "login") {
+      return (
+        <LoginPage
+          baseUrl={baseUrl}
+          fetchJson={fetchJson}
+          onLoginSuccess={handleLoginSuccess}
+          onBackToLanding={() => setAuthView("landing")}
+        />
+      );
+    }
+    return (
+      <div className="page-fade-in">
+        <LandingPage
+          baseUrl={baseUrl}
+          fetchJson={fetchJson}
+          onLogin={() => setAuthView("login")}
+        />
+      </div>
+    );
   }
 
   if (showLandingPage) {
@@ -242,7 +310,7 @@ function App() {
           <button
             type="button"
             className="btn btn-outline-secondary mt-3"
-            onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+            onClick={logout}
           >
             {t("common.logout")}
           </button>
@@ -262,7 +330,7 @@ function App() {
       <TermsPage
         logoSrc={logoSrc}
         onAccept={acceptTerms}
-        onLogout={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+        onLogout={logout}
       />
     );
   }

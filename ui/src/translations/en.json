@@ -39,7 +39,7 @@
   "landing.whyNowConclusion": "Wildfire Insight Intelligence transforms environmental data into practical governance capacity.",
   "landing.ctaTitle": "Ready to Strengthen Your Fire Response Strategy?",
   "landing.ctaDesc": "If your organization is responsible for wildfire management, ecosystem restoration, or climate risk planning, we invite you to explore a pilot deployment.",
-  "landing.ctaAction": "Let\u2019s move from delayed reaction to strategic action.",
+  "landing.ctaAction": "Let’s move from delayed reaction to strategic action.",
   "landing.partnerWithUs": "Partner With Us",
   "landing.pilotPlatform": "Pilot the Platform in Your Region",
   "app.title": "Wildfire Insight Intelligence",
@@ -199,7 +199,7 @@
   "dashboard.tooltipAvgSeverity": "Weighted average severity index (0=Unburned, 1=Low, 2=Moderate, 3=High, 4=Very High), weighted by area in hectares.",
   "dashboard.tooltipMostAnalyzed": "The area of interest where you have run the most fire assessments.",
   "dashboard.tooltipLargestFire": "The single analysis run with the highest burned area (ha) among all your runs.",
-  "dashboard.tooltipFireMap": "Interactive map showing all your analyzed areas as polygons. Color represents total burned hectares: Green (0 ha), Yellow (< 50 ha), Orange (< 200 ha), Red (< 1,000 ha), Dark Red (\u2265 1,000 ha).",
+  "dashboard.tooltipFireMap": "Interactive map showing all your analyzed areas as polygons. Color represents total burned hectares: Green (0 ha), Yellow (< 50 ha), Orange (< 200 ha), Red (< 1,000 ha), Dark Red (≥ 1,000 ha).",
   "dashboard.tooltipSeverityTrend": "Daily weighted average severity index over the last 180 days, showing how fire severity changes over time.",
   "dashboard.addWidget": "Add Widget",
   "dashboard.addWidgetDesc": "Select widgets to add to your dashboard",
@@ -332,11 +332,9 @@
   "profile.revokeCookieConsent": "Revoke Consent",
   "profile.manageCookiePreferences": "Manage Cookie Preferences",
   "profile.cookieSettingsHint": "Opens the cookie consent banner so you can update your preferences.",
-
   "privacy.title": "Privacy Policy",
   "privacy.effectiveDate": "Effective date: March 13, 2026",
   "privacy.intro": "Brazil Flying Labs (\"we\", \"us\", \"our\") operates the Wildfire Insight Intelligence platform (the \"Service\"). This Privacy Policy explains what data we collect, how we use it, and your rights regarding your personal information.",
-
   "privacy.section1Title": "1. Information We Collect",
   "privacy.section1Subtitle1": "Account Information",
   "privacy.section1Text1": "When you sign in via Auth0, we receive your email address, name, and a unique user identifier. This information is used to authenticate your account and personalize your experience.",
@@ -350,41 +348,30 @@
   "privacy.section1Text5": "You may create areas of interest with GeoJSON boundaries, run fire analyses, and interact with AI-powered analysis features. This content is stored on our servers to provide the Service.",
   "privacy.section1Subtitle6": "Profile Preferences",
   "privacy.section1Text6": "We store your preferred language, theme (light/dark), and dashboard widget layout to personalize your experience.",
-
   "privacy.section2Title": "2. Information We Do Not Collect",
   "privacy.section2Text": "We do not collect your real-time GPS location, device identifiers (UDID, IMEI), session recordings or screen captures, keystroke logs, or device hardware specifications.",
-
   "privacy.section3Title": "3. How We Use Your Information",
   "privacy.section3Text": "We use the collected information to provide and maintain the Service, authenticate your identity, send push notifications you have opted into, analyze usage patterns to improve the platform, monitor and fix errors, and personalize your experience with saved preferences.",
-
   "privacy.section4Title": "4. Third-Party Services",
   "privacy.section4Text": "We share data with the following third-party providers to operate the Service:",
   "privacy.section4Item1": "Auth0 — Authentication and identity management",
   "privacy.section4Item2": "PostHog (US) — Usage analytics (with your cookie consent)",
   "privacy.section4Item3": "Grafana Faro — Error monitoring and logging",
   "privacy.section4Item4": "Expo — Push notification delivery (mobile app)",
-
   "privacy.section5Title": "5. Cookies",
   "privacy.section5Text": "We use essential cookies required for the Service to function (authentication, security). Optional analytics cookies (PostHog) are only activated with your explicit consent. You can manage your cookie preferences at any time from the Profile settings.",
-
   "privacy.section6Title": "6. Data Storage and Security",
   "privacy.section6Text": "On the mobile app, authentication tokens are stored securely using encrypted native storage (Keychain on iOS, Keystore on Android). On the web, standard browser storage is used. All data transmitted between your device and our servers is encrypted via HTTPS.",
-
   "privacy.section7Title": "7. Your Rights",
   "privacy.section7Text": "You have the right to access the personal data we hold about you, request correction of inaccurate data, request deletion of your data, withdraw cookie consent at any time, and export your data. To exercise any of these rights, contact us at:",
-
   "privacy.section8Title": "8. Children's Privacy",
   "privacy.section8Text": "The Service is not intended for children under 13 years of age. We do not knowingly collect personal information from children.",
-
   "privacy.section9Title": "9. Changes to This Policy",
   "privacy.section9Text": "We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the updated policy within the Service. Your continued use of the Service after changes constitutes acceptance of the updated policy.",
-
   "privacy.section10Title": "10. Contact Us",
   "privacy.section10Text": "If you have questions about this Privacy Policy or your personal data, contact us at:",
   "privacy.contactEmail": "humanos@brazilflyinglabs.org.br",
-
   "landing.privacyPolicy": "Privacy Policy",
-
   "profile.deleteAccount": "Delete Account",
   "profile.deleteAccountTitle": "Delete Your Account",
   "profile.deleteAccountWarning": "This action is permanent and cannot be undone. All your analysis history, notifications, and profile data will be permanently deleted.",
@@ -394,7 +381,6 @@
   "profile.deleteAccountDeleting": "Deleting...",
   "profile.deleteAccountError": "Failed to delete account. Please try again.",
   "profile.deleteAccountCancel": "Cancel",
-
   "report.title": "Wildfire Damage Assessment Report",
   "report.subtitle": "Satellite-Based Fire Impact Analysis",
   "report.generatedOn": "Generated:",
@@ -414,7 +400,7 @@
   "report.assessmentSevere": "The analysis reveals extensive and severe fire damage. Emergency response and comprehensive restoration planning are urgently needed. Priority should be given to erosion prevention and ecological recovery in the most affected zones.",
   "report.recommendations": "Recommendations:",
   "report.recommendation1": "Priority recovery efforts should focus on areas classified as High and Very High severity, where vegetation loss and soil exposure are most critical.",
-  "report.recommendation2": "Follow-up monitoring using satellite imagery is recommended within 6\u201312 months to assess vegetation regrowth and recovery progress.",
+  "report.recommendation2": "Follow-up monitoring using satellite imagery is recommended within 6–12 months to assess vegetation regrowth and recovery progress.",
   "report.recommendation3": "Soil stabilization measures should be considered for steep terrain within high-severity zones to mitigate erosion risk during rainy seasons.",
   "report.satelliteImagery": "Satellite Imagery",
   "report.preFireSources": "Pre-Fire Image Sources",
@@ -432,5 +418,30 @@
   "report.regenerating": "Regenerating...",
   "report.noSummary": "No AI summary available. Click Print Report to generate one.",
   "report.generatedBy": "Generated by Wildfire Insight Intelligence",
-  "common.printReport": "Report"
+  "common.printReport": "Report",
+  "auth.loginTitle": "Sign in",
+  "auth.email": "E-mail",
+  "auth.password": "Password",
+  "auth.loginButton": "Sign in",
+  "auth.loginFailed": "Invalid e-mail or password.",
+  "auth.accountPending": "Your account is still awaiting approval. Please try again later.",
+  "auth.forgotPassword": "Forgot your password?",
+  "auth.backToLanding": "Back to the home page",
+  "auth.goToLogin": "Go to sign in",
+  "auth.setPasswordTitle": "Set your password",
+  "auth.setPasswordSubtitle": "This link is single-use and expires in 24 hours.",
+  "auth.newPassword": "New password",
+  "auth.setPasswordButton": "Save password",
+  "auth.setPasswordSuccess": "Password saved. You can now sign in.",
+  "auth.setPasswordInvalid": "This link is invalid or has expired.",
+  "auth.resetTitle": "Reset your password",
+  "auth.resetSubtitle": "We will send you a single-use link by e-mail if the account exists.",
+  "auth.resetButton": "Send reset link",
+  "auth.resetSuccess": "If the e-mail is registered, a reset link was sent.",
+  "auth.requestAccessTitle": "Request access",
+  "auth.requestAccessSubtitle": "Fill in your details and an administrator will review your request.",
+  "auth.firstName": "Name",
+  "auth.lastName": "Surname",
+  "auth.requestAccessButton": "Request access",
+  "auth.requestAccessSuccess": "Request received. You will receive an e-mail when your access is approved."
 }

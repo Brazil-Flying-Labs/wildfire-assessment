@@ -199,7 +199,7 @@
   "dashboard.tooltipAvgSeverity": "Índice médio ponderado de severidade (0=Não Queimado, 1=Baixa, 2=Moderada, 3=Alta, 4=Muito Alta), ponderado pela área em hectares.",
   "dashboard.tooltipMostAnalyzed": "A área de interesse onde você executou mais avaliações de incêndio.",
   "dashboard.tooltipLargestFire": "A execução de análise individual com a maior área queimada (ha) entre todas as suas execuções.",
-  "dashboard.tooltipFireMap": "Mapa interativo mostrando todas as suas áreas analisadas como polígonos. A cor representa o total de hectares queimados: Verde (0 ha), Amarelo (< 50 ha), Laranja (< 200 ha), Vermelho (< 1.000 ha), Vermelho escuro (\u2265 1.000 ha).",
+  "dashboard.tooltipFireMap": "Mapa interativo mostrando todas as suas áreas analisadas como polígonos. A cor representa o total de hectares queimados: Verde (0 ha), Amarelo (< 50 ha), Laranja (< 200 ha), Vermelho (< 1.000 ha), Vermelho escuro (≥ 1.000 ha).",
   "dashboard.tooltipSeverityTrend": "Índice de severidade média ponderada diária nos últimos 180 dias, mostrando como a severidade dos incêndios varia ao longo do tempo.",
   "dashboard.addWidget": "Adicionar Widget",
   "dashboard.addWidgetDesc": "Selecione widgets para adicionar ao seu painel",
@@ -332,11 +332,9 @@
   "profile.revokeCookieConsent": "Revogar Consentimento",
   "profile.manageCookiePreferences": "Gerenciar Preferências de Cookies",
   "profile.cookieSettingsHint": "Abre o banner de consentimento de cookies para que você possa atualizar suas preferências.",
-
   "privacy.title": "Política de Privacidade",
   "privacy.effectiveDate": "Data de vigência: 13 de março de 2026",
   "privacy.intro": "A Brazil Flying Labs (\"nós\", \"nos\", \"nosso\") opera a plataforma Wildfire Insight Intelligence (o \"Serviço\"). Esta Política de Privacidade explica quais dados coletamos, como os utilizamos e seus direitos em relação às suas informações pessoais.",
-
   "privacy.section1Title": "1. Informações que Coletamos",
   "privacy.section1Subtitle1": "Informações da Conta",
   "privacy.section1Text1": "Quando você faz login via Auth0, recebemos seu endereço de e-mail, nome e um identificador único de usuário. Essas informações são usadas para autenticar sua conta e personalizar sua experiência.",
@@ -350,41 +348,30 @@
   "privacy.section1Text5": "Você pode criar áreas de interesse com limites GeoJSON, executar análises de incêndio e interagir com recursos de análise alimentados por IA. Este conteúdo é armazenado em nossos servidores para fornecer o Serviço.",
   "privacy.section1Subtitle6": "Preferências do Perfil",
   "privacy.section1Text6": "Armazenamos seu idioma preferido, tema (claro/escuro) e layout dos widgets do painel para personalizar sua experiência.",
-
   "privacy.section2Title": "2. Informações que Não Coletamos",
   "privacy.section2Text": "Não coletamos sua localização GPS em tempo real, identificadores de dispositivo (UDID, IMEI), gravações de sessão ou capturas de tela, registros de teclas digitadas ou especificações de hardware do dispositivo.",
-
   "privacy.section3Title": "3. Como Usamos Suas Informações",
   "privacy.section3Text": "Utilizamos as informações coletadas para fornecer e manter o Serviço, autenticar sua identidade, enviar notificações push que você autorizou, analisar padrões de uso para melhorar a plataforma, monitorar e corrigir erros e personalizar sua experiência com preferências salvas.",
-
   "privacy.section4Title": "4. Serviços de Terceiros",
   "privacy.section4Text": "Compartilhamos dados com os seguintes provedores terceiros para operar o Serviço:",
   "privacy.section4Item1": "Auth0 — Autenticação e gerenciamento de identidade",
   "privacy.section4Item2": "PostHog (EUA) — Análise de uso (com seu consentimento de cookies)",
   "privacy.section4Item3": "Grafana Faro — Monitoramento de erros e registros",
   "privacy.section4Item4": "Expo — Entrega de notificações push (aplicativo móvel)",
-
   "privacy.section5Title": "5. Cookies",
   "privacy.section5Text": "Utilizamos cookies essenciais necessários para o funcionamento do Serviço (autenticação, segurança). Cookies opcionais de análise (PostHog) são ativados apenas com seu consentimento explícito. Você pode gerenciar suas preferências de cookies a qualquer momento nas configurações do Perfil.",
-
   "privacy.section6Title": "6. Armazenamento e Segurança de Dados",
   "privacy.section6Text": "No aplicativo móvel, tokens de autenticação são armazenados com segurança usando armazenamento nativo criptografado (Keychain no iOS, Keystore no Android). Na web, o armazenamento padrão do navegador é utilizado. Todos os dados transmitidos entre seu dispositivo e nossos servidores são criptografados via HTTPS.",
-
   "privacy.section7Title": "7. Seus Direitos",
   "privacy.section7Text": "Você tem o direito de acessar os dados pessoais que mantemos sobre você, solicitar a correção de dados imprecisos, solicitar a exclusão dos seus dados, retirar o consentimento de cookies a qualquer momento e exportar seus dados. Para exercer qualquer um destes direitos, entre em contato conosco em:",
-
   "privacy.section8Title": "8. Privacidade de Crianças",
   "privacy.section8Text": "O Serviço não é destinado a crianças menores de 13 anos. Não coletamos intencionalmente informações pessoais de crianças.",
-
   "privacy.section9Title": "9. Alterações nesta Política",
   "privacy.section9Text": "Podemos atualizar esta Política de Privacidade periodicamente. Notificaremos você sobre quaisquer alterações materiais publicando a política atualizada dentro do Serviço. O uso continuado do Serviço após as alterações constitui aceitação da política atualizada.",
-
   "privacy.section10Title": "10. Fale Conosco",
   "privacy.section10Text": "Se você tiver dúvidas sobre esta Política de Privacidade ou seus dados pessoais, entre em contato conosco em:",
   "privacy.contactEmail": "humanos@brazilflyinglabs.org.br",
-
   "landing.privacyPolicy": "Política de Privacidade",
-
   "profile.deleteAccount": "Excluir Conta",
   "profile.deleteAccountTitle": "Excluir Sua Conta",
   "profile.deleteAccountWarning": "Esta ação é permanente e não pode ser desfeita. Todo o seu histórico de análises, notificações e dados de perfil serão permanentemente excluídos.",
@@ -394,7 +381,6 @@
   "profile.deleteAccountDeleting": "Excluindo...",
   "profile.deleteAccountError": "Falha ao excluir conta. Tente novamente.",
   "profile.deleteAccountCancel": "Cancelar",
-
   "report.title": "Relatório de Avaliação de Danos por Incêndio",
   "report.subtitle": "Análise de Impacto de Incêndio Baseada em Satélite",
   "report.generatedOn": "Gerado em:",
@@ -414,7 +400,7 @@
   "report.assessmentSevere": "A análise revela danos extensos e severos por incêndio. Resposta emergencial e planejamento abrangente de restauração são urgentemente necessários. Prioridade deve ser dada à prevenção de erosão e recuperação ecológica nas zonas mais afetadas.",
   "report.recommendations": "Recomendações:",
   "report.recommendation1": "Os esforços de recuperação prioritários devem focar nas áreas classificadas como Alta e Muito Alta severidade, onde a perda de vegetação e exposição do solo são mais críticas.",
-  "report.recommendation2": "Monitoramento de acompanhamento usando imagens de satélite é recomendado dentro de 6\u201312 meses para avaliar a regeneração da vegetação e o progresso da recuperação.",
+  "report.recommendation2": "Monitoramento de acompanhamento usando imagens de satélite é recomendado dentro de 6–12 meses para avaliar a regeneração da vegetação e o progresso da recuperação.",
   "report.recommendation3": "Medidas de estabilização do solo devem ser consideradas para terrenos íngremes nas zonas de alta severidade, a fim de mitigar o risco de erosão durante as estações chuvosas.",
   "report.satelliteImagery": "Imagens de Satélite",
   "report.preFireSources": "Fontes de Imagem Pré-Fogo",
@@ -432,5 +418,30 @@
   "report.regenerating": "Regenerando...",
   "report.noSummary": "Nenhum resumo de IA disponível. Clique em Imprimir Relatório para gerar.",
   "report.generatedBy": "Gerado por Wildfire Insight Intelligence",
-  "common.printReport": "Relatório"
+  "common.printReport": "Relatório",
+  "auth.loginTitle": "Entrar",
+  "auth.email": "E-mail",
+  "auth.password": "Senha",
+  "auth.loginButton": "Entrar",
+  "auth.loginFailed": "E-mail ou senha inválidos.",
+  "auth.accountPending": "Sua conta ainda aguarda aprovação. Tente novamente mais tarde.",
+  "auth.forgotPassword": "Esqueceu sua senha?",
+  "auth.backToLanding": "Voltar à página inicial",
+  "auth.goToLogin": "Ir para o login",
+  "auth.setPasswordTitle": "Defina sua senha",
+  "auth.setPasswordSubtitle": "Este link é de uso único e expira em 24 horas.",
+  "auth.newPassword": "Nova senha",
+  "auth.setPasswordButton": "Salvar senha",
+  "auth.setPasswordSuccess": "Senha salva. Agora você pode entrar.",
+  "auth.setPasswordInvalid": "Este link é inválido ou expirou.",
+  "auth.resetTitle": "Redefinir sua senha",
+  "auth.resetSubtitle": "Enviaremos um link de uso único por e-mail se a conta existir.",
+  "auth.resetButton": "Enviar link de redefinição",
+  "auth.resetSuccess": "Se o e-mail estiver cadastrado, um link de redefinição foi enviado.",
+  "auth.requestAccessTitle": "Solicitar acesso",
+  "auth.requestAccessSubtitle": "Preencha seus dados e um administrador revisará sua solicitação.",
+  "auth.firstName": "Nome",
+  "auth.lastName": "Sobrenome",
+  "auth.requestAccessButton": "Solicitar acesso",
+  "auth.requestAccessSuccess": "Solicitação recebida. Você receberá um e-mail quando seu acesso for aprovado."
 }
