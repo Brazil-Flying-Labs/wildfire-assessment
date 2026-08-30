@@ -29,6 +29,12 @@ function getCookie(name) {
   return null;
 }
 
+// CSRF token cache for write requests. The csrftoken cookie is only
+// readable by the UI when both share a host (direct dev flow); through
+// the reverse proxy the API lives on a different subdomain, so we keep
+// the token returned by /auth/csrf/ instead.
+let csrfTokenCache = null;
+
 function App() {
   const { t, language, setLanguage } = useLanguage();
 
@@ -60,7 +66,7 @@ function App() {
       const method = (options.method || "GET").toUpperCase();
       const headers = { ...(options.headers || {}) };
       if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-        headers["X-CSRFToken"] = getCookie("csrftoken");
+        headers["X-CSRFToken"] = getCookie("csrftoken") || csrfTokenCache || "";
       }
       return fetch(url, { ...options, headers, credentials: "include" });
     },
@@ -117,7 +123,11 @@ function App() {
     let cancelled = false;
     (async () => {
       try {
-        await fetchJson(`${baseUrl}/auth/csrf/`);
+        const csrfResponse = await fetchJson(`${baseUrl}/auth/csrf/`);
+        if (csrfResponse.ok) {
+          const data = await csrfResponse.json();
+          if (data.csrfToken) csrfTokenCache = data.csrfToken;
+        }
         const response = await fetchJson(`${baseUrl}/me/`);
         if (cancelled) return;
         if (response.ok) {
@@ -136,6 +146,13 @@ function App() {
 
   const handleLoginSuccess = useCallback(async () => {
     try {
+      // Login rotates the CSRF token; refresh the cached value before
+      // the first authenticated writes.
+      const csrfResponse = await fetchJson(`${baseUrl}/auth/csrf/`);
+      if (csrfResponse.ok) {
+        const data = await csrfResponse.json();
+        if (data.csrfToken) csrfTokenCache = data.csrfToken;
+      }
       const response = await fetchJson(`${baseUrl}/me/`);
       if (response.ok) setSessionUser(await response.json());
     } catch (error) {
