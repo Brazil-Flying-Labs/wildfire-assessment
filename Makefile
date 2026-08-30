@@ -52,8 +52,8 @@ reset: ## Reconfigure local environment then run the project
 	$(MAKE) configure_devel
 	$(MAKE) up
 
-test: ## Run backend and frontend tests inside running containers
-	docker compose exec api bash -lc "cd /api && coverage run --source=wildfire_assessment manage.py test && coverage report && coverage html"
+test: ## Run backend tests inside running containers (SQLite in-memory, no Redis)
+	docker compose exec api bash -lc "cd /api && DJANGO_SETTINGS_MODULE=api.test_settings coverage run --source=wildfire_assessment manage.py test && DJANGO_SETTINGS_MODULE=api.test_settings coverage report && DJANGO_SETTINGS_MODULE=api.test_settings coverage html"
 
 do_clean_wildfire_docker:
 	echo "${ORANGE} Forcely stoping all wildfire containers...${RESET}";
