@@ -8,7 +8,7 @@ Intelligence project.
 | Service | URL | Description |
 |---------|-----|-------------|
 | **Contabo** | [Console](https://contabo.com/) | Dedicated VPS (Debian 12) hosting the Docker Compose stack |
-| **Cloudflare** | [Dashboard](https://dash.cloudflare.com/) | DNS for `wildfire.droneai.com.br` and `api.wildfire.droneai.com.br` |
+| **Cloudflare** | [Dashboard](https://dash.cloudflare.com/) | DNS for `wildfire.droneai.com.br` and `api-wildfire.droneai.com.br` |
 | **Nginx Proxy Manager** | VPS `127.0.0.1:81` | Reverse proxy, TLS (Let's Encrypt), proxy hosts for UI and API |
 
 ## Storage & Satellite Analysis

@@ -87,7 +87,7 @@ Domínios definidos:
 
 ```text
 UI:  wildfire.droneai.com.br
-API: api.wildfire.droneai.com.br
+API: api-wildfire.droneai.com.br
 ```
 
 No Cloudflare, criar dois registros `A` com proxy habilitado, apontando
@@ -97,11 +97,16 @@ No Cloudflare, criar dois registros `A` com proxy habilitado, apontando
 No Nginx Proxy Manager, criar Proxy Hosts separados:
 
 - `wildfire.droneai.com.br` -> serviço Docker `ui`, porta `80`, HTTP interno.
-- `api.wildfire.droneai.com.br` -> serviço Docker `api`, porta `8000`, HTTP interno.
+- `api-wildfire.droneai.com.br` -> serviço Docker `api`, porta `8000`, HTTP interno.
 
 Emitir certificados Let's Encrypt para os dois nomes exatos no NPM. O
-certificado atual `*.droneai.com.br` cobre `wildfire.droneai.com.br`, mas não
-cobre nomes com dois níveis à esquerda, como `api.wildfire.droneai.com.br`.
+certificado `*.droneai.com.br` (Cloudflare e NPM) cobre **um** nível à
+esquerda — por isso o nome da API é `api-wildfire.droneai.com.br` (rótulo
+único com hífen): o nome original `api.wildfire.droneai.com.br` tem dois
+níveis e quebra o TLS de borda da Cloudflare (alerta 552 no handshake; o
+Universal SSL free não cobre nomes com dois níveis). A decisão também
+reserva um namespace por aplicação (`api-wildfire`, futuramente
+`api-moodle` etc.) em vez de reivindicar o `api.` genérico.
 Habilitar `Force SSL` e HTTP/2 após validar a emissão; habilitar HSTS somente
 depois do teste completo de HTTPS.
 
@@ -716,7 +721,7 @@ Tarefas:
 - Configurar Proxy Hosts no Nginx Proxy Manager.
 - Configurar no Cloudflare os registros `wildfire` e `api.wildfire`.
 - Configurar no NPM os hosts `wildfire.droneai.com.br` e
-  `api.wildfire.droneai.com.br`, com certificados próprios.
+  `api-wildfire.droneai.com.br`, com certificados próprios.
 - Validar HTTPS e headers do proxy.
 - Executar o smoke test completo em produção.
 
@@ -744,8 +749,8 @@ Cloudflare, decisão sobre o diretório de clone.
    permissão do arquivo de origem; o `appuser` é 10001):
    `sudo chown 10001:10001 secrets/gcp-service-account.json && chmod 400 ...`
 3. **`.env` de produção** (base: `.env.example`), com:
-   `DJANGO_DEBUG=false`, `ENV=prod`, `DJANGO_ALLOWED_HOSTS=api.wildfire.droneai.com.br`,
-   `DJANGO_CSRF_TRUSTED_ORIGINS=https://wildfire.droneai.com.br,https://api.wildfire.droneai.com.br`,
+   `DJANGO_DEBUG=false`, `ENV=prod`, `DJANGO_ALLOWED_HOSTS=api-wildfire.droneai.com.br`,
+   `DJANGO_CSRF_TRUSTED_ORIGINS=https://wildfire.droneai.com.br,https://api-wildfire.droneai.com.br`,
    `CORS_ALLOWED_ORIGINS=https://wildfire.droneai.com.br`,
    `DB_*` novas, `EMAIL_BACKEND=smtp`, `EMAIL_HOST=mail.droneai.com.br`,
    `EMAIL_PORT=587`, `EMAIL_USE_TLS=true`, credenciais SMTP dedicadas,
@@ -761,7 +766,7 @@ Cloudflare, decisão sobre o diretório de clone.
    (`sudo docker network inspect proxy_network`).
 7. **Proxy Hosts no NPM** (API, mesmo procedimento do local):
    token → `POST /api/nginx/proxy-hosts` para `wildfire.droneai.com.br` →
-   `ui:80` e `api.wildfire.droneai.com.br` → `api:8000`; solicitar
+   `ui:80` e `api-wildfire.droneai.com.br` → `api:8000`; solicitar
    certificados Let's Encrypt para os dois nomes; habilitar Force SSL.
 8. **Cloudflare**: registros `A` `wildfire` e `api.wildfire` →
    `62.171.139.124`, proxy habilitado, SSL/TLS `Full (strict)`.
@@ -977,7 +982,7 @@ Estado da validação (2026-08-30):
 Informações que deixaram de estar pendentes após a auditoria:
 
 - Domínios: `wildfire.droneai.com.br` e
-  `api.wildfire.droneai.com.br`.
+  `api-wildfire.droneai.com.br`.
 - Rede Docker do proxy: `proxy_network`.
 - Proxy: Nginx Proxy Manager `2.12.1`.
 - TLS do proxy: gerenciado pelo NPM, que já possui armazenamento persistente

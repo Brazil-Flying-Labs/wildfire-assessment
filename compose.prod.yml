@@ -24,7 +24,7 @@ services:
       context: .
       dockerfile: ui.Dockerfile
       args:
-        REACT_APP_WILDLIFE_API_URL: ${REACT_APP_WILDLIFE_API_URL:-https://api.wildfire.droneai.com.br}
+        REACT_APP_WILDLIFE_API_URL: ${REACT_APP_WILDLIFE_API_URL:-https://api-wildfire.droneai.com.br}
         REACT_APP_APP_ENVIRONMENT: ${REACT_APP_APP_ENVIRONMENT:-production}
     restart: unless-stopped
     networks:
