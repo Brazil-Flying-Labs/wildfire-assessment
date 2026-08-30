@@ -845,20 +845,23 @@ mesmo usuário, sem recriar seus dados da aplicação.
 
 ## 9. Inteligência artificial
 
-Na V1:
+Decisão revisada em 2026-08-30: a V1 **ativa a IA apenas via DeepSeek
+(texto)**, com os fluxos de análise/chat/report. O DeepSeek não aceita
+imagens, então os prompts ganharam modo somente texto (`include_images=False`)
+e o relatório não baixa imagens para esse provider.
 
 ```env
-AI_ENABLED=false
+AI_ENABLED=true
+DEEPSEEK_API_KEY=<chave>
 ```
 
-- A aplicação deve iniciar e executar análises sem chave de IA.
-- Endpoints de relatório/consulta por IA devem responder de forma previsível
-  quando o recurso estiver desativado.
-- As configurações dos providers OpenAI e Gemini podem permanecer
-  preparadas, mas nenhuma deve ser chamada quando `AI_ENABLED=false`.
-- ChatGPT Business não será tratado como credencial programática do backend.
-- A integração automática será reavaliada posteriormente com uma API key e
-  faturamento próprios da OpenAI API Platform.
+- Provider ativo: `deepseek` / `deepseek-chat` no singleton `AIProvider`.
+- A aplicação continua iniciando sem chave de IA; os endpoints respondem
+  503 previsível quando `AI_ENABLED=false`.
+- Providers OpenAI e Gemini permanecem preparados (com imagens) para uso
+  futuro.
+- O idioma da análise segue o perfil do usuário; o idioma do relatório é
+  enviado pelo cliente (a UI envia o idioma atual do app).
 
 ## 10. Itens fora do escopo da V1
 
