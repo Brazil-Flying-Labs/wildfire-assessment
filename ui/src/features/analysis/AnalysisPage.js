@@ -458,6 +458,12 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
     return reserve?.name || "";
   }, [selectedReserve, areasOfInterest]);
 
+  const selectedReservePolygonPath = useMemo(() => {
+    if (!selectedReserve || !areasOfInterest.length) return "";
+    const reserve = areasOfInterest.find((r) => String(r.id) === String(selectedReserve));
+    return reserve?.polygon_path || "";
+  }, [selectedReserve, areasOfInterest]);
+
   const severityDistributionForAPI = useMemo(() => {
     if (!severityEntries.length) return {};
     return severityEntries.reduce((acc, { name, area, percent }) => {
@@ -1100,6 +1106,7 @@ function AnalysisPage({ authorizedFetch, baseUrl, onBack, onAnalysisComplete }) 
         areaOfInterest={selectedReserveName}
         severityDistribution={severityDistributionForAPI}
         imageUrls={imageEntries.map(([key, url]) => ({ label: formatLabel(key), url }))}
+        polygonPath={selectedReservePolygonPath}
         authorizedFetch={authorizedFetch}
         baseUrl={baseUrl}
       />

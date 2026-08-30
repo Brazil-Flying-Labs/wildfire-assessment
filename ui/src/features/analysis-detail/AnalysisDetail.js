@@ -470,6 +470,7 @@ function AnalysisDetail({ authorizedFetch, baseUrl, analysisId, onBack, scrollTo
       areaOfInterest={analysis?.area_name}
       severityDistribution={severityDistributionForAPI}
       imageUrls={imageEntries}
+      polygonPath={analysis?.area_polygon_path}
       authorizedFetch={authorizedFetch}
       baseUrl={baseUrl}
     />

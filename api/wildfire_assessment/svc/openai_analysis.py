@@ -53,6 +53,7 @@ def generate_analysis_stream(
     image_urls: list | None = None,
     language: str | None = None,
     model: str = "gpt-4o-mini",
+    polygon_geojson: str = "",
 ) -> tuple[Generator[str, None, None], dict]:
     """
     Generate a streaming analysis using OpenAI.
@@ -64,7 +65,11 @@ def generate_analysis_stream(
     LOG.info("Starting analysis with OpenAI (model=%s)", model)
     client = _get_openai_client()
     prompt = build_analysis_prompt(
-        pre_fire_date, post_fire_date, area_of_interest, severity_distribution
+        pre_fire_date,
+        post_fire_date,
+        area_of_interest,
+        severity_distribution,
+        polygon_geojson=polygon_geojson,
     )
 
     messages = [

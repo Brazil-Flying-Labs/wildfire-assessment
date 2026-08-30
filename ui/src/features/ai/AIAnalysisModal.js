@@ -28,6 +28,7 @@ function AIAnalysisModal({
   areaOfInterest,
   severityDistribution,
   imageUrls,
+  polygonPath,
   authorizedFetch,
   baseUrl,
 }) {
@@ -193,7 +194,7 @@ function AIAnalysisModal({
           area_of_interest: areaOfInterest,
           severity_distribution: severityRef.current,
           image_urls: imageDataUrls.filter(Boolean),
-
+          polygon_path: polygonPath || "",
         }),
         signal: controller.signal,
       });

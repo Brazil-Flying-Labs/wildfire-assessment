@@ -756,6 +756,15 @@ class AIAnalysisView(APIView):
         data = serializer.validated_data
         language = get_user_language(request)
 
+        polygon_geojson = ""
+        if data.get("polygon_path"):
+            try:
+                from wildfire_assessment.svc.object_storage import download_polygon
+
+                polygon_geojson = download_polygon(data["polygon_path"])
+            except Exception:
+                LOG.warning("Failed to download polygon for AI analysis, skipping")
+
         return _handle_ai_stream(
             generate_fn=lambda: generate_analysis_stream(
                 pre_fire_date=str(data["pre_fire_date"]),
@@ -764,6 +773,7 @@ class AIAnalysisView(APIView):
                 severity_distribution=data["severity_distribution"],
                 image_urls=data.get("image_urls", []),
                 language=language,
+                polygon_geojson=polygon_geojson,
             ),
             language=language,
             empty_key="error.ai_empty_response",

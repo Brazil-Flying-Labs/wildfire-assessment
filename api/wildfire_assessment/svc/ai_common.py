@@ -56,12 +56,15 @@ def build_analysis_prompt(
     area_of_interest: str,
     severity_distribution: dict,
     include_images: bool = True,
+    polygon_geojson: str = "",
 ) -> str:
     """Build the prompt for wildfire analysis.
 
     When ``include_images`` is False (text-only providers such as
     DeepSeek), the prompt instructs the model to derive its spatial
-    interpretation from the numerical severity data alone.
+    interpretation from the numerical severity data alone. When
+    ``polygon_geojson`` is provided, the analyzed polygon is included so
+    the model can ground its answer geographically.
     """
     severity_text = ""
     for severity_level, data in severity_distribution.items():
@@ -111,6 +114,19 @@ def build_analysis_prompt(
             "informed by the severity class distribution"
         )
 
+    if polygon_geojson:
+        polygon_section = (
+            "**Analyzed Area Polygon (GeoJSON):**\n"
+            "```geojson\n"
+            f"{polygon_geojson}\n"
+            "```\n"
+            "Use these coordinates to ground the analysis geographically: "
+            "the exact location, the surrounding region and terrain, and any "
+            "questions about nearby geography."
+        )
+    else:
+        polygon_section = ""
+
     prompt = f"""You are an expert environmental analyst specializing in wildfire damage assessment.
 Analyze the following wildfire data and provide a comprehensive analysis report.
 
@@ -123,6 +139,8 @@ Analyze the following wildfire data and provide a comprehensive analysis report.
 {severity_text}
 
 {imagery_note}
+
+{polygon_section}
 
 Please provide:
 1. **Executive Summary**: A brief overview of the fire impact
@@ -171,12 +189,15 @@ def _get_report_instructions(language: str | None = None) -> str:
     return f"Always respond in {lang_name}.\n\n{REPORT_SYSTEM_INSTRUCTIONS}"
 
 
-def build_report_prompt(analysis_run, include_images: bool = True) -> str:
+def build_report_prompt(
+    analysis_run, include_images: bool = True, polygon_geojson: str = ""
+) -> str:
     """Build the user prompt for the report summary using AnalysisRun data.
 
     When ``include_images`` is False (text-only providers such as
     DeepSeek), the prompt instructs the model to base the report on the
-    numerical data alone.
+    numerical data alone. When ``polygon_geojson`` is provided, the
+    analyzed polygon is included for geographic grounding.
     """
     severity_text = ""
     for severity_level, data in (analysis_run.severity_data or {}).items():
@@ -200,6 +221,18 @@ def build_report_prompt(analysis_run, include_images: bool = True) -> str:
             "their proportions, total burned area, and the dates of the event."
         )
 
+    if polygon_geojson:
+        polygon_section = (
+            "**Analyzed Area Polygon (GeoJSON):**\n"
+            "```geojson\n"
+            f"{polygon_geojson}\n"
+            "```\n"
+            "Use these coordinates to ground the report geographically: the "
+            "exact location, the surrounding region and terrain."
+        )
+    else:
+        polygon_section = ""
+
     return (
         f"**Fire Event Details:**\n"
         f"- Location: {analysis_run.area_of_interest.name}\n"
@@ -210,6 +243,7 @@ def build_report_prompt(analysis_run, include_images: bool = True) -> str:
         f"**DNBR Severity Distribution:**\n"
         f"{severity_text}\n"
         f"{imagery_note}\n\n"
+        f"{polygon_section}\n"
         f"Format your response in markdown for readability."
     )
 
@@ -255,6 +289,7 @@ def generate_analysis_stream(
     image_urls: list | None = None,
     language: str | None = None,
     model: str | None = None,
+    polygon_geojson: str = "",
 ) -> tuple[Generator[str, None, None], dict]:
     """
     Generate a streaming analysis using the active AI provider.
@@ -273,6 +308,7 @@ def generate_analysis_stream(
             image_urls=image_urls,
             language=language,
             model=model or (provider.model_name if provider else "gpt-4o-mini"),
+            polygon_geojson=polygon_geojson,
         )
 
     if provider and provider.provider == "deepseek":
@@ -283,6 +319,7 @@ def generate_analysis_stream(
             severity_distribution=severity_distribution,
             language=language,
             model=model or (provider.model_name if provider else "deepseek-chat"),
+            polygon_geojson=polygon_geojson,
         )
 
     return _gemini_generate_analysis_stream(
@@ -293,6 +330,7 @@ def generate_analysis_stream(
         image_urls=image_urls,
         language=language,
         model=model or (provider.model_name if provider else "gemini-2.0-flash-lite"),
+        polygon_geojson=polygon_geojson,
     )
 
 
@@ -370,12 +408,25 @@ def generate_report_summary(analysis_run, language: str = "en") -> str:
     Fetches satellite images from storage, builds the prompt, dispatches to the
     active provider, saves the result to the DB, and returns the markdown.
     """
-    from wildfire_assessment.svc.object_storage import get_signed_image_url
+    from wildfire_assessment.svc.object_storage import (
+        download_polygon,
+        get_signed_image_url,
+    )
 
     provider = get_active_provider()
     is_text_only = bool(provider and provider.provider == "deepseek")
 
-    prompt = build_report_prompt(analysis_run, include_images=not is_text_only)
+    polygon_geojson = ""
+    try:
+        polygon_geojson = download_polygon(analysis_run.area_of_interest.polygon_path)
+    except Exception:
+        LOG.warning("Failed to download polygon for report, continuing without it")
+
+    prompt = build_report_prompt(
+        analysis_run,
+        include_images=not is_text_only,
+        polygon_geojson=polygon_geojson,
+    )
 
     # Fetch satellite images from storage as base64 data URLs — only for
     # providers that accept images.

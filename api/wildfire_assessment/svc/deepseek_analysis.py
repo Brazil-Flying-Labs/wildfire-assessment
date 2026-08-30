@@ -41,6 +41,7 @@ def generate_analysis_stream(
     image_urls: list | None = None,
     language: str | None = None,
     model: str = DEFAULT_MODEL,
+    polygon_geojson: str = "",
 ) -> tuple[Generator[str, None, None], dict]:
     """
     Generate a streaming analysis using DeepSeek (text-only).
@@ -56,6 +57,7 @@ def generate_analysis_stream(
         area_of_interest,
         severity_distribution,
         include_images=False,
+        polygon_geojson=polygon_geojson,
     )
 
     messages = [

@@ -73,12 +73,17 @@ def _gemini_generate_analysis_stream(
     image_urls: list | None = None,
     language: str | None = None,
     model: str = "gemini-2.0-flash-lite",
+    polygon_geojson: str = "",
 ) -> tuple[Generator[str, None, None], dict]:
     LOG.info("Starting analysis with Gemini (model=%s)", model)
     client = _get_gemini_client()
     config = _get_gemini_config(language)
     prompt = build_analysis_prompt(
-        pre_fire_date, post_fire_date, area_of_interest, severity_distribution
+        pre_fire_date,
+        post_fire_date,
+        area_of_interest,
+        severity_distribution,
+        polygon_geojson=polygon_geojson,
     )
 
     contents = [prompt]

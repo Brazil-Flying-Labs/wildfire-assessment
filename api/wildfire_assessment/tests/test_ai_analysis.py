@@ -99,6 +99,54 @@ class SharedHelperTests(TestCase):
         )
         self.assertIn("Satellite imagery is attached", prompt)
 
+    def test_build_analysis_prompt_includes_polygon_geojson(self):
+        prompt = build_analysis_prompt(
+            self.pre_fire_date,
+            self.post_fire_date,
+            self.area_of_interest,
+            self.severity_distribution,
+            polygon_geojson='{"type": "FeatureCollection"}',
+        )
+        self.assertIn("Analyzed Area Polygon (GeoJSON)", prompt)
+        self.assertIn('{"type": "FeatureCollection"}', prompt)
+        self.assertIn("Use these coordinates", prompt)
+
+    def test_build_analysis_prompt_without_polygon_has_no_polygon_section(self):
+        prompt = build_analysis_prompt(
+            self.pre_fire_date,
+            self.post_fire_date,
+            self.area_of_interest,
+            self.severity_distribution,
+        )
+        self.assertNotIn("Analyzed Area Polygon", prompt)
+
+    def test_build_report_prompt_includes_polygon_geojson(self):
+        run = MagicMock()
+        run.area_of_interest.name = "Test Reserve"
+        run.area_of_interest.country.name = "Brazil"
+        run.pre_fire_date = self.pre_fire_date
+        run.post_fire_date = self.post_fire_date
+        run.total_burned_ha = 250.0
+        run.severity_data = self.severity_distribution
+
+        prompt = build_report_prompt(
+            run, polygon_geojson='{"type": "FeatureCollection"}'
+        )
+        self.assertIn("Analyzed Area Polygon (GeoJSON)", prompt)
+        self.assertIn('{"type": "FeatureCollection"}', prompt)
+
+    def test_build_report_prompt_without_polygon_has_no_polygon_section(self):
+        run = MagicMock()
+        run.area_of_interest.name = "Test Reserve"
+        run.area_of_interest.country.name = "Brazil"
+        run.pre_fire_date = self.pre_fire_date
+        run.post_fire_date = self.post_fire_date
+        run.total_burned_ha = 250.0
+        run.severity_data = self.severity_distribution
+
+        prompt = build_report_prompt(run)
+        self.assertNotIn("Analyzed Area Polygon", prompt)
+
     def test_build_report_prompt_text_only_has_no_imagery_reference(self):
         run = MagicMock()
         run.area_of_interest.name = "Test Reserve"
@@ -629,6 +677,30 @@ class DeepSeekAnalysisTests(TestCase):
 
     @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
     @patch("wildfire_assessment.svc.deepseek_analysis.cache")
+    def test_deepseek_stream_includes_polygon_in_prompt(
+        self, mock_cache, mock_get_client
+    ):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_analysis_stream as deepseek_generate_analysis_stream,
+        )
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = self._fake_stream(["ok"])
+        mock_get_client.return_value = mock_client
+
+        stream, _ = deepseek_generate_analysis_stream(
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            area_of_interest="Test Reserve",
+            severity_distribution={},
+            polygon_geojson='{"type": "FeatureCollection"}',
+        )
+        list(stream)
+        messages = mock_client.chat.completions.create.call_args[1]["messages"]
+        self.assertIn('{"type": "FeatureCollection"}', messages[1]["content"])
+
+    @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
+    @patch("wildfire_assessment.svc.deepseek_analysis.cache")
     def test_deepseek_stream_ignores_image_urls(self, mock_cache, mock_get_client):
         from wildfire_assessment.svc.deepseek_analysis import (
             generate_analysis_stream as deepseek_generate_analysis_stream,
@@ -768,6 +840,14 @@ class ProviderDispatchTests(TestCase):
         self.severity_distribution = {
             "Unburned": {"area_ha": 100.0, "percent": 50.0},
         }
+        # Report summaries download the AOI polygon; keep it neutral for
+        # the report tests that don't care about it (never hit real GCS).
+        download_patcher = patch(
+            "wildfire_assessment.svc.object_storage.download_polygon",
+            return_value="",
+        )
+        download_patcher.start()
+        self.addCleanup(download_patcher.stop)
 
     @patch("wildfire_assessment.svc.ai_common.cache")
     def test_get_active_provider_returns_cached(self, mock_cache):
@@ -886,6 +966,72 @@ class ProviderDispatchTests(TestCase):
         )
 
         mock_deepseek.assert_called_once()
+
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
+    @patch(
+        "wildfire_assessment.svc.object_storage.download_polygon",
+        return_value='{"type": "FeatureCollection"}',
+    )
+    def test_generate_report_summary_includes_polygon(
+        self, mock_download, mock_report, mock_get_provider
+    ):
+        mock_provider = MagicMock()
+        mock_provider.provider = "gemini"
+        mock_provider.model_name = "gemini-2.0-flash-lite"
+        mock_get_provider.return_value = mock_provider
+        mock_report.return_value = "# Report"
+
+        run = MagicMock()
+        run.area_of_interest.name = "Test Reserve"
+        run.area_of_interest.country.name = "Brazil"
+        run.area_of_interest.polygon_path = "areas/test.geojson"
+        run.pre_fire_date = "2024-01-01"
+        run.post_fire_date = "2024-01-15"
+        run.total_burned_ha = 250.0
+        run.severity_data = self.severity_distribution
+        run.report_summary = None
+        run.report_summary_language = None
+
+        text = generate_report_summary(run, language="en")
+        self.assertEqual(text, "# Report")
+        mock_download.assert_called_once_with("areas/test.geojson")
+        self.assertIn(
+            '{"type": "FeatureCollection"}',
+            mock_report.call_args.kwargs["prompt"],
+        )
+
+    @patch("wildfire_assessment.svc.ai_common.get_active_provider")
+    @patch("wildfire_assessment.svc.ai_common._gemini_generate_report")
+    @patch(
+        "wildfire_assessment.svc.object_storage.download_polygon",
+        side_effect=Exception("gcs down"),
+    )
+    def test_generate_report_summary_tolerates_polygon_download_failure(
+        self, mock_download, mock_report, mock_get_provider
+    ):
+        mock_provider = MagicMock()
+        mock_provider.provider = "gemini"
+        mock_provider.model_name = "gemini-2.0-flash-lite"
+        mock_get_provider.return_value = mock_provider
+        mock_report.return_value = "# Report"
+
+        run = MagicMock()
+        run.area_of_interest.name = "Test Reserve"
+        run.area_of_interest.country.name = "Brazil"
+        run.area_of_interest.polygon_path = "areas/missing.geojson"
+        run.pre_fire_date = "2024-01-01"
+        run.post_fire_date = "2024-01-15"
+        run.total_burned_ha = 250.0
+        run.severity_data = self.severity_distribution
+        run.report_summary = None
+        run.report_summary_language = None
+
+        text = generate_report_summary(run, language="en")
+        self.assertEqual(text, "# Report")
+        self.assertNotIn(
+            "Analyzed Area Polygon", mock_report.call_args.kwargs["prompt"]
+        )
 
     @patch("wildfire_assessment.svc.ai_common.get_active_provider")
     @patch("wildfire_assessment.svc.ai_common._deepseek_generate_report")

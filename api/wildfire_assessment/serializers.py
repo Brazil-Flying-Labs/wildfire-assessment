@@ -733,6 +733,9 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
     """Serializer for AnalysisRun model."""
 
     area_name = serializers.CharField(source="area_of_interest.name", read_only=True)
+    area_polygon_path = serializers.CharField(
+        source="area_of_interest.polygon_path", read_only=True
+    )
     country_name = serializers.CharField(
         source="area_of_interest.country.name", read_only=True
     )
@@ -752,6 +755,7 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
             "id",
             "area_of_interest",
             "area_name",
+            "area_polygon_path",
             "country_name",
             "user_email",
             "pre_fire_date",
@@ -896,6 +900,12 @@ class AnalysisRequestSerializer(serializers.Serializer):
         required=False,
         default=list,
         help_text="List of image objects with 'label' and 'url' keys",
+    )
+    polygon_path = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Stored polygon filename of the analyzed area (for geographic grounding)",
     )
 
 

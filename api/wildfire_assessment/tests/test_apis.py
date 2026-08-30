@@ -748,6 +748,52 @@ class AIAnalysisViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
         self.assertIn("error", response.json())
 
+    @patch("wildfire_assessment.svc.object_storage.download_polygon")
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_passes_polygon_geojson(self, mock_generate, mock_download):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (iter(["ok"]), {"response_id": None})
+        mock_download.return_value = '{"type": "FeatureCollection"}'
+
+        payload = {**self.valid_payload, "polygon_path": "some/polygon.geojson"}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_download.assert_called_once_with("some/polygon.geojson")
+        self.assertEqual(
+            mock_generate.call_args.kwargs["polygon_geojson"],
+            '{"type": "FeatureCollection"}',
+        )
+
+    @patch("wildfire_assessment.svc.object_storage.download_polygon")
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_tolerates_polygon_download_failure(
+        self, mock_generate, mock_download
+    ):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (iter(["ok"]), {"response_id": None})
+        mock_download.side_effect = Exception("boom")
+
+        payload = {**self.valid_payload, "polygon_path": "missing.geojson"}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(mock_generate.call_args.kwargs["polygon_geojson"], "")
+
+    @patch("wildfire_assessment.svc.object_storage.download_polygon")
+    @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_without_polygon_path_skips_download(
+        self, mock_generate, mock_download
+    ):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (iter(["ok"]), {"response_id": None})
+
+        response = self.client.post(self.url, self.valid_payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        mock_download.assert_not_called()
+        self.assertEqual(mock_generate.call_args.kwargs["polygon_geojson"], "")
+
     @patch("wildfire_assessment.views.generate_analysis_stream")
     def test_analysis_returns_streaming_response(self, mock_generate):
         self.client.force_authenticate(user=self.user)
@@ -996,6 +1042,7 @@ class AnalysisRunViewSetTests(APITestCase):
         data = response.json()
         self.assertEqual(data["id"], self.analysis.id)
         self.assertEqual(data["area_name"], "Test Area")
+        self.assertEqual(data["area_polygon_path"], "polygon.json")
 
     def test_retrieve_returns_404_for_other_users_analysis(self):
         self.client.force_authenticate(user=self.user)
