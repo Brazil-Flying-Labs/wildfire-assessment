@@ -76,12 +76,6 @@ function LandingPage({ onLogin, isAuthenticated, baseUrl, fetchJson }) {
             <button type="button" className="landing-btn-primary" onClick={onLogin}>
               {isAuthenticated ? t("common.goToDashboard") : t("common.accessPlatform")}
             </button>
-            <a
-              href={`mailto:${contactEmail}?subject=Demo%20Request%20-%20Wildfire%20Damage%20Assessment`}
-              className="landing-btn-outline"
-            >
-              {t("common.requestDemo")}
-            </a>
           </div>
         </div>
       </section>
@@ -219,12 +213,6 @@ function LandingPage({ onLogin, isAuthenticated, baseUrl, fetchJson }) {
           <p className="landing-text text-center mb-3">{t("landing.ctaDesc")}</p>
           <p className="landing-text-highlight text-center mb-5">{t("landing.ctaAction")}</p>
           <div className="d-flex flex-wrap justify-content-center gap-3">
-            <a
-              href={`mailto:${contactEmail}?subject=Demo%20Request%20-%20Wildfire%20Damage%20Assessment`}
-              className="landing-btn-primary"
-            >
-              {t("common.requestDemo")}
-            </a>
             <a
               href={`mailto:${contactEmail}?subject=Partnership%20-%20Wildfire%20Damage%20Assessment`}
               className="landing-btn-outline"
