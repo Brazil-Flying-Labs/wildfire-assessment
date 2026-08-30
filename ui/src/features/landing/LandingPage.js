@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import "./LandingPage.css";
 import { useLanguage } from "../../context/LanguageContext";
 import LanguageSelector from "../../LanguageSelector";
@@ -15,6 +15,7 @@ function LandingPage({ onLogin, isAuthenticated, baseUrl, fetchJson }) {
   const [requestEmail, setRequestEmail] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   const [requestBusy, setRequestBusy] = useState(false);
+  const requestAccessRef = useRef(null);
 
   const submitAccessRequest = async (event) => {
     event.preventDefault();
@@ -73,7 +74,20 @@ function LandingPage({ onLogin, isAuthenticated, baseUrl, fetchJson }) {
             {t("landing.subtitle")}
           </p>
           <div className="d-flex flex-wrap justify-content-center gap-3">
-            <button type="button" className="landing-btn-primary" onClick={onLogin}>
+            <button
+              type="button"
+              className="landing-btn-primary"
+              onClick={() => {
+                if (isAuthenticated) {
+                  onLogin();
+                } else {
+                  requestAccessRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }
+              }}
+            >
               {isAuthenticated ? t("common.goToDashboard") : t("common.accessPlatform")}
             </button>
           </div>
@@ -230,7 +244,7 @@ function LandingPage({ onLogin, isAuthenticated, baseUrl, fetchJson }) {
       </section>
 
       {/* ── Request access ── */}
-      <section className="py-5">
+      <section className="py-5" ref={requestAccessRef}>
         <div className="container" style={{ maxWidth: 560 }}>
           <h3 className="text-center mb-2">{t("auth.requestAccessTitle")}</h3>
           <p className="text-muted text-center mb-4">
