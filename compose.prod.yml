@@ -1,0 +1,45 @@
+# Production overrides. Always load explicitly:
+#   docker compose -f compose.yml -f compose.prod.yml up -d
+# (passing -f disables the implicit loading of compose.override.yml).
+#
+# No service publishes ports on the host: the existing Nginx Proxy
+# Manager reaches api and ui by their Docker names on proxy_network.
+# Memory limits are intentionally not set yet; define conservative
+# values after measuring real usage (Fase 6), the VPS has 11 GiB.
+
+services:
+  api:
+    user: "10001"
+    restart: unless-stopped
+    networks:
+      - backend
+      - proxy_network
+
+  celery-worker:
+    user: "10001"
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: .
+      dockerfile: ui.Dockerfile
+      args:
+        REACT_APP_WILDLIFE_API_URL: ${REACT_APP_WILDLIFE_API_URL:-https://api.wildfire.droneai.com.br}
+        REACT_APP_APP_ENVIRONMENT: ${REACT_APP_APP_ENVIRONMENT:-production}
+        REACT_APP_AUTH0_DOMAIN: ${REACT_APP_AUTH0_DOMAIN:-}
+        REACT_APP_AUTH0_CLIENT_ID: ${REACT_APP_AUTH0_CLIENT_ID:-}
+        REACT_APP_AUTH0_AUDIENCE: ${REACT_APP_AUTH0_AUDIENCE:-}
+    restart: unless-stopped
+    networks:
+      - backend
+      - proxy_network
+
+  postgres:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+networks:
+  proxy_network:
+    external: true

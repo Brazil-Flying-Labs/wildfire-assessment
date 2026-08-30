@@ -1,0 +1,39 @@
+# Development overrides — loaded implicitly by `docker compose up`.
+# Ports bound to 127.0.0.1 only; code mounted for hot reload.
+
+services:
+  api:
+    user: "0"
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver_plus 0.0.0.0:8000"
+    ports:
+      - "127.0.0.1:8081:8000"
+      - "127.0.0.1:4011:3011"
+    volumes:
+      - ./api:/api
+    environment:
+      DJANGO_DEBUG: "true"
+
+  celery-worker:
+    user: "0"
+    volumes:
+      - ./api:/api
+
+  ui:
+    command: sh -c "npm install && npm start"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./ui:/ui
+    environment:
+      REACT_APP_WILDLIFE_API_URL: http://localhost:8081
+      REACT_APP_APP_ENVIRONMENT: development
+
+  postgres:
+    ports:
+      - "127.0.0.1:6662:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6380:6379"

@@ -1,0 +1,102 @@
+# Base configuration shared by development and production.
+# Development overrides live in compose.override.yml (loaded implicitly
+# by `docker compose up`); production overrides in compose.prod.yml
+# (always passed explicitly with -f, which disables implicit loading).
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wildfire-assessment-api:latest
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: api.settings
+      DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - backend
+    logging: *default-logging
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wildfire-assessment-api:latest
+    command: >
+      celery -A wildfire_assessment worker
+      --loglevel=info --concurrency=1 --max-tasks-per-child=50
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: api.settings
+      DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    logging: *default-logging
+
+  postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_DB: ${DB_NAME:-app}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - backend
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+    logging: *default-logging
+
+  ui:
+    build:
+      context: .
+      dockerfile: ui.Dockerfile
+    image: wildfire-assessment-ui:latest
+    networks:
+      - backend
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+
+networks:
+  backend:
