@@ -84,15 +84,9 @@ function AIAnalysisModal({
     }
   }, []);
 
-  const startAnalysisRef = useRef(null);
-
   const openModal = useCallback(() => {
     setIsModalOpen(true);
-    if (!messages.length && !isLoading) {
-  
-      startAnalysisRef.current = true;
-    }
-  }, [messages.length, isLoading]);
+  }, []);
 
   const closeModal = useCallback(() => {
     if (abortControllerRef.current) {
@@ -151,7 +145,7 @@ function AIAnalysisModal({
     });
   }, [scrollToBottom]);
 
-  const startAnalysis = useCallback(async () => {
+  const startAnalysis = useCallback(async (userQuestion = "") => {
     if (!baseUrl || isLoading) return;
 
     if (abortControllerRef.current) {
@@ -162,7 +156,11 @@ function AIAnalysisModal({
     abortControllerRef.current = controller;
 
     setIsLoading(true);
-    setMessages([{ role: "assistant", text: "" }]);
+    setMessages((prev) => [
+      ...prev,
+      ...(userQuestion ? [{ role: "user", text: userQuestion }] : []),
+      { role: "assistant", text: "" },
+    ]);
 
     responseIdRef.current = null;
 
@@ -195,6 +193,7 @@ function AIAnalysisModal({
           severity_distribution: severityRef.current,
           image_urls: imageDataUrls.filter(Boolean),
           polygon_path: polygonPath || "",
+          question: userQuestion,
         }),
         signal: controller.signal,
       });
@@ -209,7 +208,11 @@ function AIAnalysisModal({
       if (err.name === "AbortError") return;
       console.error("AI Analysis error:", err);
 
-      setMessages([{ role: "assistant", text: t("ai.errorMessage"), isError: true }]);
+      // Replace the empty assistant placeholder with the error message
+      setMessages((prev) => [
+        ...prev.slice(0, -1),
+        { role: "assistant", text: t("ai.errorMessage"), isError: true },
+      ]);
     } finally {
       if (abortControllerRef.current === controller) {
         setIsLoading(false);
@@ -221,7 +224,15 @@ function AIAnalysisModal({
 
   const sendFollowUp = useCallback(async () => {
     const trimmed = question.trim();
-    if (!trimmed || !baseUrl || isLoading || !responseIdRef.current) return;
+    if (!trimmed || !baseUrl || isLoading) return;
+
+    // First question of a fresh chat: run the full analysis with the
+    // question embedded in the prompt instead of a follow-up.
+    if (!responseIdRef.current) {
+      setQuestion("");
+      await startAnalysis(trimmed);
+      return;
+    }
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -274,7 +285,7 @@ function AIAnalysisModal({
         abortControllerRef.current = null;
       }
     }
-  }, [authorizedFetch, baseUrl, isLoading, question, readStream, scrollToBottom, t]);
+  }, [authorizedFetch, baseUrl, isLoading, question, readStream, scrollToBottom, startAnalysis, t]);
 
   const retryLast = useCallback(async () => {
     if (!baseUrl || isLoading) return;
@@ -345,14 +356,6 @@ function AIAnalysisModal({
     },
     [sendFollowUp]
   );
-
-  // Start analysis once when modal opens
-  useEffect(() => {
-    if (startAnalysisRef.current && isModalOpen) {
-      startAnalysisRef.current = false;
-      startAnalysis();
-    }
-  }, [isModalOpen, startAnalysis]);
 
   // Focus input when loading finishes and there are messages
   useEffect(() => {

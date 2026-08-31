@@ -774,6 +774,7 @@ class AIAnalysisView(APIView):
                 image_urls=data.get("image_urls", []),
                 language=language,
                 polygon_geojson=polygon_geojson,
+                user_question=data.get("question", ""),
             ),
             language=language,
             empty_key="error.ai_empty_response",

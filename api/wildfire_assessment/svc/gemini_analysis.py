@@ -74,6 +74,7 @@ def _gemini_generate_analysis_stream(
     language: str | None = None,
     model: str = "gemini-2.0-flash-lite",
     polygon_geojson: str = "",
+    user_question: str = "",
 ) -> tuple[Generator[str, None, None], dict]:
     LOG.info("Starting analysis with Gemini (model=%s)", model)
     client = _get_gemini_client()
@@ -84,6 +85,7 @@ def _gemini_generate_analysis_stream(
         area_of_interest,
         severity_distribution,
         polygon_geojson=polygon_geojson,
+        user_question=user_question,
     )
 
     contents = [prompt]

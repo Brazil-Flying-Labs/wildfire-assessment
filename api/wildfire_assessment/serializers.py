@@ -907,6 +907,12 @@ class AnalysisRequestSerializer(serializers.Serializer):
         default="",
         help_text="Stored polygon filename of the analyzed area (for geographic grounding)",
     )
+    question = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Optional user question the analysis must answer directly",
+    )
 
 
 class AnalysisFollowUpSerializer(serializers.Serializer):

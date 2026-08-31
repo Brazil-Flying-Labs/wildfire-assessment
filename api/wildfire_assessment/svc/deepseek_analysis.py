@@ -42,6 +42,7 @@ def generate_analysis_stream(
     language: str | None = None,
     model: str = DEFAULT_MODEL,
     polygon_geojson: str = "",
+    user_question: str = "",
 ) -> tuple[Generator[str, None, None], dict]:
     """
     Generate a streaming analysis using DeepSeek (text-only).
@@ -58,6 +59,7 @@ def generate_analysis_stream(
         severity_distribution,
         include_images=False,
         polygon_geojson=polygon_geojson,
+        user_question=user_question,
     )
 
     messages = [

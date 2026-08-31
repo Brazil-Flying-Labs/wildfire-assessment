@@ -57,6 +57,7 @@ def build_analysis_prompt(
     severity_distribution: dict,
     include_images: bool = True,
     polygon_geojson: str = "",
+    user_question: str = "",
 ) -> str:
     """Build the prompt for wildfire analysis.
 
@@ -64,7 +65,9 @@ def build_analysis_prompt(
     DeepSeek), the prompt instructs the model to derive its spatial
     interpretation from the numerical severity data alone. When
     ``polygon_geojson`` is provided, the analyzed polygon is included so
-    the model can ground its answer geographically.
+    the model can ground its answer geographically. When
+    ``user_question`` is provided, the model must answer it directly
+    using the analysis data.
     """
     severity_text = ""
     for severity_level, data in severity_distribution.items():
@@ -127,6 +130,16 @@ def build_analysis_prompt(
     else:
         polygon_section = ""
 
+    if user_question:
+        question_section = (
+            "**User Question:**\n"
+            f"{user_question}\n\n"
+            "Start your response by answering this question directly, using "
+            "the fire event data above to support it.\n"
+        )
+    else:
+        question_section = ""
+
     prompt = f"""You are an expert environmental analyst specializing in wildfire damage assessment.
 Analyze the following wildfire data and provide a comprehensive analysis report.
 
@@ -141,6 +154,8 @@ Analyze the following wildfire data and provide a comprehensive analysis report.
 {imagery_note}
 
 {polygon_section}
+
+{question_section}
 
 Please provide:
 1. **Executive Summary**: A brief overview of the fire impact
@@ -290,6 +305,7 @@ def generate_analysis_stream(
     language: str | None = None,
     model: str | None = None,
     polygon_geojson: str = "",
+    user_question: str = "",
 ) -> tuple[Generator[str, None, None], dict]:
     """
     Generate a streaming analysis using the active AI provider.
@@ -309,6 +325,7 @@ def generate_analysis_stream(
             language=language,
             model=model or (provider.model_name if provider else "gpt-4o-mini"),
             polygon_geojson=polygon_geojson,
+            user_question=user_question,
         )
 
     if provider and provider.provider == "deepseek":
@@ -320,6 +337,7 @@ def generate_analysis_stream(
             language=language,
             model=model or (provider.model_name if provider else "deepseek-chat"),
             polygon_geojson=polygon_geojson,
+            user_question=user_question,
         )
 
     return _gemini_generate_analysis_stream(
@@ -331,6 +349,7 @@ def generate_analysis_stream(
         language=language,
         model=model or (provider.model_name if provider else "gemini-2.0-flash-lite"),
         polygon_geojson=polygon_geojson,
+        user_question=user_question,
     )
 
 

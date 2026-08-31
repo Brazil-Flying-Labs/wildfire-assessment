@@ -782,6 +782,21 @@ class AIAnalysisViewTests(APITestCase):
 
     @patch("wildfire_assessment.svc.object_storage.download_polygon")
     @patch("wildfire_assessment.views.generate_analysis_stream")
+    def test_analysis_passes_user_question(self, mock_generate, mock_download):
+        self.client.force_authenticate(user=self.user)
+        mock_generate.return_value = (iter(["ok"]), {"response_id": None})
+        mock_download.return_value = ""
+
+        payload = {**self.valid_payload, "question": "Nearest town?"}
+        response = self.client.post(self.url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            mock_generate.call_args.kwargs["user_question"], "Nearest town?"
+        )
+
+    @patch("wildfire_assessment.svc.object_storage.download_polygon")
+    @patch("wildfire_assessment.views.generate_analysis_stream")
     def test_analysis_without_polygon_path_skips_download(
         self, mock_generate, mock_download
     ):

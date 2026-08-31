@@ -120,6 +120,27 @@ class SharedHelperTests(TestCase):
         )
         self.assertNotIn("Analyzed Area Polygon", prompt)
 
+    def test_build_analysis_prompt_includes_user_question(self):
+        prompt = build_analysis_prompt(
+            self.pre_fire_date,
+            self.post_fire_date,
+            self.area_of_interest,
+            self.severity_distribution,
+            user_question="How far is the burned area from the nearest town?",
+        )
+        self.assertIn("**User Question:**", prompt)
+        self.assertIn("How far is the burned area from the nearest town?", prompt)
+        self.assertIn("answering this question directly", prompt)
+
+    def test_build_analysis_prompt_without_question_has_no_question_section(self):
+        prompt = build_analysis_prompt(
+            self.pre_fire_date,
+            self.post_fire_date,
+            self.area_of_interest,
+            self.severity_distribution,
+        )
+        self.assertNotIn("User Question", prompt)
+
     def test_build_report_prompt_includes_polygon_geojson(self):
         run = MagicMock()
         run.area_of_interest.name = "Test Reserve"
@@ -698,6 +719,29 @@ class DeepSeekAnalysisTests(TestCase):
         list(stream)
         messages = mock_client.chat.completions.create.call_args[1]["messages"]
         self.assertIn('{"type": "FeatureCollection"}', messages[1]["content"])
+
+    @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
+    @patch("wildfire_assessment.svc.deepseek_analysis.cache")
+    def test_deepseek_stream_includes_user_question(self, mock_cache, mock_get_client):
+        from wildfire_assessment.svc.deepseek_analysis import (
+            generate_analysis_stream as deepseek_generate_analysis_stream,
+        )
+
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = self._fake_stream(["ok"])
+        mock_get_client.return_value = mock_client
+
+        stream, _ = deepseek_generate_analysis_stream(
+            pre_fire_date="2024-01-01",
+            post_fire_date="2024-01-15",
+            area_of_interest="Test Reserve",
+            severity_distribution={},
+            user_question="Nearest town?",
+        )
+        list(stream)
+        messages = mock_client.chat.completions.create.call_args[1]["messages"]
+        self.assertIn("**User Question:**", messages[1]["content"])
+        self.assertIn("Nearest town?", messages[1]["content"])
 
     @patch("wildfire_assessment.svc.deepseek_analysis._get_deepseek_client")
     @patch("wildfire_assessment.svc.deepseek_analysis.cache")

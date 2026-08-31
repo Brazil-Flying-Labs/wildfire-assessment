@@ -54,6 +54,7 @@ def generate_analysis_stream(
     language: str | None = None,
     model: str = "gpt-4o-mini",
     polygon_geojson: str = "",
+    user_question: str = "",
 ) -> tuple[Generator[str, None, None], dict]:
     """
     Generate a streaming analysis using OpenAI.
@@ -70,6 +71,7 @@ def generate_analysis_stream(
         area_of_interest,
         severity_distribution,
         polygon_geojson=polygon_geojson,
+        user_question=user_question,
     )
 
     messages = [
