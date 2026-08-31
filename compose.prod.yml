@@ -4,13 +4,19 @@
 #
 # No service publishes ports on the host: the existing Nginx Proxy
 # Manager reaches api and ui by their Docker names on proxy_network.
-# Memory limits are intentionally not set yet; define conservative
-# values after measuring real usage (Fase 6), the VPS has 11 GiB.
+#
+# Memory limits measured on the VPS (2026-08-31, 7 gunicorn workers):
+# api ~0.8 GiB idle (spikes during synchronous GEE analyses), celery
+# ~0.25 GiB (spikes during GEE exports), postgres ~0.05 GiB, redis
+# ~0.02 GiB, ui (nginx) minimal. Worst-case sum ~3.9 GiB — the VPS has
+# ~5.9 GiB available with the other projects running (8 GiB swap as a
+# safety net).
 
 services:
   api:
     user: "10001"
     restart: unless-stopped
+    mem_limit: 2g
     networks:
       - backend
       - proxy_network
@@ -18,6 +24,7 @@ services:
   celery-worker:
     user: "10001"
     restart: unless-stopped
+    mem_limit: 1g
 
   ui:
     build:
@@ -27,15 +34,18 @@ services:
         REACT_APP_WILDLIFE_API_URL: ${REACT_APP_WILDLIFE_API_URL:-https://api-wildfire.droneai.com.br}
         REACT_APP_APP_ENVIRONMENT: ${REACT_APP_APP_ENVIRONMENT:-production}
     restart: unless-stopped
+    mem_limit: 128m
     networks:
       - backend
       - proxy_network
 
   postgres:
     restart: unless-stopped
+    mem_limit: 512m
 
   redis:
     restart: unless-stopped
+    mem_limit: 256m
 
 networks:
   proxy_network:
