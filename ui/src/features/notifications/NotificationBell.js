@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -11,7 +11,7 @@ function NotificationBell({
   hasMore,
   onLoadMore,
   onMarkAllRead,
-  onMarkReadByRun,
+  onMarkRead,
 }) {
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
@@ -75,17 +75,15 @@ function NotificationBell({
   const handleNotificationClick = useCallback(
     (notification) => {
       setIsOpen(false);
-      if (notification.analysis_run_id) {
-        if (onMarkReadByRun) onMarkReadByRun(notification.analysis_run_id);
-        if (onNotificationClick) {
-          onNotificationClick(
-            notification.analysis_run_id,
-            notification.deliverable_name
-          );
-        }
+      if (onMarkRead) onMarkRead(notification.id);
+      if (onNotificationClick && notification.analysis_run_id) {
+        onNotificationClick(
+          notification.analysis_run_id,
+          notification.deliverable_name
+        );
       }
     },
-    [onNotificationClick, onMarkReadByRun]
+    [onNotificationClick, onMarkRead]
   );
 
   const formatTimeAgo = useCallback(
@@ -106,29 +104,7 @@ function NotificationBell({
     [t]
   );
 
-  // Group notifications by analysis_run_id so deliverables from the same
-  // run collapse into a single visual block.
-  const groupedNotifications = useMemo(() => {
-    const groups = [];
-    const groupMap = {};
-    for (const n of notifications) {
-      const key = n.analysis_run_id || n.id;
-      if (groupMap[key]) {
-        groupMap[key].items.push(n);
-        if (!n.is_read) groupMap[key].hasUnread = true;
-      } else {
-        const group = {
-          area_name: n.area_name,
-          analysis_run_id: n.analysis_run_id,
-          items: [n],
-          hasUnread: !n.is_read,
-        };
-        groupMap[key] = group;
-        groups.push(group);
-      }
-    }
-    return groups;
-  }, [notifications]);
+  // One entry per notification: every scientific deliverable counts.
 
   // Inline positioning for desktop (portal); mobile overrides via CSS
   const dropdownStyle = position
@@ -171,26 +147,21 @@ function NotificationBell({
           </div>
         ) : (
           <>
-            {groupedNotifications.map((group, gi) => (
+            {notifications.map((notification) => (
               <button
-                key={group.items[0].id}
+                key={notification.id}
                 type="button"
-                className={`notification-item${group.hasUnread ? " is-unread" : ""}`}
-                onClick={() => handleNotificationClick(group.items[0])}
+                className={`notification-item${notification.is_read ? "" : " is-unread"}`}
+                onClick={() => handleNotificationClick(notification)}
               >
                 <div className="notification-item-text">
-                  {group.items.length === 1
-                    ? t("notifications.deliverableReady", {
-                        deliverable: group.items[0].deliverable_name,
-                        area: group.area_name,
-                      })
-                    : t("notifications.groupReady", {
-                        area: group.area_name,
-                        count: group.items.length,
-                      })}
+                  {t("notifications.deliverableReady", {
+                    deliverable: notification.deliverable_name,
+                    area: notification.area_name,
+                  })}
                 </div>
                 <div className="notification-item-time">
-                  {formatTimeAgo(group.items[0].created_at)}
+                  {formatTimeAgo(notification.created_at)}
                 </div>
               </button>
             ))}

@@ -199,7 +199,7 @@ function App() {
     fetchNotifications,
     fetchMore: fetchMoreNotifications,
     markAllRead: handleMarkAllRead,
-    markReadByRun,
+    markRead: handleMarkRead,
   } = useNotifications(authorizedFetch, baseUrl, authReady);
 
   // Keep browser tab title in sync with the active language
@@ -370,7 +370,7 @@ function App() {
           hasMore: notificationsHasMore,
           onLoadMore: fetchMoreNotifications,
           onMarkAllRead: handleMarkAllRead,
-          onMarkReadByRun: markReadByRun,
+          onMarkRead: handleMarkRead,
         }}
         t={t}
       />

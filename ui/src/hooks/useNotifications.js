@@ -38,7 +38,12 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
         const data = await response.json();
         const newCount = data.unread_count;
         if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current) {
-          playNotificationSound();
+          // One chime per newly-ready deliverable, staggered so a batch
+          // of simultaneous completions is still distinguishable.
+          const delta = newCount - prevUnreadRef.current;
+          for (let i = 0; i < delta; i += 1) {
+            setTimeout(playNotificationSound, i * 350);
+          }
         }
         prevUnreadRef.current = newCount;
         setUnreadCount(newCount);
@@ -77,20 +82,16 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
     }
   }, [nextUrl, loading, fetchNotifications]);
 
-  const markReadByRun = useCallback(
-    (analysisRunId) => {
-      if (!baseUrl || !analysisRunId) return;
+  const markRead = useCallback(
+    (notificationId) => {
+      if (!baseUrl || !notificationId) return;
       // Optimistically update local state
       setNotifications((prev) =>
-        prev.map((n) =>
-          n.analysis_run_id === analysisRunId ? { ...n, is_read: true } : n
-        )
+        prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
       // Persist on server and sync polled count
-      authorizedFetch(`${baseUrl}/notifications/mark-read/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ analysis_run_id: analysisRunId }),
+      authorizedFetch(`${baseUrl}/notifications/${notificationId}/read/`, {
+        method: "PATCH",
       })
         .then((res) => {
           if (res.ok) {
@@ -133,18 +134,12 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
     };
   }, [authReady, baseUrl, fetchUnreadCount, fetchNotifications]);
 
-  // Badge count = number of distinct analysis runs with unread notifications
-  // (matching the visual grouping by analysis_run_id in NotificationBell).
-  const unreadGroupCount = (() => {
-    const unread = notifications.filter((n) => !n.is_read);
-    if (unread.length === 0) return 0;
-    const runs = new Set(unread.map((n) => n.analysis_run_id));
-    return runs.size;
-  })();
+  // Badge count = number of unread notifications (each deliverable counts).
+  const unreadFromList = notifications.filter((n) => !n.is_read).length;
 
-  // Use grouped count when notifications are loaded, otherwise fall back to
-  // the polled unreadCount so the badge shows something before the list loads.
-  const badgeCount = notifications.length > 0 ? unreadGroupCount : unreadCount;
+  // Use the loaded list when available, otherwise fall back to the
+  // polled unreadCount so the badge shows something before the list loads.
+  const badgeCount = notifications.length > 0 ? unreadFromList : unreadCount;
 
   return {
     notifications,
@@ -154,7 +149,7 @@ export default function useNotifications(authorizedFetch, baseUrl, authReady) {
     fetchNotifications,
     fetchMore,
     markAllRead,
-    markReadByRun,
+    markRead,
     fetchUnreadCount,
   };
 }
