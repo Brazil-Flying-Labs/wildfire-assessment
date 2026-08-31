@@ -140,6 +140,23 @@ def build_analysis_prompt(
     else:
         question_section = ""
 
+    if user_question:
+        closing = (
+            "Answer the user's question directly and clearly, supporting "
+            "your answer with the fire event data above. Do not produce a "
+            "generic assessment report. Format your response in markdown."
+        )
+    else:
+        closing = f"""Please provide:
+1. **Executive Summary**: A brief overview of the fire impact
+2. **Severity Analysis**: {severity_section}
+3. **Environmental Impact**: {impact_section}
+4. **Recovery Recommendations**: Suggested actions for ecosystem recovery
+5. **Monitoring Priorities**: {monitoring_section}
+
+Use clear, professional language suitable for environmental agencies and land managers.
+Format your response in markdown for readability."""
+
     prompt = f"""You are an expert environmental analyst specializing in wildfire damage assessment.
 Analyze the following wildfire data and provide a comprehensive analysis report.
 
@@ -157,15 +174,7 @@ Analyze the following wildfire data and provide a comprehensive analysis report.
 
 {question_section}
 
-Please provide:
-1. **Executive Summary**: A brief overview of the fire impact
-2. **Severity Analysis**: {severity_section}
-3. **Environmental Impact**: {impact_section}
-4. **Recovery Recommendations**: Suggested actions for ecosystem recovery
-5. **Monitoring Priorities**: {monitoring_section}
-
-Use clear, professional language suitable for environmental agencies and land managers.
-Format your response in markdown for readability."""
+{closing}"""
 
     return prompt
 

@@ -131,6 +131,9 @@ class SharedHelperTests(TestCase):
         self.assertIn("**User Question:**", prompt)
         self.assertIn("How far is the burned area from the nearest town?", prompt)
         self.assertIn("answering this question directly", prompt)
+        # Question mode must not demand the structured assessment sections
+        self.assertNotIn("Executive Summary", prompt)
+        self.assertIn("Do not produce a generic assessment report", prompt)
 
     def test_build_analysis_prompt_without_question_has_no_question_section(self):
         prompt = build_analysis_prompt(

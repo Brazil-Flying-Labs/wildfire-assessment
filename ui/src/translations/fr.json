@@ -417,5 +417,6 @@
   "auth.firstName": "Prénom",
   "auth.lastName": "Nom",
   "auth.requestAccessButton": "Demander l'accès",
-  "auth.requestAccessSuccess": "Demande reçue. Vous recevrez un e-mail lorsque votre accès sera approuvé."
+  "auth.requestAccessSuccess": "Demande reçue. Vous recevrez un e-mail lorsque votre accès sera approuvé.",
+  "ai.firstQuestionPlaceholder": "Posez une question sur cette analyse..."
 }

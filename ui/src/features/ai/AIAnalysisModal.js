@@ -479,28 +479,30 @@ function AIAnalysisModal({
             </div>
 
             <div className="ai-analysis-modal-footer">
-              {messages.length > 0 && responseIdRef.current && (
-                <div className="ai-chat-input-row">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder={t("ai.followUpPlaceholder")}
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    disabled={isLoading}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={sendFollowUp}
-                    disabled={isLoading || !question.trim()}
-                  >
-                    {t("ai.send")}
-                  </button>
-                </div>
-              )}
+              <div className="ai-chat-input-row">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder={
+                    responseIdRef.current
+                      ? t("ai.followUpPlaceholder")
+                      : t("ai.firstQuestionPlaceholder")
+                  }
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={sendFollowUp}
+                  disabled={isLoading || !question.trim()}
+                >
+                  {t("ai.send")}
+                </button>
+              </div>
               <div className="ai-chat-footer-meta">
                 {aiProvider && (
                   <small className="text-muted">
