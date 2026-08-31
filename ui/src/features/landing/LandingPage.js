@@ -219,30 +219,6 @@ function LandingPage({ onLogin, isAuthenticated, baseUrl, fetchJson }) {
 
       <hr className="landing-divider" />
 
-      {/* ── CTA ── */}
-      <section className="landing-cta text-center">
-        <img src={glowSection} alt="" aria-hidden="true" className="landing-glow" />
-        <div className="container" style={{ maxWidth: "800px", position: "relative", zIndex: 1 }}>
-          <h2 className="mb-4">{t("landing.ctaTitle")}</h2>
-          <p className="landing-text text-center mb-3">{t("landing.ctaDesc")}</p>
-          <p className="landing-text-highlight text-center mb-5">{t("landing.ctaAction")}</p>
-          <div className="d-flex flex-wrap justify-content-center gap-3">
-            <a
-              href={`mailto:${contactEmail}?subject=Partnership%20-%20Wildfire%20Damage%20Assessment`}
-              className="landing-btn-outline"
-            >
-              {t("landing.partnerWithUs")}
-            </a>
-            <a
-              href={`mailto:${contactEmail}?subject=Pilot%20Deployment%20-%20Wildfire%20Damage%20Assessment`}
-              className="landing-btn-outline"
-            >
-              {t("landing.pilotPlatform")}
-            </a>
-          </div>
-        </div>
-      </section>
-
       {/* ── Request access ── */}
       <section className="py-5" ref={requestAccessRef}>
         <div className="container" style={{ maxWidth: 560 }}>
