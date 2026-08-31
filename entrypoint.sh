@@ -9,7 +9,7 @@ python manage.py collectstatic --noinput
 gunicorn api.wsgi:application \
     --bind 0.0.0.0:8000 \
     --timeout 600 \
-    --workers 3 \
+    --workers 7 \
     --max-requests 1000 \
     --max-requests-jitter 100 \
     --graceful-timeout 600
