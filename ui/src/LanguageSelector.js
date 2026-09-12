@@ -1,12 +1,13 @@
 import { useState, useRef, useCallback } from "react";
 import { useLanguage, SUPPORTED_LANGUAGES } from "./context/LanguageContext";
 import useClickOutside from "./hooks/useClickOutside";
+import FlagIcon from "./components/FlagIcon";
 
 const FLAGS = {
-  en: "\ud83c\uddfa\ud83c\uddf8",
-  "pt-BR": "\ud83c\udde7\ud83c\uddf7",
-  fr: "\ud83c\uddeb\ud83c\uddf7",
-  "es-ES": "\ud83c\uddea\ud83c\uddf8",
+  en: "us",
+  "pt-BR": "br",
+  fr: "fr",
+  "es-ES": "es",
 };
 
 const LABELS = {
@@ -43,7 +44,9 @@ function LanguageSelector() {
         aria-label="Select language"
         title={LABELS[language]}
       >
-        <span className="lang-flag">{FLAGS[language]}</span>
+        <span className="lang-flag">
+          <FlagIcon code={FLAGS[language]} title={LABELS[language]} />
+        </span>
       </button>
       {isOpen && (
         <div className="lang-selector-dropdown">
@@ -54,7 +57,9 @@ function LanguageSelector() {
               className={`lang-selector-option ${lang === language ? "active" : ""}`}
               onClick={() => select(lang)}
             >
-              <span className="lang-flag">{FLAGS[lang]}</span>
+              <span className="lang-flag">
+                <FlagIcon code={FLAGS[lang]} title={LABELS[lang]} />
+              </span>
               <span>{LABELS[lang]}</span>
             </button>
           ))}
