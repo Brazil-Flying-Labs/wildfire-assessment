@@ -105,6 +105,8 @@ docker compose exec api python manage.py makemigrations wildfire_assessment
 
 No automatic deploys in the V1: deploys are manual on the VPS (build images, migrate, restart Compose). Tests must pass and coverage stay at 100% before any push.
 
+Single principal branch: `main` (GitHub default; the prod VPS tracks `main`). `dev` and `feature/big-change` are kept as history — work on `main` directly.
+
 ## TRACK DEPLOYMENTS
 
-- Every time you push changes to dev/staging/prod branches, track the deployments, one background agent for each deployment and notify me with a sound when deployments are ready.
+- Every time you push changes to prod branches, track the deployments, one background agent for each deployment and notify me with a sound when deployments are ready.
