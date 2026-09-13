@@ -693,11 +693,6 @@ class Migration(migrations.Migration):
             name="scientific_rgb_pre_fire_error",
             field=models.CharField(blank=True, max_length=500, null=True),
         ),
-        migrations.AddField(
-            model_name="userprofile",
-            name="expo_push_token",
-            field=models.CharField(blank=True, max_length=100, null=True),
-        ),
         migrations.AddIndex(
             model_name="analysisrun",
             index=models.Index(
@@ -834,9 +829,5 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name="areaofinterest",
             index=models.Index(fields=["name", "country"], name="aoi_name_country"),
-        ),
-        migrations.RemoveField(
-            model_name="userprofile",
-            name="expo_push_token",
         ),
     ]
